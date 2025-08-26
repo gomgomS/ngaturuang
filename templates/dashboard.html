@@ -1,0 +1,238 @@
+{% extends 'layout.html' %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1 class="h3 mb-0">Dashboard</h1>
+                <div class="d-flex gap-2">
+                    <a href="/transactions" class="btn btn-primary">
+                        <i class="fas fa-list"></i> View All Transactions
+                    </a>
+                    <a href="/settings" class="btn btn-outline-secondary">
+                        <i class="fas fa-cog"></i> Settings
+                    </a>
+                </div>
+            </div>
+
+            <!-- Summary Cards -->
+            <div class="row mb-4">
+                <div class="col-md-2">
+                    <div class="card bg-primary text-white">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <h6 class="card-title">Total Income</h6>
+                                    <h3 class="mb-0">{{ total_income|currency }}</h3>
+                                </div>
+                                <div class="align-self-center">
+                                    <i class="fas fa-arrow-up fa-2x"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <div class="card bg-danger text-white">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <h6 class="card-title">Total Expense</h6>
+                                    <h3 class="mb-0">{{ total_expense|currency }}</h3>
+                                </div>
+                                <div class="align-self-center">
+                                    <i class="fas fa-arrow-down fa-2x"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <div class="card bg-success text-white">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <h6 class="card-title">Total Transfer</h6>
+                                    <h3 class="mb-0">{{ total_transfer|currency if total_transfer else 'IDR 0' }}</h3>
+                                </div>
+                                <div class="align-self-center">
+                                    <i class="fas fa-exchange-alt fa-2x"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <div class="card bg-warning text-white">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <h6 class="card-title">Admin Fees</h6>
+                                    <h3 class="mb-0">{{ total_admin_fees|currency if total_admin_fees else 'IDR 0' }}</h3>
+                                </div>
+                                <div class="align-self-center">
+                                    <i class="fas fa-credit-card fa-2x"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <div class="card bg-info text-white">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <h6 class="card-title">Net Balance</h6>
+                                    <h3 class="mb-0">{{ balance|currency }}</h3>
+                                </div>
+                                <div class="align-self-center">
+                                    <i class="fas fa-calculator fa-2x"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <div class="card bg-secondary text-white">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <h6 class="card-title">Transactions</h6>
+                                    <h3 class="mb-0">{{ total_transactions }}</h3>
+                                </div>
+                                <div class="align-self-center">
+                                    <i class="fas fa-list fa-2x"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row">
+                <!-- Recent Transactions -->
+                <div class="col-md-8">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0"><i class="fas fa-clock"></i> Recent Transactions</h5>
+                        </div>
+                        <div class="card-body">
+                            {% if transactions %}
+                            <div class="table-responsive">
+                                <table class="table table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>Date</th>
+                                            <th>Type</th>
+                                            <th>Amount</th>
+                                            <th>Category</th>
+                                            <th>Saving Space</th>
+                                            <th>Note</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for tx in transactions %}
+                                        <tr>
+                                            <td>{{ tx.formatted_time or 'N/A' }}</td>
+                                            <td>
+                                                <span class="badge {% if tx.type == 'income' %}bg-success{% else %}bg-danger{% endif %}">
+                                                    {{ tx.type|title }}
+                                                </span>
+                                            </td>
+                                            <td class="fw-bold">{{ tx.amount|currency_decimal }}</td>
+                                            <td>
+                                                {% set category = categories|selectattr('_id', 'equalto', tx.category_id)|first %}
+                                                {{ category.name if category else 'N/A' }}
+                                            </td>
+                                            <td>
+                                                {% set wallet = wallets|selectattr('_id', 'equalto', tx.wallet_id)|first %}
+                                                {{ wallet.name if wallet else 'N/A' }}
+                                                {% if wallet %}<small class="text-muted">({{ wallet.type or 'bank' }})</small>{% endif %}
+                                            </td>
+                                            <td>{{ tx.note or '-' }}</td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div class="text-center mt-3">
+                                <a href="/transactions" class="btn btn-outline-primary">View All Transactions</a>
+                            </div>
+                            {% else %}
+                            <div class="text-center py-5">
+                                <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
+                                <h5 class="text-muted">No transactions yet</h5>
+                                <p class="text-muted">Start tracking your finances by adding your first transaction.</p>
+                                <a href="/transactions" class="btn btn-primary">Add Transaction</a>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Quick Stats -->
+                <div class="col-md-4">
+                    <!-- Scopes Summary -->
+                    <div class="card mb-3">
+                        <div class="card-header">
+                            <h6 class="mb-0"><i class="fas fa-folder"></i> Scopes</h6>
+                        </div>
+                        <div class="card-body">
+                            {% if scopes %}
+                            <div class="list-group list-group-flush">
+                                {% for scope in scopes[:5] %}
+                                <div class="list-group-item d-flex justify-content-between align-items-center">
+                                    <span>{{ scope.name }}</span>
+                                    <span class="badge bg-primary rounded-pill">{{ scope.description or 'No desc' }}</span>
+                                </div>
+                                {% endfor %}
+                            </div>
+                            {% if scopes|length > 5 %}
+                            <div class="text-center mt-2">
+                                <small class="text-muted">+{{ scopes|length - 5 }} more scopes</small>
+                            </div>
+                            {% endif %}
+                            {% else %}
+                            <p class="text-muted text-center mb-0">No scopes created yet</p>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Saving Spaces Summary -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h6 class="mb-0"><i class="fas fa-piggy-bank"></i> Saving Spaces</h6>
+                        </div>
+                        <div class="card-body">
+                            {% if wallets %}
+                            <div class="list-group list-group-flush">
+                                {% for wallet in wallets[:5] %}
+                                <div class="list-group-item d-flex justify-content-between align-items-center">
+                                    <span>{{ wallet.name }}</span>
+                                    <span class="badge bg-secondary rounded-pill">{{ wallet.type or 'bank' }}</span>
+                                </div>
+                                {% endfor %}
+                            </div>
+                            {% if wallets|length > 5 %}
+                            <div class="text-center mt-2">
+                                <small class="text-muted">+{{ wallets|length - 5 }} more saving spaces</small>
+                            </div>
+                            {% endif %}
+                            {% else %}
+                            <p class="text-muted text-center mb-0">No saving spaces created yet</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/app.js"></script>
+{% endblock %}
+
+
