@@ -1,4 +1,4 @@
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 from bson import ObjectId
 from mm.repositories.base import MongoRepository
 
@@ -13,6 +13,14 @@ class WalletRepository(MongoRepository):
             return self.find_many({"user_id": user_id}, limit=100)
         except Exception:
             return []
+
+    def find_one(self, query: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        """Find satu dokumen"""
+        try:
+            return super().find_one(query)
+        except Exception as e:
+            print(f"Error in wallet find_one: {e}")
+            return None
 
     def update_wallet(self, wallet_id: str, user_id: str, updates: Dict[str, Any]) -> bool:
         """Update saving space dengan validasi user ownership"""

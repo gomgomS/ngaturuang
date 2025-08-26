@@ -11,8 +11,13 @@ class TransactionRepository(MongoRepository):
     def list_by_user(self, user_id: str, limit: int = 200) -> List[Dict[str, Any]]:
         """Query sederhana untuk mendapatkan transaksi user"""
         try:
-            return self.find_many({"user_id": user_id}, limit=limit, sort=[("timestamp", -1)])
-        except Exception:
+            transactions = self.find_many({"user_id": user_id}, limit=limit, sort=[("timestamp", -1)])
+            # Ensure we always return a list, never None
+            if transactions is None:
+                transactions = []
+            return transactions
+        except Exception as e:
+            print(f"Error in list_by_user: {e}")
             return []
 
     def get_user_transactions_simple(self, user_id: str, limit: int = 200) -> List[Dict[str, Any]]:
@@ -21,6 +26,10 @@ class TransactionRepository(MongoRepository):
             query = {"user_id": user_id}
             transactions = self.find_many(query, limit=limit, sort=[("timestamp", -1)])
             
+            # Ensure we always return a list, never None
+            if transactions is None:
+                transactions = []
+            
             # Format data agar mudah digunakan di template
             for tx in transactions:
                 # Pastikan field yang diperlukan ada
@@ -41,7 +50,8 @@ class TransactionRepository(MongoRepository):
                         tx["formatted_time"] = "Invalid Time"
             
             return transactions
-        except Exception:
+        except Exception as e:
+            print(f"Error in get_user_transactions_simple: {e}")
             return []
     
     def get_transactions_by_scope(self, user_id: str, scope_id: str, limit: int = 200) -> List[Dict[str, Any]]:
@@ -50,6 +60,10 @@ class TransactionRepository(MongoRepository):
             query = {"user_id": user_id, "scope_id": scope_id}
             transactions = self.find_many(query, limit=limit, sort=[("timestamp", -1)])
             
+            # Ensure we always return a list, never None
+            if transactions is None:
+                transactions = []
+            
             # Format data agar mudah digunakan di template
             for tx in transactions:
                 # Pastikan field yang diperlukan ada
@@ -70,12 +84,15 @@ class TransactionRepository(MongoRepository):
                         tx["formatted_time"] = "Invalid Time"
             
             return transactions
-        except Exception:
+        except Exception as e:
+            print(f"Error in get_transactions_by_scope: {e}")
             return []
 
     def get_transactions_with_filters(self, user_id: str, filters: Dict[str, Any] = None, limit: int = 200) -> List[Dict[str, Any]]:
         """Method untuk mendapatkan transaksi dengan multiple filters"""
         try:
+            print(f"🔍 [REPO] get_transactions_with_filters called with user_id: {user_id}, filters: {filters}")
+            
             # Base query selalu include user_id
             query = {"user_id": user_id}
             
@@ -115,7 +132,23 @@ class TransactionRepository(MongoRepository):
                     if amount_query:
                         query["amount"] = amount_query
             
+            print(f"🔍 [REPO] Final query: {query}")
+            
             transactions = self.find_many(query, limit=limit, sort=[("timestamp", -1)])
+            
+            print(f"🔍 [REPO] find_many result type: {type(transactions)}")
+            print(f"🔍 [REPO] find_many result: {transactions}")
+            
+            # Ensure we always return a list, never None
+            if transactions is None:
+                print(f"⚠️ [REPO] Transactions is None, returning empty list")
+                transactions = []
+            elif not isinstance(transactions, list):
+                print(f"⚠️ [REPO] Transactions is not a list, converting to list")
+                transactions = list(transactions) if transactions else []
+            
+            print(f"🔍 [REPO] After validation - transactions type: {type(transactions)}")
+            print(f"🔍 [REPO] After validation - transactions length: {len(transactions) if transactions else 0}")
             
             # Format data agar mudah digunakan di template
             for tx in transactions:
@@ -136,8 +169,13 @@ class TransactionRepository(MongoRepository):
                     except (ValueError, TypeError):
                         tx["formatted_time"] = "Invalid Time"
             
+            print(f"🔍 [REPO] Returning {len(transactions)} formatted transactions")
             return transactions
-        except Exception:
+        except Exception as e:
+            print(f"❌ [REPO] Error in get_transactions_with_filters: {e}")
+            print(f"❌ [REPO] Error type: {type(e)}")
+            import traceback
+            print(f"❌ [REPO] Error traceback: {traceback.format_exc()}")
             return []
     
     def update_transaction(self, transaction_id: str, user_id: str, updates: Dict[str, Any]) -> bool:

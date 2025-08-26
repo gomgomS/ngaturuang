@@ -28,19 +28,36 @@ class MongoRepository:
 
     def find_many(self, query: Dict[str, Any], limit: int = 100, sort: Optional[List] = None) -> List[Dict[str, Any]]:
         """Find banyak dokumen dengan query sederhana"""
-        cursor = self.collection.find(query)
-        
-        if sort:
-            cursor = cursor.sort(sort)
-        if limit:
-            cursor = cursor.limit(limit)
-        
-        docs = list(cursor)
-        # Convert ObjectId ke string untuk JSON
-        for doc in docs:
-            doc["_id"] = str(doc["_id"])
-        
-        return docs
+        try:
+            print(f"🔍 [BASE] find_many called with query: {query}, limit: {limit}, sort: {sort}")
+            print(f"🔍 [BASE] Collection name: {self.collection.name}")
+            
+            cursor = self.collection.find(query)
+            print(f"🔍 [BASE] Cursor created successfully")
+            
+            if sort:
+                cursor = cursor.sort(sort)
+                print(f"🔍 [BASE] Applied sort: {sort}")
+            if limit:
+                cursor = cursor.limit(limit)
+                print(f"🔍 [BASE] Applied limit: {limit}")
+            
+            docs = list(cursor)
+            print(f"🔍 [BASE] Converted cursor to list, got {len(docs)} documents")
+            
+            # Convert ObjectId ke string untuk JSON
+            for doc in docs:
+                doc["_id"] = str(doc["_id"])
+            
+            print(f"🔍 [BASE] Converted ObjectIds to strings")
+            print(f"🔍 [BASE] Returning {len(docs)} documents")
+            return docs
+        except Exception as e:
+            print(f"❌ [BASE] Error in find_many: {e}")
+            print(f"❌ [BASE] Error type: {type(e)}")
+            import traceback
+            print(f"❌ [BASE] Error traceback: {traceback.format_exc()}")
+            return []
 
     def find_one(self, query: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         """Find satu dokumen"""

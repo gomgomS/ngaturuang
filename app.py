@@ -321,150 +321,295 @@ def balance():
             # Get transactions for this wallet ONLY
             wallet_id_str = str(wallet_id)
             
-            # Get transactions that belong to this specific wallet
-            transactions = tx_repo.get_transactions_with_filters(
-                user_id, 
-                {"wallet_id": wallet_id_str}, 
-                limit=1000
-            )
+            print(f"🔍 Processing wallet: {wallet.get('name')} (ID: {wallet_id_str})")
             
-            # Ensure we only get transactions for this wallet
-            if transactions:
-                # Double-check: filter by wallet_id to be absolutely sure
-                original_count = len(transactions)
-                transactions = [tx for tx in transactions if str(tx.get("wallet_id", "")) == wallet_id_str]
-                filtered_count = len(transactions)
+            # Get transactions that belong to this specific wallet
+            try:
+                print(f"🔍 Querying transactions for wallet {wallet_id_str}")
+                transactions = tx_repo.get_transactions_with_filters(
+                    user_id, 
+                    {"wallet_id": wallet_id_str}, 
+                    limit=1000
+                )
                 
-                if original_count != filtered_count:
-                    print(f"⚠️ Filtered transactions for {wallet.get('name')}: {original_count} -> {filtered_count}")
+                print(f"🔍 Raw transactions result type: {type(transactions)}")
+                print(f"🔍 Raw transactions result: {transactions}")
+                
+                # Ensure we always have a list, never None
+                if transactions is None:
+                    print(f"⚠️ Transactions is None for {wallet.get('name')}, setting to empty list")
+                    transactions = []
+                elif not isinstance(transactions, list):
+                    print(f"⚠️ Transactions is not a list for {wallet.get('name')}, converting to list")
+                    transactions = list(transactions) if transactions else []
+                
+                print(f"🔍 After validation - transactions type: {type(transactions)}")
+                print(f"🔍 After validation - transactions length: {len(transactions) if transactions else 0}")
+                
+                # Ensure we only get transactions for this wallet
+                if transactions:
+                    # Double-check: filter by wallet_id to be absolutely sure
+                    original_count = len(transactions)
+                    transactions = [tx for tx in transactions if str(tx.get("wallet_id", "")) == wallet_id_str]
+                    filtered_count = len(transactions)
+                    
+                    if original_count != filtered_count:
+                        print(f"⚠️ Filtered transactions for {wallet.get('name')}: {original_count} -> {filtered_count}")
+            except Exception as e:
+                print(f"❌ Error getting transactions for wallet {wallet.get('name')}: {e}")
+                print(f"❌ Error type: {type(e)}")
+                import traceback
+                print(f"❌ Error traceback: {traceback.format_exc()}")
+                transactions = []
             
             print(f"📊 {wallet.get('name')}: Found {len(transactions)} transactions")
             
+            # Debug: Print first few transactions
+            if transactions and len(transactions) > 0:
+                print(f"🔍 Sample transactions for {wallet.get('name')}:")
+                for i, tx in enumerate(transactions[:3]):
+                    print(f"   {i+1}. Type: {tx.get('type')}, Amount: {tx.get('amount')}, Wallet: {tx.get('wallet_id')}")
+            else:
+                print(f"🔍 No transactions found for {wallet.get('name')}")
+            
             # Calculate totals
-            total_income = 0
-            total_expense = 0
-            total_transfer = 0
+            total_income = 0  # Initialize variable outside try-catch
+            total_expense = 0  # Initialize variable outside try-catch
+            total_transfer = 0  # Initialize variable outside try-catch
             
             try:
-                total_income = sum(float(tx.get("amount", 0)) for tx in transactions if tx.get("type") == "income")
-            except (ValueError, TypeError):
+                if transactions and isinstance(transactions, list):
+                    total_income = sum(float(tx.get("amount", 0)) for tx in transactions if tx.get("type") == "income")
+            except (ValueError, TypeError) as e:
+                print(f"Error calculating total_income for {wallet.get('name')}: {e}")
                 total_income = 0
                 
             try:
-                total_expense = sum(float(tx.get("amount", 0)) for tx in transactions if tx.get("type") == "expense")
-            except (ValueError, TypeError):
+                if transactions and isinstance(transactions, list):
+                    total_expense = sum(float(tx.get("amount", 0)) for tx in transactions if tx.get("type") == "expense")
+            except (ValueError, TypeError) as e:
+                print(f"Error calculating total_expense for {wallet.get('name')}: {e}")
                 total_expense = 0
                 
             try:
-                total_transfer = sum(float(tx.get("amount", 0)) for tx in transactions if tx.get("type") == "transfer")
-            except (ValueError, TypeError):
+                if transactions and isinstance(transactions, list):
+                    # Calculate transfer impact for this wallet
+                    total_transfer = 0
+                    for tx in transactions:
+                        if tx.get("is_transfer"):
+                            if tx.get("type") == "expense" and tx.get("transfer_metadata", {}).get("transfer_type") == "outgoing":
+                                # This is an outgoing transfer (expense)
+                                if str(tx.get("wallet_id")) == wallet_id_str:
+                                    total_transfer -= float(tx.get("amount", 0))
+                            elif tx.get("type") == "income" and tx.get("transfer_metadata", {}).get("transfer_type") == "incoming":
+                                # This is an incoming transfer (income)
+                                if str(tx.get("wallet_id")) == wallet_id_str:
+                                    total_transfer += float(tx.get("amount", 0))
+            except (ValueError, TypeError) as e:
+                print(f"Error calculating total_transfer for {wallet.get('name')}: {e}")
                 total_transfer = 0
             
             # Get manual balance from latest manual_balance transaction
-            manual_balance = 0
-            manual_balance_txs = [tx for tx in transactions if tx.get("type") == "manual_balance"]
-            if manual_balance_txs:
-                # Sort by timestamp and get the latest
-                latest_manual_balance = max(manual_balance_txs, key=lambda x: x.get("timestamp", 0))
-                manual_balance = float(latest_manual_balance.get("amount", 0))
+            manual_balance = 0  # Initialize variable outside try-catch
+            manual_balance_txs = []  # Initialize variable outside try-catch
+            try:
+                if transactions and isinstance(transactions, list):
+                    manual_balance_txs = [tx for tx in transactions if tx.get("type") == "manual_balance"]
+                    if manual_balance_txs:
+                        # Sort by timestamp and get the latest
+                        latest_manual_balance = max(manual_balance_txs, key=lambda x: x.get("timestamp", 0))
+                        manual_balance = float(latest_manual_balance.get("amount", 0))
+            except Exception as e:
+                print(f"Error processing manual balance for {wallet.get('name')}: {e}")
+                manual_balance_txs = []
+                manual_balance = 0
             
-            # Calculate actual balance (manual + income - expense)
-            actual_balance = manual_balance + total_income - total_expense
+            # Calculate actual balance (manual + income - expense + transfer)
+            actual_balance = manual_balance + total_income - total_expense + total_transfer  # Initialize variable outside try-catch
             
             # Calculate ghost transactions from manual balance transactions
-            ghost_transactions = []
-            total_ghost_positive = 0
-            total_ghost_negative = 0
+            ghost_transactions = []  # Initialize variable outside try-catch
+            total_ghost_positive = 0  # Initialize variable outside try-catch
+            total_ghost_negative = 0  # Initialize variable outside try-catch
             
-            if len(manual_balance_txs) > 1:
-                # Sort by timestamp
-                sorted_manual_balances = sorted(manual_balance_txs, key=lambda x: x.get("timestamp", 0))
-                
-                for i in range(1, len(sorted_manual_balances)):
-                    prev_balance = float(sorted_manual_balances[i-1].get("amount", 0))
-                    curr_balance = float(sorted_manual_balances[i].get("amount", 0))
-                    gap = curr_balance - prev_balance
+            try:
+                if manual_balance_txs and len(manual_balance_txs) > 1:
+                    # Sort by timestamp
+                    sorted_manual_balances = sorted(manual_balance_txs, key=lambda x: x.get("timestamp", 0))
                     
-                    if abs(gap) > 0.01:  # Significant difference
-                        ghost_type = "positive" if gap > 0 else "negative"
-                        ghost_amount = abs(gap)
+                    for i in range(1, len(sorted_manual_balances)):
+                        prev_balance = float(sorted_manual_balances[i-1].get("amount", 0))
+                        curr_balance = float(sorted_manual_balances[i].get("amount", 0))
+                        gap = curr_balance - prev_balance
                         
-                        ghost_transactions.append({
-                            "type": ghost_type,
-                            "amount": ghost_amount,
-                            "description": f"Ghost transaction ({ghost_type})",
-                            "timestamp": sorted_manual_balances[i].get("timestamp", 0),
-                            "note": f"Balance gap: {prev_balance} → {curr_balance}",
-                            "category_name": "Ghost Transaction"
-                        })
-                        
-                        if ghost_type == "positive":
-                            total_ghost_positive += ghost_amount
-                        else:
-                            total_ghost_negative += ghost_amount
+                        if abs(gap) > 0.01:  # Significant difference
+                            ghost_type = "positive" if gap > 0 else "negative"
+                            ghost_amount = abs(gap)
+                            
+                            ghost_transactions.append({
+                                "type": ghost_type,
+                                "amount": ghost_amount,
+                                "description": f"Ghost transaction ({ghost_type})",
+                                "timestamp": sorted_manual_balances[i].get("timestamp", 0),
+                                "note": f"Balance gap: {prev_balance} → {curr_balance}",
+                                "category_name": "Ghost Transaction"
+                            })
+                            
+                            if ghost_type == "positive":
+                                total_ghost_positive += ghost_amount
+                            else:
+                                total_ghost_negative += ghost_amount
+            except Exception as e:
+                print(f"Error calculating ghost transactions for {wallet.get('name')}: {e}")
+                ghost_transactions = []
+                total_ghost_positive = 0
+                total_ghost_negative = 0
             
             # Get last transaction timestamps for each type - ensure all are integers
+            last_income = 0  # Initialize variable outside try-catch
+            last_expense = 0  # Initialize variable outside try-catch
+            last_transfer = 0  # Initialize variable outside try-catch
+            last_transaction = 0  # Initialize variable outside try-catch
+            
             try:
-                last_income = max([int(tx.get("timestamp", 0)) for tx in transactions if tx.get("type") == "income" and tx.get("timestamp")]) if any(tx.get("type") == "income" for tx in transactions) else 0
-            except (ValueError, TypeError):
+                if transactions and isinstance(transactions, list):
+                    income_txs = [tx for tx in transactions if tx.get("type") == "income" and tx.get("timestamp")]
+                    if income_txs:
+                        last_income = max(int(tx.get("timestamp", 0)) for tx in income_txs)
+                    else:
+                        last_income = 0
+                else:
+                    last_income = 0
+            except (ValueError, TypeError) as e:
+                print(f"Error calculating last_income for {wallet.get('name')}: {e}")
                 last_income = 0
                 
             try:
-                last_expense = max([int(tx.get("timestamp", 0)) for tx in transactions if tx.get("type") == "expense" and tx.get("timestamp")]) if any(tx.get("type") == "expense" for tx in transactions) else 0
-            except (ValueError, TypeError):
+                if transactions and isinstance(transactions, list):
+                    expense_txs = [tx for tx in transactions if tx.get("type") == "expense" and tx.get("timestamp")]
+                    if expense_txs:
+                        last_expense = max(int(tx.get("timestamp", 0)) for tx in expense_txs)
+                    else:
+                        last_expense = 0
+                else:
+                    last_expense = 0
+            except (ValueError, TypeError) as e:
+                print(f"Error calculating last_expense for {wallet.get('name')}: {e}")
                 last_expense = 0
                 
             try:
-                last_transfer = max([int(tx.get("timestamp", 0)) for tx in transactions if tx.get("type") == "transfer" and tx.get("timestamp")]) if any(tx.get("type") == "transfer" for tx in transactions) else 0
-            except (ValueError, TypeError):
+                if transactions and isinstance(transactions, list):
+                    transfer_txs = [tx for tx in transactions if tx.get("type") == "transfer" and tx.get("timestamp")]
+                    if transfer_txs:
+                        last_transfer = max(int(tx.get("timestamp", 0)) for tx in transfer_txs)
+                    else:
+                        last_transfer = 0
+                else:
+                    last_transfer = 0
+            except (ValueError, TypeError) as e:
+                print(f"Error calculating last_transfer for {wallet.get('name')}: {e}")
                 last_transfer = 0
                 
             try:
-                last_transaction = max([int(tx.get("timestamp", 0)) for tx in transactions if tx.get("timestamp")]) if transactions else 0
-            except (ValueError, TypeError):
+                if transactions and isinstance(transactions, list):
+                    valid_txs = [tx for tx in transactions if tx.get("timestamp")]
+                    if valid_txs:
+                        last_transaction = max(int(tx.get("timestamp", 0)) for tx in valid_txs)
+                    else:
+                        last_transaction = 0
+                else:
+                    last_transaction = 0
+            except (ValueError, TypeError) as e:
+                print(f"Error calculating last_transaction for {wallet.get('name')}: {e}")
                 last_transaction = 0
             
             # Count transactions by type
-            transfer_count = len([tx for tx in transactions if tx.get("type") == "transfer"])
+            transfer_count = 0  # Initialize variable outside try-catch
+            try:
+                if transactions and isinstance(transactions, list):
+                    transfer_count = len([tx for tx in transactions if tx.get("type") == "transfer"])
+            except Exception as e:
+                print(f"Error counting transfer transactions for {wallet.get('name')}: {e}")
+                transfer_count = 0
             
             # Prepare individual transactions with category names and sort by timestamp (newest first)
-            individual_transactions = []
-            for tx in transactions:
-                # Get category name if available
-                category_name = None
-                if tx.get("category_id"):
-                    try:
-                        category = category_repo.find_one({"_id": ObjectId(tx["category_id"])})
-                        category_name = category["name"] if category else None
-                    except Exception:
+            individual_transactions = []  # Initialize variable outside try-catch
+            all_transactions = []  # Initialize variable outside try-catch
+            try:
+                if transactions and isinstance(transactions, list):
+                    for tx in transactions:
+                        # Get category name if available
                         category_name = None
-                
-                # Special handling for manual balance transactions
-                if tx.get("type") == "manual_balance":
-                    category_name = "Manual Balance Update"
-                    # Add base_time for sorting multiple balance updates
-                    if tx.get("base_time"):
-                        tx["timestamp"] = tx["base_time"]
-                
-                individual_transactions.append({
-                    "type": tx.get("type"),
-                    "amount": tx.get("amount", 0),
-                    "description": tx.get("description", ""),
-                    "timestamp": tx.get("timestamp", 0),
-                    "note": tx.get("note", ""),
-                    "category_name": category_name,
-                    "is_manual_balance": tx.get("is_manual_balance", False),
-                    "base_time": tx.get("base_time", tx.get("timestamp", 0))
-                })
+                        if tx.get("category_id"):
+                            try:
+                                category = category_repo.find_one({"_id": ObjectId(tx["category_id"])})
+                                category_name = category["name"] if category else None
+                            except Exception:
+                                category_name = None
+                        
+                        # Special handling for manual balance transactions
+                        if tx.get("type") == "manual_balance":
+                            category_name = "Manual Balance Update"
+                            # Add base_time for sorting multiple balance updates
+                            if tx.get("base_time"):
+                                tx["timestamp"] = tx["base_time"]
+                        
+                        # Special handling for transfer transactions
+                        if tx.get("is_transfer"):
+                            if tx.get("type") == "expense" and tx.get("transfer_metadata", {}).get("transfer_type") == "outgoing":
+                                # This is an outgoing transfer (expense)
+                                to_wallet_name = tx.get("transfer_metadata", {}).get("to_wallet_name", "Unknown")
+                                net_amount = tx.get("transfer_metadata", {}).get("net_amount", 0)
+                                admin_fee = tx.get("transfer_metadata", {}).get("admin_fee", 0)
+                                category_name = f"Transfer to {to_wallet_name}"
+                                display_amount = -float(tx.get("amount", 0))  # Negative for expense
+                                description = f"Transfer to {to_wallet_name} (Net: {net_amount}, Fee: {admin_fee})"
+                            elif tx.get("type") == "income" and tx.get("transfer_metadata", {}).get("transfer_type") == "incoming":
+                                # This is an incoming transfer (income)
+                                from_wallet_name = tx.get("transfer_metadata", {}).get("from_wallet_name", "Unknown")
+                                category_name = f"Transfer from {from_wallet_name}"
+                                display_amount = float(tx.get("amount", 0))  # Positive for income
+                                description = f"Transfer from {from_wallet_name}"
+                            else:
+                                display_amount = tx.get("amount", 0)
+                                description = tx.get("description", "")
+                        else:
+                            display_amount = tx.get("amount", 0)
+                            description = tx.get("description", "")
+                        
+                        individual_transactions.append({
+                            "type": tx.get("type"),
+                            "amount": display_amount,
+                            "description": description,
+                            "timestamp": tx.get("timestamp", 0),
+                            "note": tx.get("note", ""),
+                            "category_name": category_name,
+                            "is_manual_balance": tx.get("is_manual_balance", False),
+                            "base_time": tx.get("base_time", tx.get("timestamp", 0)),
+                            "is_transfer": tx.get("is_transfer", False),
+                            "transfer_metadata": tx.get("transfer_metadata", {})
+                        })
+            except Exception as e:
+                print(f"Error processing individual transactions for {wallet.get('name')}: {e}")
+                individual_transactions = []
             
             # Sort transactions by timestamp (newest first)
-            individual_transactions.sort(key=lambda x: x["timestamp"], reverse=True)
+            try:
+                if individual_transactions:
+                    individual_transactions.sort(key=lambda x: x["timestamp"], reverse=True)
+            except Exception as e:
+                print(f"Error sorting individual transactions for {wallet.get('name')}: {e}")
             
             # Combine regular transactions with ghost transactions
-            all_transactions = individual_transactions + ghost_transactions
-            
-            # Sort all transactions by timestamp (newest first), with manual balance transactions prioritized by base_time
-            all_transactions.sort(key=lambda x: (x.get("base_time", x.get("timestamp", 0)), x.get("is_manual_balance", False)), reverse=True)
+            try:
+                all_transactions = individual_transactions + ghost_transactions
+                
+                # Sort all transactions by timestamp (newest first), with manual balance transactions prioritized by base_time
+                if all_transactions:
+                    all_transactions.sort(key=lambda x: (x.get("base_time", x.get("timestamp", 0)), x.get("is_manual_balance", False)), reverse=True)
+            except Exception as e:
+                print(f"Error combining and sorting all transactions for {wallet.get('name')}: {e}")
+                all_transactions = individual_transactions
             
             balance_data.append({
                 "wallet": wallet,
@@ -897,26 +1042,42 @@ def transfer_funds():
         manual_balance = from_wallet.get("manual_balance", 0)
         
         # Get actual balance by calculating from transactions
-        from_wallet_transactions = tx_repo.get_transactions_with_filters(
-            user_id, 
-            {"wallet_id": str(from_wallet["_id"])}, 
-            limit=1000
-        )
-        
-        # Calculate actual balance
-        total_income = 0
-        total_expense = 0
         try:
-            total_income = sum(float(tx.get("amount", 0)) for tx in from_wallet_transactions if tx.get("type") == "income")
-        except (ValueError, TypeError):
-            total_income = 0
+            from_wallet_transactions = tx_repo.get_transactions_with_filters(
+                user_id, 
+                {"wallet_id": str(from_wallet["_id"])}, 
+                limit=1000
+            )
             
-        try:
-            total_expense = sum(float(tx.get("amount", 0)) for tx in from_wallet_transactions if tx.get("type") == "expense")
-        except (ValueError, TypeError):
+            # Ensure we always have a list
+            if from_wallet_transactions is None:
+                from_wallet_transactions = []
+            
+            # Calculate actual balance
+            total_income = 0
+            total_expense = 0
+            try:
+                if from_wallet_transactions and isinstance(from_wallet_transactions, list):
+                    total_income = sum(float(tx.get("amount", 0)) for tx in from_wallet_transactions if tx.get("type") == "income")
+            except (ValueError, TypeError) as e:
+                print(f"Error calculating total_income for transfer: {e}")
+                total_income = 0
+                
+            try:
+                if from_wallet_transactions and isinstance(from_wallet_transactions, list):
+                    total_expense = sum(float(tx.get("amount", 0)) for tx in from_wallet_transactions if tx.get("type") == "expense")
+            except (ValueError, TypeError) as e:
+                print(f"Error calculating total_expense for transfer: {e}")
+                total_expense = 0
+            
+            actual_balance = manual_balance + total_income - total_expense
+        except Exception as e:
+            print(f"Error getting wallet transactions for transfer: {e}")
+            # Fallback to manual balance only
+            actual_balance = manual_balance
+            total_income = 0
             total_expense = 0
         
-        actual_balance = manual_balance + total_income - total_expense
         total_debit = amount + admin_fee
         
         # Debug logging - after all variables are defined
@@ -934,76 +1095,87 @@ def transfer_funds():
         if actual_balance < total_debit:
             return jsonify({"error": f"Insufficient balance. Available: {actual_balance}, Required: {total_debit}"}), 400
         
-        # Create transfer transaction
+        # Create three separate transactions for clarity
         import time
         current_timestamp = int(time.time())
         
-        # Main transfer transaction
-        transfer_data = {
-            "user_id": user_id,
-            "type": "transfer",
-            "amount": amount,
-            "wallet_id": str(from_wallet["_id"]),  # Source wallet
-            "from_wallet_id": str(from_wallet["_id"]),
-            "to_wallet_id": str(to_wallet["_id"]),
-            "description": body.get("description", f"Transfer from {from_wallet['name']} to {to_wallet['name']}"),
-            "timestamp": current_timestamp,
-            "currency": "IDR"
-        }
-        
-        # Admin fee transaction (as expense)
-        admin_fee_data = {
+        # 1. Expense transaction for sender (transfer amount + admin fee)
+        sender_expense_data = {
             "user_id": user_id,
             "type": "expense",
-            "amount": admin_fee,
-            "wallet_id": str(from_wallet["_id"]),  # Fee deducted from source wallet
-            "description": f"Admin fee for transfer to {to_wallet['name']}",
+            "amount": total_debit,  # amount + admin_fee
+            "wallet_id": str(from_wallet["_id"]),
+            "description": f"Transfer to {to_wallet['name']}",
             "timestamp": current_timestamp,
             "currency": "IDR",
-            "category_id": None,  # No specific category for admin fees
-            "scope_id": None,     # No specific scope for admin fees
-            "note": f"Transfer fee for {body.get('description', 'transfer')}"
+            "category_id": None,
+            "scope_id": None,
+            "note": f"Transfer amount: {amount}, Admin fee: {admin_fee}",
+            "is_transfer": True,
+            "transfer_metadata": {
+                "transfer_type": "outgoing",
+                "to_wallet_id": str(to_wallet["_id"]),
+                "to_wallet_name": to_wallet["name"],
+                "net_amount": amount,
+                "admin_fee": admin_fee
+            }
         }
         
-        # Insert both transactions
-        transfer_id = tx_repo.insert_one(transfer_data)
-        admin_fee_id = tx_repo.insert_one(admin_fee_data)
-        
-        # Create incoming transfer transaction for destination wallet
-        incoming_transfer_data = {
+        # 2. Income transaction for receiver
+        receiver_income_data = {
             "user_id": user_id,
             "type": "income",
             "amount": amount,
-            "wallet_id": str(to_wallet["_id"]),  # Destination wallet
+            "wallet_id": str(to_wallet["_id"]),
             "description": f"Transfer from {from_wallet['name']}",
             "timestamp": current_timestamp,
             "currency": "IDR",
-            "note": f"Incoming transfer from {from_wallet['name']}"
+            "category_id": None,
+            "scope_id": None,
+            "note": f"Incoming transfer from {from_wallet['name']}",
+            "is_transfer": True,
+            "transfer_metadata": {
+                "transfer_type": "incoming",
+                "from_wallet_id": str(from_wallet["_id"]),
+                "from_wallet_name": from_wallet["name"]
+            }
         }
         
-        # Insert incoming transfer transaction
-        incoming_transfer_id = tx_repo.insert_one(incoming_transfer_data)
+        # Insert both transactions
+        sender_expense_id = tx_repo.insert_one(sender_expense_data)
+        receiver_income_id = tx_repo.insert_one(receiver_income_data)
         
         # Update balances
         new_from_balance = actual_balance - total_debit
         new_to_balance = to_wallet.get("manual_balance", 0) + amount
         
         # Update source wallet balance
-        wallet_repo.update_wallet(str(from_wallet_id), user_id, {"manual_balance": new_from_balance})
+        try:
+            success_from = wallet_repo.update_wallet(str(from_wallet_id), user_id, {"manual_balance": new_from_balance})
+            if not success_from:
+                print(f"Warning: Failed to update source wallet balance for {from_wallet['name']}")
+        except Exception as e:
+            print(f"Error updating source wallet balance: {e}")
         
         # Update destination wallet balance
-        wallet_repo.update_wallet(str(to_wallet_id), user_id, {"manual_balance": new_to_balance})
+        try:
+            success_to = wallet_repo.update_wallet(str(to_wallet_id), user_id, {"manual_balance": new_to_balance})
+            if not success_to:
+                print(f"Warning: Failed to update destination wallet balance for {to_wallet['name']}")
+        except Exception as e:
+            print(f"Error updating destination wallet balance: {e}")
         
         return jsonify({
             "message": "Transfer completed successfully",
-            "transfer_id": str(transfer_id),
-            "admin_fee_id": str(admin_fee_id),
-            "incoming_transfer_id": str(incoming_transfer_id),
+            "sender_expense_id": str(sender_expense_id),
+            "receiver_income_id": str(receiver_income_id),
             "amount": amount,
             "admin_fee": admin_fee,
             "total_debit": total_debit,
             "from_balance": new_from_balance,
-            "to_balance": new_to_balance
+            "to_balance": new_to_balance,
+            "from_wallet": from_wallet["name"],
+            "to_wallet": to_wallet["name"]
         })
         
     except Exception as e:
