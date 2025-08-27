@@ -75,7 +75,7 @@
                                 <div class="d-flex justify-content-between">
                                     <div>
                                         <h6 class="card-title">Net Balance</h6>
-                                        <h3 class="mb-0">{{ balance_data|map(attribute='actual_balance')|sum|currency }}</h3>
+                                        <h3 class="mb-0">{{ balance_data|map(attribute='current_balance')|sum|currency }}</h3>
                                     </div>
                                     <div class="align-self-center">
                                         <i class="fas fa-calculator fa-2x"></i>
@@ -192,10 +192,10 @@
                                         <tr>
                                             <th>Saving Space</th>
                                             <th>Type</th>
-                                            <th>Manual Balance</th>
+                                            <th>Balance</th>
                                             <th>Income</th>
                                             <th>Expense</th>
-                                            <th>Actual Balance</th>
+                                            <th>Balance</th>
                                             <th>Ghost Transactions</th>
                                             <th>Transactions</th>
                                             <th>Last Activity</th>
@@ -221,8 +221,8 @@
                                                 <span class="text-danger">{{ item.total_expense|currency_decimal }}</span>
                                             </td>
                                             <td>
-                                                <span class="fw-bold {% if item.actual_balance >= 0 %}text-success{% else %}text-danger{% endif %}">
-                                                    {{ item.actual_balance|currency_decimal }}
+                                                <span class="fw-bold {% if item.current_balance >= 0 %}text-success{% else %}text-danger{% endif %}">
+                                                    {{ item.current_balance|currency_decimal }}
                                                 </span>
                                             </td>
                                             <td>
@@ -289,15 +289,9 @@
                                                     <span class="badge bg-secondary">{{ item.wallet.type or 'bank' }}</span>
                                                 </div>
                                                                                                  <div class="balance-display">
-                                                     <div class="manual-balance">
-                                                         <small class="text-muted">Manual Balance</small>
-                                                         <div class="amount text-primary">{{ item.manual_balance|currency_decimal }}</div>
-                                                     </div>
-                                                     <div class="actual-balance">
-                                                         <small class="text-muted">Actual Balance</small>
-                                                         <div class="amount {% if item.actual_balance >= 0 %}text-success{% else %}text-danger{% endif %}">
-                                                             {{ item.actual_balance|currency_decimal }}
-                                                         </div>
+                                                     <div class="balance">
+                                                         <small class="text-muted">Balance</small>
+                                                         <div class="amount text-primary">{{ item.current_balance|currency_decimal }}</div>
                                                      </div>
                                                  </div>
                                                  
@@ -331,56 +325,12 @@
                                                                                                  <!-- Transactions List -->
                                                  <div class="transactions-list">
                                                                                                            <div class="section-header text-primary">
-                                                          <i class="fas fa-list me-2"></i>All Transactions ({{ item.transactions|length if item.transactions else 0 }})
-                                                          <small class="text-muted d-block">Wallet ID: {{ item.wallet._id }}</small>
+                                                                                                          <i class="fas fa-list me-2"></i>Transactions
                                                       </div>
                                                       
-                                                      <!-- Manual Balance Transactions Summary -->
-                                                      {% if item.manual_balance_transactions and item.manual_balance_transactions|length > 0 %}
-                                                      <div class="manual-balance-summary mb-3">
-                                                          <div class="alert alert-primary">
-                                                              <h6 class="alert-heading">
-                                                                  <i class="fas fa-piggy-bank me-2"></i>Manual Balance History
-                                                              </h6>
-                                                              <div class="row text-center">
-                                                                  <div class="col-6">
-                                                                      <small class="text-muted">Updates</small>
-                                                                      <div class="fw-bold text-primary">{{ item.manual_balance_transactions|length }}</div>
-                                                                  </div>
-                                                                  <div class="col-6">
-                                                                      <small class="text-muted">Latest</small>
-                                                                      <div class="fw-bold text-primary">
-                                                                          {% set latest_manual = item.manual_balance_transactions|sort(attribute='timestamp', reverse=true)|first %}
-                                                                          {% if latest_manual %}{{ latest_manual.amount|currency_decimal }}{% else %}N/A{% endif %}
-                                                                      </div>
-                                                                  </div>
-                                                              </div>
-                                                              <small class="text-muted">Manual balance changes are tracked as special transactions</small>
-                                                          </div>
-                                                      </div>
-                                                      {% endif %}
+
                                                      
-                                                     <!-- Ghost Transactions Summary -->
-                                                     {% if item.ghost_transactions and item.ghost_transactions|length > 0 %}
-                                                     <div class="ghost-transactions-summary mb-3">
-                                                         <div class="alert alert-warning">
-                                                             <h6 class="alert-heading">
-                                                                 <i class="fas fa-ghost me-2"></i>Ghost Transactions
-                                                             </h6>
-                                                             <div class="row text-center">
-                                                                 <div class="col-6">
-                                                                     <small class="text-muted">Positive Gaps</small>
-                                                                     <div class="text-success fw-bold">+{{ item.total_ghost_positive|currency_decimal }}</div>
-                                                                 </div>
-                                                                 <div class="col-6">
-                                                                     <small class="text-muted">Negative Gaps</small>
-                                                                     <div class="text-danger fw-bold">-{{ item.total_ghost_negative|currency_decimal }}</div>
-                                                                 </div>
-                                                             </div>
-                                                             <small class="text-muted">Untracked balance changes between manual balance updates</small>
-                                                         </div>
-                                                     </div>
-                                                     {% endif %}
+
                                                      
                                                      <div class="transaction-items">
                                                          {% if item.transactions and item.transactions|length > 0 %}
@@ -510,7 +460,7 @@
                                                 <div class="col-4">
                                                     <div class="summary-card bg-info text-white">
                                                         <small>Balance</small>
-                                                        <div class="amount">{{ item.actual_balance|currency_decimal }}</div>
+                                                        <div class="amount">{{ item.current_balance|currency_decimal }}</div>
                                                     </div>
                                                 </div>
                                             </div>
@@ -620,9 +570,9 @@
                                 <select class="form-select" id="from_wallet" name="from_wallet_id" required>
                                     <option value="">Select source saving space</option>
                                                                          {% for item in balance_data %}
-                                     <option value="{{ item.wallet._id }}" data-balance="{{ item.actual_balance }}">
-                                         {{ item.wallet.name }} ({{ item.wallet.type or 'bank' }}) - {{ item.actual_balance|currency_decimal }}
-                                     </option>
+                                                                                     <option value="{{ item.wallet._id }}" data-balance="{{ item.current_balance }}">
+                                                    {{ item.wallet.name }} ({{ item.wallet.type or 'bank' }}) - {{ item.current_balance|currency_decimal }}
+                                                </option>
                                      {% endfor %}
                                 </select>
                                                                  <div class="form-text">Available balance (including income/expense) will be shown</div>
@@ -1309,7 +1259,7 @@ function initializeBalanceChart() {
     
     const labels = balanceData.map(item => item.wallet.name);
     const manualBalances = balanceData.map(item => item.manual_balance);
-    const actualBalances = balanceData.map(item => item.actual_balance);
+            const currentBalances = balanceData.map(item => item.current_balance);
     
     balanceChart = new Chart(ctx, {
         type: 'bar',
@@ -1317,17 +1267,10 @@ function initializeBalanceChart() {
             labels: labels,
             datasets: [
                 {
-                    label: 'Manual Balance',
-                    data: manualBalances,
+                    label: 'Balance',
+                    data: currentBalances,
                     backgroundColor: 'rgba(54, 162, 235, 0.8)',
                     borderColor: 'rgba(54, 162, 235, 1)',
-                    borderWidth: 1
-                },
-                {
-                    label: 'Actual Balance',
-                    data: actualBalances,
-                    backgroundColor: 'rgba(75, 192, 192, 0.8)',
-                    borderColor: 'rgba(75, 192, 192, 1)',
                     borderWidth: 1
                 }
             ]
@@ -1770,7 +1713,7 @@ function exportBalanceReport() {
     let csvContent = 'Saving Space,Type,Manual Balance,Income,Expense,Actual Balance,Transactions\n';
     
     balanceData.forEach(item => {
-        csvContent += `"${item.wallet.name}","${item.wallet.type || 'bank'}",${item.manual_balance},${item.total_income},${item.total_expense},${item.actual_balance},${item.transaction_count}\n`;
+        csvContent += `"${item.wallet.name}","${item.wallet.type || 'bank'}",${item.current_balance},${item.total_income},${item.total_expense},${item.current_balance},${item.transaction_count}\n`;
     });
     
     // Create and download file

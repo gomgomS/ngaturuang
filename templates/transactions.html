@@ -337,7 +337,8 @@
                     <div class="row">
                         <div class="col-md-6 mb-3">
                             <label for="add_amount" class="form-label">Amount *</label>
-                            <input type="number" class="form-control" id="add_amount" name="amount" required step="0.01">
+                            <input type="text" class="form-control" id="add_amount" name="amount" required placeholder="1.000.000">
+                            <small class="form-text text-muted">Format: 1.000.000 (gunakan titik sebagai separator ribuan)</small>
                         </div>
                         <div class="col-md-6 mb-3">
                             <label for="add_type" class="form-label">Type *</label>
@@ -379,7 +380,7 @@
                         </div>
                         <div class="col-md-6 mb-3">
                             <label for="add_timestamp" class="form-label">Date & Time</label>
-                            <input type="datetime-local" class="form-control" id="add_timestamp" name="timestamp">
+                            <input type="datetime-local" class="form-control" id="add_timestamp" name="timestamp" value="">
                         </div>
                     </div>
                     <div class="mb-3">
@@ -414,7 +415,8 @@
                     <div class="row">
                         <div class="col-md-6 mb-3">
                             <label for="edit_amount" class="form-label">Amount *</label>
-                            <input type="number" class="form-control" id="edit_amount" name="amount" required step="0.01">
+                            <input type="text" class="form-control" id="edit_amount" name="amount" required placeholder="1.000.000">
+                            <small class="form-text text-muted">Format: 1.000.000 (gunakan titik sebagai separator ribuan)</small>
                         </div>
                         <div class="col-md-6 mb-3">
                             <label for="edit_type" class="form-label">Type *</label>
@@ -489,14 +491,77 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         }
     });
+    
+    // Set default datetime to today for add transaction form
+    setDefaultDateTime();
+    
+    // Setup amount formatting for add and edit forms
+    setupAmountFormatting();
 });
+
+// Set default datetime to today
+function setDefaultDateTime() {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    
+    const defaultDateTime = `${year}-${month}-${day}T${hours}:${minutes}`;
+    
+    const addTimestampField = document.getElementById('add_timestamp');
+    if (addTimestampField) {
+        addTimestampField.value = defaultDateTime;
+    }
+}
+
+// Setup amount formatting with thousand separators
+function setupAmountFormatting() {
+    // Add transaction form
+    const addAmountField = document.getElementById('add_amount');
+    if (addAmountField) {
+        addAmountField.addEventListener('input', function(e) {
+            formatAmountInput(e.target);
+        });
+    }
+    
+    // Edit transaction form
+    const editAmountField = document.getElementById('edit_amount');
+    if (editAmountField) {
+        editAmountField.addEventListener('input', function(e) {
+            formatAmountInput(e.target);
+        });
+    }
+}
+
+// Format amount input with thousand separators
+function formatAmountInput(input) {
+    let value = input.value.replace(/[^\d]/g, ''); // Remove non-digits
+    
+    if (value === '') return;
+    
+    // Convert to number and format with thousand separators
+    const number = parseInt(value);
+    const formatted = number.toLocaleString('id-ID');
+    
+    input.value = formatted;
+}
+
+// Parse amount from formatted string (e.g., "1.000.000" -> 1000000)
+function parseFormattedAmount(amountString) {
+    if (!amountString) return 0;
+    return parseInt(amountString.replace(/\./g, '')) || 0;
+}
 
 function editTransaction(transactionId) {
     fetch(`/api/transactions/${transactionId}`)
         .then(response => response.json())
         .then(data => {
             document.getElementById('edit_id').value = data._id;
-            document.getElementById('edit_amount').value = data.amount;
+            // Format amount with thousand separators
+        const formattedAmount = parseInt(data.amount).toLocaleString('id-ID');
+        document.getElementById('edit_amount').value = formattedAmount;
             document.getElementById('edit_type').value = data.type;
             document.getElementById('edit_category_id').value = data.category_id || '';
             document.getElementById('edit_wallet_id').value = data.wallet_id || '';
@@ -527,6 +592,11 @@ function updateTransaction() {
     const form = document.getElementById('editTransactionForm');
     const formData = new FormData(form);
     const data = Object.fromEntries(formData.entries());
+    
+    // Parse amount from formatted string (e.g., "1.000.000" -> 1000000)
+    if (data.amount) {
+        data.amount = parseFormattedAmount(data.amount);
+    }
     
     // Convert tags string to array
     if (data.tags) {
@@ -589,6 +659,11 @@ function submitTransaction() {
     const form = document.getElementById('addTransactionForm');
     const formData = new FormData(form);
     const data = Object.fromEntries(formData.entries());
+    
+    // Parse amount from formatted string (e.g., "1.000.000" -> 1000000)
+    if (data.amount) {
+        data.amount = parseFormattedAmount(data.amount);
+    }
     
     // Convert tags string to array
     if (data.tags) {

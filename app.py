@@ -424,13 +424,92 @@ def balance():
                 manual_balance_txs = []
                 manual_balance = 0
             
-            # Calculate actual balance (manual + income - expense + transfer)
-            actual_balance = manual_balance + total_income - total_expense + total_transfer  # Initialize variable outside try-catch
+            # Calculate expected balance based on transactions (excluding manual_balance)
+            # This is what the balance should be based on recorded transactions
+            expected_balance_from_transactions = 0
             
-            # Calculate ghost transactions from manual balance transactions
-            ghost_transactions = []  # Initialize variable outside try-catch
-            total_ghost_positive = 0  # Initialize variable outside try-catch
-            total_ghost_negative = 0  # Initialize variable outside try-catch
+            try:
+                if transactions and isinstance(transactions, list):
+                    # Get the earliest manual balance as starting point
+                    if manual_balance_txs:
+                        earliest_manual_balance = min(manual_balance_txs, key=lambda x: x.get("timestamp", 0))
+                        starting_balance = float(earliest_manual_balance.get("amount", 0))
+                        starting_timestamp = earliest_manual_balance.get("timestamp", 0)
+                        
+                        # Calculate balance changes from transactions after the starting manual balance
+                        balance_changes = 0
+                        for tx in transactions:
+                            if tx.get("timestamp", 0) > starting_timestamp and tx.get("type") != "manual_balance":
+                                if tx.get("type") == "income":
+                                    balance_changes += float(tx.get("amount", 0))
+                                elif tx.get("type") == "expense":
+                                    balance_changes -= float(tx.get("amount", 0))
+                                elif tx.get("is_transfer"):
+                                    if tx.get("type") == "expense" and tx.get("transfer_metadata", {}).get("transfer_type") == "outgoing":
+                                        balance_changes -= float(tx.get("amount", 0))
+                                    elif tx.get("type") == "income" and tx.get("transfer_metadata", {}).get("transfer_type") == "incoming":
+                                        balance_changes += float(tx.get("amount", 0))
+                        
+                        expected_balance_from_transactions = starting_balance + balance_changes
+            except Exception as e:
+                print(f"Error calculating expected balance from transactions for {wallet.get('name')}: {e}")
+                expected_balance_from_transactions = 0
+            
+            # Calculate current balance: manual balance yang bertambah/berkurang sesuai transaksi
+            # Balance = Latest manual balance (user input) + perubahan dari transaksi setelah manual balance terakhir
+            # Jika belum ada manual balance, hitung dari semua transaksi
+            current_balance = manual_balance
+            
+            try:
+                if transactions:
+                    if manual_balance_txs:
+                        # Ada manual balance: hitung perubahan setelah manual balance terakhir
+                        latest_manual_timestamp = max(manual_balance_txs, key=lambda x: x.get("timestamp", 0)).get("timestamp", 0)
+                        
+                        # Calculate balance changes from transactions after the latest manual balance
+                        balance_changes_after_manual = 0
+                        for tx in transactions:
+                            if (tx.get("timestamp", 0) > latest_manual_timestamp and 
+                                tx.get("type") != "manual_balance"):
+                                
+                                if tx.get("type") == "income":
+                                    balance_changes_after_manual += float(tx.get("amount", 0))
+                                elif tx.get("type") == "expense":
+                                    balance_changes_after_manual -= float(tx.get("amount", 0))
+                                elif tx.get("is_transfer"):
+                                    if tx.get("type") == "expense" and tx.get("transfer_metadata", {}).get("transfer_type") == "outgoing":
+                                        balance_changes_after_manual -= float(tx.get("amount", 0))
+                                    elif tx.get("type") == "income" and tx.get("transfer_metadata", {}).get("transfer_type") == "incoming":
+                                        balance_changes_after_manual += float(tx.get("amount", 0))
+                        
+                        # Current balance = manual balance + perubahan setelah manual balance
+                        current_balance = manual_balance + balance_changes_after_manual
+                    else:
+                        # Belum ada manual balance: hitung dari semua transaksi (baseline = 0)
+                        print(f"⚠️  No manual balance found for {wallet.get('name')}, calculating from all transactions")
+                        balance_changes_from_all = 0
+                        for tx in transactions:
+                            if tx.get("type") != "manual_balance":
+                                if tx.get("type") == "income":
+                                    balance_changes_from_all += float(tx.get("amount", 0))
+                                elif tx.get("type") == "expense":
+                                    balance_changes_from_all -= float(tx.get("amount", 0))
+                                elif tx.get("is_transfer"):
+                                    if tx.get("type") == "expense" and tx.get("transfer_metadata", {}).get("transfer_type") == "outgoing":
+                                        balance_changes_from_all -= float(tx.get("amount", 0))
+                                    elif tx.get("type") == "income" and tx.get("transfer_metadata", {}).get("transfer_type") == "incoming":
+                                        balance_changes_from_all += float(tx.get("amount", 0))
+                        
+                        # Current balance = 0 + perubahan dari semua transaksi
+                        current_balance = 0 + balance_changes_from_all
+            except Exception as e:
+                print(f"Error calculating current balance for {wallet.get('name')}: {e}")
+                current_balance = manual_balance
+            
+            # Calculate ghost transactions: difference between manual balance and expected balance
+            ghost_transactions = []
+            total_ghost_positive = 0
+            total_ghost_negative = 0
             
             try:
                 if manual_balance_txs and len(manual_balance_txs) > 1:
@@ -438,27 +517,52 @@ def balance():
                     sorted_manual_balances = sorted(manual_balance_txs, key=lambda x: x.get("timestamp", 0))
                     
                     for i in range(1, len(sorted_manual_balances)):
-                        prev_balance = float(sorted_manual_balances[i-1].get("amount", 0))
-                        curr_balance = float(sorted_manual_balances[i].get("amount", 0))
-                        gap = curr_balance - prev_balance
+                        prev_manual_balance = float(sorted_manual_balances[i-1].get("amount", 0))
+                        curr_manual_balance = float(sorted_manual_balances[i].get("amount", 0))
+                        prev_timestamp = sorted_manual_balances[i-1].get("timestamp", 0)
+                        curr_timestamp = sorted_manual_balances[i].get("timestamp", 0)
                         
-                        if abs(gap) > 0.01:  # Significant difference
-                            ghost_type = "positive" if gap > 0 else "negative"
-                            ghost_amount = abs(gap)
+                        # Calculate what the balance should be at this point based on transactions
+                        # between prev_timestamp and curr_timestamp
+                        balance_changes_between = 0
+                        for tx in transactions:
+                            if (tx.get("timestamp", 0) > prev_timestamp and 
+                                tx.get("timestamp", 0) <= curr_timestamp and 
+                                tx.get("type") != "manual_balance"):
+                                
+                                if tx.get("type") == "income":
+                                    balance_changes_between += float(tx.get("amount", 0))
+                                elif tx.get("type") == "expense":
+                                    balance_changes_between -= float(tx.get("amount", 0))
+                                elif tx.get("is_transfer"):
+                                    if tx.get("type") == "expense" and tx.get("transfer_metadata", {}).get("transfer_type") == "outgoing":
+                                        balance_changes_between -= float(tx.get("amount", 0))
+                                    elif tx.get("type") == "income" and tx.get("transfer_metadata", {}).get("transfer_type") == "incoming":
+                                        balance_changes_between += float(tx.get("amount", 0))
+                        
+                        # Expected balance should be: prev_manual_balance + balance_changes_between
+                        expected_balance_at_curr = prev_manual_balance + balance_changes_between
+                        
+                        # Ghost transaction = difference between actual manual balance and expected
+                        ghost_amount = curr_manual_balance - expected_balance_at_curr
+                        
+                        if abs(ghost_amount) > 0.01:  # Significant difference
+                            ghost_type = "positive" if ghost_amount > 0 else "negative"
+                            ghost_amount_abs = abs(ghost_amount)
                             
                             ghost_transactions.append({
                                 "type": ghost_type,
-                                "amount": ghost_amount,
+                                "amount": ghost_amount_abs,
                                 "description": f"Ghost transaction ({ghost_type})",
-                                "timestamp": sorted_manual_balances[i].get("timestamp", 0),
-                                "note": f"Balance gap: {prev_balance} → {curr_balance}",
+                                "timestamp": curr_timestamp,
+                                "note": f"Manual balance: {curr_manual_balance}, Expected: {expected_balance_at_curr:.2f}",
                                 "category_name": "Ghost Transaction"
                             })
                             
                             if ghost_type == "positive":
-                                total_ghost_positive += ghost_amount
+                                total_ghost_positive += ghost_amount_abs
                             else:
-                                total_ghost_negative += ghost_amount
+                                total_ghost_negative += ghost_amount_abs
             except Exception as e:
                 print(f"Error calculating ghost transactions for {wallet.get('name')}: {e}")
                 ghost_transactions = []
@@ -604,9 +708,10 @@ def balance():
             try:
                 all_transactions = individual_transactions + ghost_transactions
                 
-                # Sort all transactions by timestamp (newest first), with manual balance transactions prioritized by base_time
+                # Sort all transactions by timestamp (oldest first), with manual balance transactions prioritized by base_time
+                # This will show newest transactions at the bottom when scrolling
                 if all_transactions:
-                    all_transactions.sort(key=lambda x: (x.get("base_time", x.get("timestamp", 0)), x.get("is_manual_balance", False)), reverse=True)
+                    all_transactions.sort(key=lambda x: (x.get("base_time", x.get("timestamp", 0)), x.get("is_manual_balance", False)), reverse=False)
             except Exception as e:
                 print(f"Error combining and sorting all transactions for {wallet.get('name')}: {e}")
                 all_transactions = individual_transactions
@@ -617,7 +722,8 @@ def balance():
                 "total_expense": total_expense,
                 "total_transfer": total_transfer,
                 "manual_balance": manual_balance,
-                "actual_balance": actual_balance,
+                "current_balance": current_balance,
+                "expected_balance_from_transactions": expected_balance_from_transactions,
                 "transaction_count": len(transactions),
                 "transfer_count": transfer_count,
                 "last_transaction": last_transaction,
@@ -846,6 +952,7 @@ def create_wallet():
         
         # Tambah user_id ke data
         body["user_id"] = user_id
+        body["manual_balance"] = 0
         
         # Set default type jika tidak ada
         if "type" not in body:
@@ -1070,11 +1177,11 @@ def transfer_funds():
                 print(f"Error calculating total_expense for transfer: {e}")
                 total_expense = 0
             
-            actual_balance = manual_balance + total_income - total_expense
+            current_balance = manual_balance + total_income - total_expense
         except Exception as e:
             print(f"Error getting wallet transactions for transfer: {e}")
             # Fallback to manual balance only
-            actual_balance = manual_balance
+            current_balance = manual_balance
             total_income = 0
             total_expense = 0
         
@@ -1087,13 +1194,13 @@ def transfer_funds():
         print(f"Manual Balance: {manual_balance}")
         print(f"Total Income: {total_income}")
         print(f"Total Expense: {total_expense}")
-        print(f"Actual Balance: {actual_balance}")
+        print(f"Current Balance: {current_balance}")
         print(f"Transfer Amount: {amount}")
         print(f"Admin Fee: {admin_fee}")
         print(f"Total Debit: {total_debit}")
         
-        if actual_balance < total_debit:
-            return jsonify({"error": f"Insufficient balance. Available: {actual_balance}, Required: {total_debit}"}), 400
+        if current_balance < total_debit:
+            return jsonify({"error": f"Insufficient balance. Available: {current_balance}, Required: {total_debit}"}), 400
         
         # Create three separate transactions for clarity
         import time
@@ -1146,7 +1253,7 @@ def transfer_funds():
         receiver_income_id = tx_repo.insert_one(receiver_income_data)
         
         # Update balances
-        new_from_balance = actual_balance - total_debit
+        new_from_balance = current_balance - total_debit
         new_to_balance = to_wallet.get("manual_balance", 0) + amount
         
         # Update source wallet balance
