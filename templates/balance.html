@@ -118,6 +118,22 @@
                                                                              <i class="fas fa-clock me-1"></i>{{ tx.timestamp|datetime }}
                                                                          </small>
                                                                      </div>
+                                                                     
+                                                                     {% if 'Ghost' in tx.category_name %}
+                                                                     <div class="item-actions mt-2">
+                                                                         <button class="btn btn-sm btn-warning" 
+                                                                                 onclick="showGhostTransactionModal({
+                                                                                     type: '{{ 'income' if tx.amount > 0 else 'expense' }}',
+                                                                                     amount: {{ tx.amount|abs }},
+                                                                                     description: '{{ tx.description or 'Ghost Transaction' }}',
+                                                                                     note: '{{ tx.note or 'Automatically detected ghost transaction' }}',
+                                                                                     wallet_id: '{{ item.wallet._id }}',
+                                                                                     timestamp: {{ tx.timestamp or 'Math.floor(Date.now() / 1000)' }}
+                                                                                 })">
+                                                                             <i class="fas fa-eye me-1"></i>Show
+                                                                         </button>
+                                                                     </div>
+                                                                     {% endif %}
                                                                  </div>
                                                              </div>
                                                              {% endfor %}
@@ -175,46 +191,160 @@
                         <input type="text" class="form-control" id="edit_wallet_name" readonly>
                     </div>
                     
-                                         <div class="mb-3">
-                         <label for="edit_manual_balance" class="form-label">Manual Balance</label>
-                         <div class="input-group">
-                             <span class="input-group-text">IDR</span>
-                             <input type="number" 
-                                    class="form-control" 
-                                    id="edit_manual_balance" 
-                                    name="manual_balance" 
-                                    step="0.01" 
-                                    min="0" 
-                                    required>
-                         </div>
-                         <div class="form-text">
-                             Enter the current balance in your saving space (excluding transactions)
-                         </div>
-                     </div>
-                     
-                     <div class="mb-3">
-                         <label for="edit_balance_note" class="form-label">Note (Optional)</label>
-                         <input type="text" 
-                                class="form-control" 
-                                id="edit_balance_note" 
-                                name="note" 
-                                placeholder="e.g., Bank statement update, Cash count, etc.">
-                         <div class="form-text">
-                             Add a note to remember why this balance was updated
-                         </div>
-                     </div>
+                    <div class="mb-3">
+                        <label for="edit_manual_balance" class="form-label">Manual Balance</label>
+                        <div class="input-group">
+                            <span class="input-group-text">IDR</span>
+                            <input type="number" 
+                                   class="form-control" 
+                                   id="edit_manual_balance" 
+                                   name="manual_balance" 
+                                   step="0.01" 
+                                   min="0" 
+                                   required>
+                        </div>
+                        <div class="form-text">
+                            Enter the current balance in your saving space (excluding transactions)
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="edit_balance_note" class="form-label">Note (Optional)</label>
+                        <input type="text" 
+                               class="form-control" 
+                               id="edit_balance_note" 
+                               name="note" 
+                               placeholder="e.g., Bank statement update, Cash count, etc.">
+                        <div class="form-text">
+                            Add a note to remember why this balance was updated
+                        </div>
+                    </div>
                 </form>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
                 <button type="button" class="btn btn-primary" onclick="saveBalance()">
                     <i class="fas fa-save me-1"></i>Save Balance
-                 </button>
-             </div>
-         </div>
-     </div>
- </div>
- {% endblock %}
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Ghost Transaction Modal -->
+<div class="modal fade" id="ghostTransactionModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-ghost me-2"></i>Confirm Ghost Transaction
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-warning">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    <strong>Ghost Transaction Detected!</strong><br>
+                    This transaction was automatically detected based on balance discrepancies. 
+                    Please review and confirm the details below.
+                </div>
+                
+                <form id="ghostTransactionForm">
+                    <!-- Saving Space Display (Read-only) -->
+                    <div class="mb-3">
+                        <label class="form-label">Saving Space</label>
+                        <div class="form-control-plaintext" id="ghost_transaction_wallet_display">
+                            <i class="fas fa-wallet me-2"></i><span id="ghost_wallet_name">Loading...</span>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="ghost_transaction_type" class="form-label">Transaction Type *</label>
+                                <select class="form-select" id="ghost_transaction_type" required>
+                                    <option value="">Select Transaction Type</option>
+                                    <option value="income">Income</option>
+                                    <option value="expense">Expense</option>
+                                </select>
+                                <small class="text-muted">Choose transaction type based on what you want to explain</small>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="ghost_transaction_amount" class="form-label">Amount *</label>
+                                <input type="number" class="form-control" id="ghost_transaction_amount" 
+                                       placeholder="0" step="0.01" min="0" required>
+                                <small class="text-muted">Maximum: <span id="ghost_amount_max">0</span></small>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="ghost_transaction_category" class="form-label">Category *</label>
+                                <select class="form-select" id="ghost_transaction_category" required>
+                                    <option value="">Select Category</option>
+                                    <!-- Categories will be populated dynamically -->
+                                </select>
+                                <div class="invalid-feedback">Please select a category</div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="ghost_transaction_scope" class="form-label">Scope *</label>
+                                <select class="form-select" id="ghost_transaction_scope" required>
+                                    <option value="">Select Scope</option>
+                                    <!-- Scopes will be populated dynamically -->
+                                </select>
+                                <div class="invalid-feedback">Please select a scope</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Timestamp Section -->
+                    <div class="mb-3">
+                        <label class="form-label">Transaction Time</label>
+                        <div class="form-control-plaintext" id="ghost_timestamp_display"></div>
+                        <div class="form-text">
+                            <div id="ghost_timestamp_info" class="text-info small"></div>
+                            <div id="ghost_timestamp_range" class="text-warning small"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="ghost_transaction_description" class="form-label">Description *</label>
+                        <input type="text" class="form-control" id="ghost_transaction_description" 
+                               placeholder="Transaction description" required>
+                        <div class="invalid-feedback">Please enter a description</div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="ghost_transaction_note" class="form-label">Note (Optional)</label>
+                        <textarea class="form-control" id="ghost_transaction_note" rows="3" 
+                                  placeholder="Additional notes about this transaction"></textarea>
+                    </div>
+                    
+                    <input type="hidden" id="ghost_transaction_wallet_id">
+                    
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        <strong>Note:</strong> You can modify the amount (max: ghost transaction value), description, category, and scope before confirming. 
+                        This will help reconcile the balance discrepancy.
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-warning" id="btn_confirm_ghost">
+                    <i class="fas fa-check me-1"></i>Confirm Transaction
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
 
 {% block scripts %}
 <style>
@@ -646,12 +776,12 @@
     
     .balance-display {
         flex-direction: column;
-        gap: 0.75rem;
+    gap: 0.75rem;
         text-align: left;
     }
     
     .card-header-savingspace h6 {
-        font-size: 1.1rem;
+    font-size: 1.1rem;
     }
     
     .amount {
@@ -733,7 +863,7 @@ document.addEventListener('DOMContentLoaded', function() {
         // Snap to nearest card function
         function snapToNearestCard() {
             const cardWidth = 320; // Width of each card
-            const gap = 16; // Gap between cards (1rem = 16px)
+            const gap = 32; // Gap between cards (2rem = 32px)
             const totalCardWidth = cardWidth + gap;
             
             const currentScroll = mainScrollContainer.scrollLeft;
@@ -744,9 +874,15 @@ document.addEventListener('DOMContentLoaded', function() {
                 left: targetScroll,
                 behavior: 'smooth'
             });
-            }
         }
-    });
+    }
+    
+    // Add event listener for ghost transaction confirmation button
+    const btnConfirmGhost = document.getElementById('btn_confirm_ghost');
+    if (btnConfirmGhost) {
+        btnConfirmGhost.addEventListener('click', confirmGhostTransaction);
+    }
+});
 
 // Edit balance function
 function editBalance(walletId, walletName, currentBalance) {
@@ -803,6 +939,331 @@ async function saveBalance() {
     } catch (error) {
         console.error('Error updating balance:', error);
         showAlert('Error updating balance. Please try again.', 'danger');
+    }
+}
+
+// Ghost Transaction Functions
+async function showGhostTransactionModal(ghostData) {
+    try {
+        console.log('🔍 Opening ghost transaction modal with data:', ghostData);
+        
+        // Determine transaction type based on ghost amount
+        const isPositive = ghostData.amount > 0;
+        const transactionType = isPositive ? 'income' : 'expense';
+        const absAmount = Math.abs(ghostData.amount);
+        
+        console.log('📊 Transaction details:', { isPositive, transactionType, absAmount, originalAmount: ghostData.amount });
+        
+        // Get ghost transaction timestamp and calculate valid range
+        const ghostTimestamp = ghostData.timestamp || Math.floor(Date.now() / 1000);
+        const walletId = ghostData.wallet_id;
+        
+        console.log('⏰ Timestamp info:', { ghostTimestamp, walletId });
+        
+        // Calculate timestamp range based on manual balance transactions
+        console.log('🔄 Calculating timestamp range...');
+        const timestampRange = await calculateTimestampRange(walletId, ghostTimestamp);
+        const minTimestamp = timestampRange.min;
+        const maxTimestamp = timestampRange.max;
+        
+        console.log('📅 Timestamp range calculated:', { minTimestamp, maxTimestamp, ghostTimestamp });
+        
+        // Populate modal with ghost transaction data
+        console.log('📝 Populating form fields...');
+        // Let user choose transaction type freely - don't auto-set
+        document.getElementById('ghost_transaction_amount').value = absAmount;
+        document.getElementById('ghost_transaction_amount').max = absAmount;
+        document.getElementById('ghost_transaction_description').value = ghostData.description || 'Ghost Transaction';
+        document.getElementById('ghost_transaction_note').value = ghostData.note || 'Automatically detected ghost transaction';
+        document.getElementById('ghost_transaction_wallet_id').value = walletId;
+        document.getElementById('ghost_amount_max').textContent = formatCurrency(absAmount);
+        
+        console.log('📝 Form fields populated:', {
+            type: transactionType,
+            amount: absAmount,
+            max: absAmount,
+            description: ghostData.description || 'Ghost Transaction',
+            note: ghostData.note || 'Automatically detected ghost transaction',
+            wallet_id: walletId
+        });
+        
+        // Display timestamp information (read-only)
+        console.log('⏰ Setting timestamp display...');
+        const timestampDisplay = document.getElementById('ghost_timestamp_display');
+        const timestampFormatted = formatTimestamp(ghostTimestamp);
+        
+        timestampDisplay.textContent = timestampFormatted;
+        
+        console.log('📅 Timestamp display set:', {
+            ghostTimestamp,
+            timestampFormatted
+        });
+        
+        // Store ghost timestamp for later use in confirmation
+        timestampDisplay.dataset.ghostTimestamp = ghostTimestamp;
+        
+        // Display timestamp range info
+        document.getElementById('ghost_timestamp_info').textContent = `Ghost transaction detected at: ${formatTimestamp(ghostTimestamp)}`;
+        document.getElementById('ghost_timestamp_range').textContent = `Using ghost transaction timestamp as default`;
+        
+        // Get wallet name for display
+        const walletName = getWalletNameById(walletId);
+        document.getElementById('ghost_wallet_name').textContent = walletName;
+        
+        // Load categories and scopes
+        await loadCategoriesAndScopes();
+        
+        // Show modal
+        const modal = new bootstrap.Modal(document.getElementById('ghostTransactionModal'));
+        modal.show();
+        
+    } catch (error) {
+        console.error('Error showing ghost transaction modal:', error);
+        showAlert('Error loading ghost transaction details', 'danger');
+    }
+}
+
+async function calculateTimestampRange(walletId, ghostTimestamp) {
+    try {
+        // Get all transactions for this wallet
+        const response = await fetch(`/api/transactions/?wallet_id=${walletId}`);
+        if (!response.ok) {
+            throw new Error('Failed to fetch transactions');
+        }
+        
+        const transactions = await response.json();
+        
+        // Filter manual balance transactions and sort by timestamp
+        const manualBalanceTxs = transactions
+            .filter(tx => tx.type === 'manual_balance')
+            .sort((a, b) => a.timestamp - b.timestamp);
+        
+        let minTimestamp = 0; // Default minimum
+        let maxTimestamp = ghostTimestamp; // Default maximum
+        
+        if (manualBalanceTxs.length > 0) {
+            // Find the manual balance transaction before and after ghost transaction
+            let beforeManualBalance = null;
+            let afterManualBalance = null;
+            
+            for (let i = 0; i < manualBalanceTxs.length; i++) {
+                if (manualBalanceTxs[i].timestamp < ghostTimestamp) {
+                    beforeManualBalance = manualBalanceTxs[i];
+                } else {
+                    afterManualBalance = manualBalanceTxs[i];
+                    break;
+                }
+            }
+            
+            // Set min timestamp (after the manual balance before ghost transaction)
+            if (beforeManualBalance) {
+                minTimestamp = beforeManualBalance.timestamp + 1; // +1 second to avoid overlap
+            }
+            
+            // Set max timestamp (before the manual balance after ghost transaction)
+            if (afterManualBalance) {
+                maxTimestamp = afterManualBalance.timestamp - 1; // -1 second to avoid overlap
+            }
+            
+            // Ensure maxTimestamp is not less than ghostTimestamp
+            if (maxTimestamp < ghostTimestamp) {
+                maxTimestamp = ghostTimestamp;
+            }
+        }
+        
+        return { min: minTimestamp, max: maxTimestamp };
+        
+    } catch (error) {
+        console.error('Error calculating timestamp range:', error);
+        // Fallback to default range
+        return { min: 0, max: ghostTimestamp };
+    }
+}
+
+function formatTimestamp(timestamp) {
+    const date = new Date(timestamp * 1000);
+    return date.toLocaleString('id-ID', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+    });
+}
+
+function formatCurrency(amount) {
+    return new Intl.NumberFormat('id-ID', {
+        style: 'currency',
+        currency: 'IDR',
+        minimumFractionDigits: 0
+    }).format(amount);
+}
+
+async function loadCategoriesAndScopes() {
+    try {
+        // Load categories
+        const categoriesResponse = await fetch('/api/categories/');
+        if (categoriesResponse.ok) {
+            const categories = await categoriesResponse.json();
+            const categorySelect = document.getElementById('ghost_transaction_category');
+            categorySelect.innerHTML = '<option value="">Select Category</option>';
+            
+            categories.forEach(category => {
+                const option = document.createElement('option');
+                option.value = category._id;
+                option.textContent = category.name;
+                categorySelect.appendChild(option);
+            });
+        }
+        
+        // Load scopes
+        const scopesResponse = await fetch('/api/scopes/');
+        if (scopesResponse.ok) {
+            const scopes = await scopesResponse.json();
+            const scopeSelect = document.getElementById('ghost_transaction_scope');
+            scopeSelect.innerHTML = '<option value="">Select Scope</option>';
+            
+            scopes.forEach(scope => {
+                const option = document.createElement('option');
+                option.value = scope._id;
+                option.textContent = scope.name;
+                scopeSelect.appendChild(option);
+            });
+        }
+    } catch (error) {
+        console.error('Error loading categories and scopes:', error);
+    }
+}
+
+function getWalletNameById(walletId) {
+    // Try to get wallet name from the current page data
+    const balanceData = {{ balance_data|tojson }};
+    const wallet = balanceData.find(item => item.wallet._id === walletId);
+    return wallet ? wallet.wallet.name : 'Unknown Wallet';
+}
+
+async function confirmGhostTransaction() {
+    const btnConfirm = document.getElementById('btn_confirm_ghost');
+    btnConfirm.disabled = true;
+    btnConfirm.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Confirming...';
+    
+    try {
+        console.log('🔍 Starting ghost transaction validation...');
+        
+        // Validate form
+        const amount = parseFloat(document.getElementById('ghost_transaction_amount').value);
+        const maxAmount = parseFloat(document.getElementById('ghost_transaction_amount').max);
+        const category = document.getElementById('ghost_transaction_category').value;
+        const scope = document.getElementById('ghost_transaction_scope').value;
+        const description = document.getElementById('ghost_transaction_description').value;
+        
+        console.log('📊 Form values:', { amount, maxAmount, category, scope, description });
+        
+        if (!amount || amount <= 0) {
+            console.log('❌ Amount validation failed:', { amount, maxAmount });
+            showAlert('Please enter a valid amount', 'warning');
+            btnConfirm.disabled = false;
+            btnConfirm.innerHTML = 'Confirm Ghost Transaction';
+            return;
+        }
+        
+        if (amount > maxAmount) {
+            console.log('❌ Amount exceeds max:', { amount, maxAmount });
+            showAlert(`Amount cannot exceed ${formatCurrency(maxAmount)}`, 'warning');
+            btnConfirm.disabled = false;
+            btnConfirm.innerHTML = 'Confirm Ghost Transaction';
+            return;
+        }
+        
+        if (!category) {
+            console.log('❌ Category validation failed:', { category });
+            showAlert('Please select a category', 'warning');
+            btnConfirm.disabled = false;
+            btnConfirm.innerHTML = 'Confirm Ghost Transaction';
+            return;
+        }
+        
+        if (!scope) {
+            console.log('❌ Scope validation failed:', { scope });
+            showAlert('Please select a scope', 'warning');
+            btnConfirm.disabled = false;
+            btnConfirm.innerHTML = 'Confirm Ghost Transaction';
+            return;
+        }
+        
+        if (!description.trim()) {
+            console.log('❌ Description validation failed:', { description });
+            showAlert('Please enter a description', 'warning');
+            btnConfirm.innerHTML = 'Confirm Ghost Transaction';
+            return;
+        }
+        
+        // Use ghost transaction timestamp (no validation needed)
+        const ghostTimestamp = parseInt(document.getElementById('ghost_timestamp_display').dataset.ghostTimestamp);
+        console.log('⏰ Using ghost transaction timestamp:', { ghostTimestamp });
+        
+        if (!ghostTimestamp) {
+            console.log('❌ Ghost timestamp not found');
+            showAlert('Ghost transaction timestamp not found', 'warning');
+            btnConfirm.disabled = false;
+            btnConfirm.innerHTML = 'Confirm Ghost Transaction';
+            return;
+        }
+        
+        console.log('✅ All validations passed!');
+        
+        const transactionData = {
+            type: document.getElementById('ghost_transaction_type').value,
+            amount: amount,
+            description: description.trim(),
+            note: document.getElementById('ghost_transaction_note').value,
+            wallet_id: document.getElementById('ghost_transaction_wallet_id').value,
+            category_id: category,
+            scope_id: scope,
+            timestamp: ghostTimestamp,  // Use ghost transaction timestamp
+            currency: 'IDR',
+            is_from_ghost_transaction: true,  // Flag to indicate this transaction was created from ghost transaction
+            ghost_transaction_resolved: true   // Flag to indicate ghost transaction is resolved
+        };
+        
+        console.log('📤 Sending transaction data:', transactionData);
+        
+        const response = await fetch('/api/transactions/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(transactionData)
+        });
+        
+        console.log('📡 Response status:', response.status);
+        
+        if (response.ok) {
+            const result = await response.json();
+            console.log('✅ Success response:', result);
+            showAlert(`Ghost transaction confirmed successfully!<br><small>Transaction ID: ${result.transaction_id}</small>`, 'success');
+            
+            // Close modal
+            const modal = bootstrap.Modal.getInstance(document.getElementById('ghostTransactionModal'));
+            modal.hide();
+            
+            // Reload page to show updated balances
+            setTimeout(() => {
+                window.location.reload();
+            }, 1500);
+        } else {
+            const error = await response.json();
+            console.log('❌ Error response:', error);
+            showAlert(error.error || 'Failed to confirm ghost transaction', 'danger');
+        }
+    } catch (error) {
+        console.error('❌ Exception in confirmGhostTransaction:', error);
+        showAlert('Error confirming ghost transaction. Please try again.', 'danger');
+    } finally {
+        // Re-enable button
+        btnConfirm.disabled = false;
+        btnConfirm.innerHTML = 'Confirm Ghost Transaction';
     }
 }
 
