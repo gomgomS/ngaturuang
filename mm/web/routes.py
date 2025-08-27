@@ -28,7 +28,7 @@ def init_web_routes(app):
         scopes = scope_repo.list_by_user(user_id)
         wallets = wallet_repo.list_by_user(user_id)
         
-        # Calculate totals
+        # Calculate totals (including all transactions for accurate display)
         try:
             total_income = sum(float(tx.get("amount", 0)) for tx in transactions if tx.get("type") == "income")
         except (ValueError, TypeError):
@@ -121,7 +121,7 @@ def init_web_routes(app):
         if wallet_id:
             selected_wallet = next((w for w in wallets if w.get("_id") == wallet_id), None)
         
-        # Calculate totals
+        # Calculate totals (including all transactions for accurate display)
         try:
             total_income = sum(float(tx.get("amount", 0)) for tx in transactions if tx.get("type") == "income")
         except (ValueError, TypeError):
