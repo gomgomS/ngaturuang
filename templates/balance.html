@@ -10,6 +10,87 @@
                 </h1>
             </div>
 
+            <!-- Transfer Between Wallets Section -->
+            {% if balance_data|length > 1 %}
+            <div class="transfer-section mb-4">
+                <div class="card">
+                    <div class="card-header bg-info text-white" style="cursor: pointer;" 
+                         data-bs-toggle="collapse" 
+                         data-bs-target="#transferCollapse" 
+                         aria-expanded="true" 
+                         aria-controls="transferCollapse">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">
+                                <i class="fas fa-exchange-alt me-2"></i>Transfer Antar Saving Space
+                            </h5>
+                            <i class="fas fa-chevron-down" id="transferToggleIcon"></i>
+                        </div>
+                    </div>
+                    <div class="collapse" id="transferCollapse">
+                        <div class="card-body">
+                            <form id="transferForm">
+                                <div class="row">
+                                    <div class="col-md-3">
+                                        <label for="fromWallet" class="form-label">Dari Saving Space</label>
+                                        <select class="form-select" id="fromWallet" required>
+                                            <option value="">Pilih Saving Space</option>
+                                            {% for item in balance_data %}
+                                            <option value="{{ item.wallet._id }}" 
+                                                    data-balance="{{ item.wallet.actual_balance or 0 }}">
+                                                {{ item.wallet.name }} ({{ item.wallet.actual_balance|currency_decimal if item.wallet.actual_balance else '0' }})
+                                            </option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label for="toWallet" class="form-label">Ke Saving Space</label>
+                                        <select class="form-select" id="toWallet" required>
+                                            <option value="">Pilih Saving Space</option>
+                                            {% for item in balance_data %}
+                                            <option value="{{ item.wallet._id }}">
+                                                {{ item.wallet.name }}
+                                            </option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                    <div class="col-md-2">
+                                        <label for="transferAmount" class="form-label">Jumlah Transfer</label>
+                                        <div class="input-group">
+                                            <span class="input-group-text">IDR</span>
+                                            <input type="number" class="form-control" id="transferAmount" 
+                                                   step="1000" min="1000" required>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-2">
+                                        <label for="adminFee" class="form-label">Biaya Admin</label>
+                                        <div class="input-group">
+                                            <span class="input-group-text">IDR</span>
+                                            <input type="number" class="form-control" id="adminFee" 
+                                                   step="1000" min="0" value="0">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-2">
+                                        <label class="form-label">&nbsp;</label>
+                                        <button type="submit" class="btn btn-info w-100" onclick="processTransfer(event)">
+                                            <i class="fas fa-paper-plane me-1"></i>Transfer
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="row mt-2">
+                                    <div class="col-12">
+                                        <small class="text-muted">
+                                            <i class="fas fa-info-circle me-1"></i>
+                                            Transfer akan membuat 2 transaksi: expense di wallet pengirim, income di wallet penerima
+                                        </small>
+                                    </div>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
             <!-- Visual Balance Content -->
                             {% if balance_data %}
                             <div class="visual-balance-container">
@@ -21,18 +102,105 @@
                                         {% for item in balance_data %}
                             <div class="saving-space-item">
                                             <div class="saving-space-card">
+                                                <!-- Balance History Toggle and Display -->
+                                                {% if item.manual_balance_history and item.manual_balance_history|length > 0 %}
+                                                    <!-- Balance History Toggle Button -->
+                                                    <div class="balance-history-toggle mb-3">
+                                                        <button class="btn btn-sm btn-outline-info w-100" 
+                                                                type="button" 
+                                                                data-bs-toggle="collapse" 
+                                                                data-bs-target="#balance-history-{{ item.wallet._id }}" 
+                                                                aria-expanded="false" 
+                                                                aria-controls="balance-history-{{ item.wallet._id }}">
+                                                            <i class="fas fa-chevron-down me-2"></i>
+                                                            <span class="toggle-text">Show Balance History</span>
+                                                        </button>
+                                                    </div>
+                                                    
+                                                    <!-- Collapsible Balance History Content -->
+                                                    <div class="collapse" id="balance-history-{{ item.wallet._id }}">
+                                                        <div class="balance-history-content">
+                                                            <!-- Simple Balance History Selector -->
+                                                            {% if item.manual_balance_history|length > 1 %}
+                                                            <div class="balance-history-selector mb-3">
+                                                                                                                        <select class="form-select form-select-sm" 
+                                                                onchange="changeBalanceHistory('{{ item.wallet._id }}', this.value)"
+                                                                id="balance-history-{{ item.wallet._id }}">
+                                                            {% for balance in item.manual_balance_history %}
+                                                            <option value="{{ balance._id }}" 
+                                                                    {% if balance.is_latest %}selected{% endif %}>
+                                                                {{ balance.balance_date|datetime }} - {{ balance.balance_amount|currency_decimal }}
+                                                                {% if balance.is_closed %}
+                                                                    (Closed: {{ balance.close_balance|currency_decimal }})
+                                                                {% endif %}
+                                                            </option>
+                                                            {% endfor %}
+                                                        </select>
+                                                            </div>
+                                                            {% endif %}
+                                                            
+                                                            <!-- Balance History Card - Dynamic based on selection -->
+                                                            <div class="selected-balance-history mb-3">
+                                                                <div class="balance-history-card" style="cursor: pointer; background: rgba(255,255,255,0.1); border-radius: 0.375rem; padding: 0.75rem; border: 1px solid rgba(255,255,255,0.2);" onclick="viewBalanceHistory('{{ item.wallet._id }}')" data-current-balance-id="{{ item.manual_balance_history[0]._id }}">
+                                                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                                                        <div>
+                                                                            <small class="text-white-50 d-block">
+                                                                                <i class="fas fa-calendar me-1"></i>Balance History
+                                                                            </small>
+                                                                            <span class="text-info fw-bold" id="balance-date-{{ item.wallet._id }}">{{ item.manual_balance_history[0].balance_date|datetime }}</span>
+                                                                        </div>
+                                                                        <span class="badge" id="balance-status-{{ item.wallet._id }}" 
+                                                                              {% if item.manual_balance_history[0].is_closed %}class="bg-warning"{% else %}class="bg-success"{% endif %}>
+                                                                            {% if item.manual_balance_history[0].is_closed %}Closed{% else %}Active{% endif %}
+                                                                        </span>
+                                                                    </div>
+                                                                    
+                                                                    <div class="text-center mb-2">
+                                                                        <span class="text-white fw-bold fs-5" id="balance-amount-{{ item.wallet._id }}">{{ item.manual_balance_history[0].balance_amount|currency_decimal }}</span>
+                                                                        <div class="mt-1" id="close-balance-{{ item.wallet._id }}" 
+                                                                             {% if not item.manual_balance_history[0].is_closed or not item.manual_balance_history[0].close_balance %}style="display: none;"{% endif %}>
+                                                                            <small class="text-white-50">→</small>
+                                                                            <span class="text-warning fw-bold">{{ item.manual_balance_history[0].close_balance|currency_decimal if item.manual_balance_history[0].close_balance else '' }}</span>
+                                                                        </div>
+                                                                    </div>
+                                                                    
+                                                                    <div class="text-center">
+                                                                        <small class="text-white-50">
+                                                                            <i class="fas fa-mouse-pointer me-1"></i>Click to view details
+                                                                        </small>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                            
+                                                            <!-- Hidden data for JavaScript -->
+                                                            <div id="balance-data-{{ item.wallet._id }}" style="display: none;">
+                                                                {% for balance in item.manual_balance_history %}
+                                                                <div class="balance-data-item" 
+                                                                     data-balance-id="{{ balance._id }}"
+                                                                     data-balance-date="{{ balance.balance_date|datetime }}"
+                                                                     data-balance-amount="{{ balance.balance_amount|currency_decimal }}"
+                                                                     data-is-closed="{{ balance.is_closed|lower }}"
+                                                                     data-close-balance="{{ balance.close_balance|currency_decimal if balance.close_balance else '' }}">
+                                                                </div>
+                                                                {% endfor %}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                {% endif %}
+                                                
                                                 <div class="card-header-savingspace">
                                                     <h6 class="mb-1">
                                                         <i class="fas fa-piggy-bank me-2"></i>{{ item.wallet.name }}
                                                     </h6>
-                                                    <span class="badge bg-secondary">{{ item.wallet.type or 'bank' }}</span>
-                                                </div>
+                                    </div>
+                                    
                                                                                                  <div class="balance-display">
                                                      <div class="balance">
                                                          <small class="text-muted">Balance</small>
-                                                         <div class="amount text-primary">{{ item.current_balance|currency_decimal }}</div>
+                                                         <div class="amount text-primary">{{ item.wallet.actual_balance|currency_decimal if item.wallet.actual_balance else '0' }}</div>
                                                      </div>
                                                  </div>
+                                    
                                                 <div class="quick-actions">
                                                     <button class="btn btn-sm btn-outline-primary" 
                                                             onclick="editBalance('{{ item.wallet._id }}', '{{ item.wallet.name }}', {{ item.manual_balance }})">
@@ -46,11 +214,13 @@
                                     </div>
                                 </div>
 
+
+
                     <!-- Transaction Cards - Horizontal Scroll Layout -->
                                 <div class="transaction-cards-container">
                         <div class="transactions-row">
                                         {% for item in balance_data %}
-                            <div class="transaction-item">
+                            <div class="transaction-item" data-wallet-id="{{ item.wallet._id }}">
                                             <div class="transaction-card">
                                                 <div class="card-header-transaction">
                                                     <h6 class="mb-2">
@@ -84,13 +254,16 @@
                                                                       <i class="fas fa-circle text-secondary"></i>
                                                                   {% endif %}
                                                               </div>
+                                                    
                                                                  {% if tx.wallet_id %}
                                                                  <small class="text-muted d-block">TX Wallet: {{ tx.wallet_id }}</small>
                                                                  {% endif %}
+                                                    
                                                                  <div class="item-details">
                                                                      <div class="item-amount {% if tx.type == 'income' %}text-success{% elif tx.type == 'expense' %}text-danger{% elif tx.type == 'transfer' %}text-info{% else %}text-secondary{% endif %}">
                                                                          {% if tx.type == 'income' %}+{% elif tx.type == 'expense' %}-{% endif %}{{ tx.amount|currency_decimal }}
                                                                      </div>
+                                                        
                                                                                                                                            <div class="item-label">
                                                                           {% if tx.type == 'income' %}Income
                                                                           {% elif tx.type == 'expense' %}
@@ -100,19 +273,22 @@
                                                                           {% elif tx.type == 'manual_balance' %}Balance Update
                                                                           {% else %}{{ tx.type|title }}{% endif %}
                                                                       </div>
+                                                        
                                                                                                                                            <div class="item-description">
-                                                                          {{ tx.description or 'No description' }}
+                                                            {{ tx.note or 'No description' }}
                                                                           {% if tx.type == 'manual_balance' %}
                                                                               <br><small class="text-primary">
                                                                                   <i class="fas fa-clock me-1"></i>Balance Update
                                                                               </small>
                                                                           {% endif %}
                                                                       </div>
+                                                        
                                                                      {% if tx.category_name %}
                                                                      <div class="item-category">
                                                                          <small class="badge bg-light text-dark">{{ tx.category_name }}</small>
                                                                      </div>
                                                                      {% endif %}
+                                                        
                                                                      <div class="item-timestamp">
                                                                          <small class="text-muted">
                                                                              <i class="fas fa-clock me-1"></i>{{ tx.timestamp|datetime }}
@@ -120,19 +296,7 @@
                                                                      </div>
                                                                      
                                                                      {% if 'Ghost' in tx.category_name %}
-                                                                     <div class="item-actions mt-2">
-                                                                         <button class="btn btn-sm btn-warning" 
-                                                                                 onclick="showGhostTransactionModal({
-                                                                                     type: '{{ 'income' if tx.amount > 0 else 'expense' }}',
-                                                                                     amount: {{ tx.amount|abs }},
-                                                                                     description: '{{ tx.description or 'Ghost Transaction' }}',
-                                                                                     note: '{{ tx.note or 'Automatically detected ghost transaction' }}',
-                                                                                     wallet_id: '{{ item.wallet._id }}',
-                                                                                     timestamp: {{ tx.timestamp or 'Math.floor(Date.now() / 1000)' }}
-                                                                                 })">
-                                                                             <i class="fas fa-eye me-1"></i>Show
-                                                                         </button>
-                                                                     </div>
+                                                                     <!-- Ghost Transaction confirmation feature disabled -->
                                                                      {% endif %}
                                                                  </div>
                                                              </div>
@@ -145,14 +309,6 @@
                                                              </div>
                                                          {% endif %}
                                                      </div>
-                                                 </div>
-                                                
-                                                <!-- Quick Actions -->
-                                                <div class="card-actions">
-                                                    <button class="btn btn-sm btn-outline-primary" 
-                                                            onclick="editBalance('{{ item.wallet._id }}', '{{ item.wallet.name }}', {{ item.manual_balance }})">
-                                                        <i class="fas fa-edit"></i> Edit Balance
-                                                    </button>
                                                 </div>
                                             </div>
                                         </div>
@@ -163,9 +319,11 @@
                             </div>
                             {% else %}
                             <div class="text-center py-5">
-                                <i class="fas fa-chart-line fa-3x text-muted mb-3"></i>
-                                <h6 class="text-muted">No data available for visualization</h6>
-                                <p class="text-muted small">Create saving spaces and add transactions to see visual balance</p>
+                <div class="text-muted">
+                    <i class="fas fa-inbox fa-3x mb-3"></i>
+                    <h5>No balance data available</h5>
+                    <p>Start by adding some wallets and transactions.</p>
+                </div>
                             </div>
                             {% endif %}
                         </div>
@@ -173,178 +331,48 @@
 </div>
 
 <!-- Edit Balance Modal -->
-<div class="modal fade" id="editBalanceModal" tabindex="-1">
+<div class="modal fade" id="editBalanceModal" tabindex="-1" aria-labelledby="editBalanceModalLabel" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">
-                    <i class="fas fa-edit me-2"></i>Edit Manual Balance
+                <h5 class="modal-title" id="editBalanceModalLabel">
+                    <i class="fas fa-plus-circle me-2"></i>Input Balance Terbaru
                 </h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
                 <form id="editBalanceForm">
-                    <input type="hidden" id="edit_wallet_id" name="wallet_id">
-                    
                     <div class="mb-3">
-                        <label for="edit_wallet_name" class="form-label">Saving Space</label>
-                        <input type="text" class="form-control" id="edit_wallet_name" readonly>
+                        <label for="walletName" class="form-label">Saving Space</label>
+                        <input type="text" class="form-control" id="walletName" readonly>
                     </div>
-                    
-                    <div class="mb-3">
-                        <label for="edit_manual_balance" class="form-label">Manual Balance</label>
-                        <div class="input-group">
-                            <span class="input-group-text">IDR</span>
-                            <input type="number" 
-                                   class="form-control" 
-                                   id="edit_manual_balance" 
-                                   name="manual_balance" 
-                                   step="0.01" 
-                                   min="0" 
-                                   required>
-                        </div>
-                        <div class="form-text">
-                            Enter the current balance in your saving space (excluding transactions)
-                        </div>
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label for="edit_balance_note" class="form-label">Note (Optional)</label>
-                        <input type="text" 
-                               class="form-control" 
-                               id="edit_balance_note" 
-                               name="note" 
-                               placeholder="e.g., Bank statement update, Cash count, etc.">
-                        <div class="form-text">
-                            Add a note to remember why this balance was updated
-                        </div>
-                    </div>
+                                         <div class="mb-3">
+                        <label for="balanceAmount" class="form-label">Balance Amount</label>
+                         <div class="input-group">
+                             <span class="input-group-text">IDR</span>
+                            <input type="number" class="form-control" id="balanceAmount" step="0.01" required>
+                         </div>
+                         <div class="form-text">
+                            Masukkan balance terbaru dari saving space ini (contoh: dari bank statement, cash count, dll)
+                         </div>
+                     </div>
+                     <div class="mb-3">
+                        <label for="balanceNote" class="form-label">Catatan (Opsional)</label>
+                        <textarea class="form-control" id="balanceNote" rows="3" placeholder="Contoh: Bank statement update, Cash count, dll"></textarea>
+                     </div>
                 </form>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
                 <button type="button" class="btn btn-primary" onclick="saveBalance()">
-                    <i class="fas fa-save me-1"></i>Save Balance
+                    <i class="fas fa-save me-1"></i>Simpan Balance
                 </button>
             </div>
         </div>
     </div>
 </div>
 
-<!-- Ghost Transaction Modal -->
-<div class="modal fade" id="ghostTransactionModal" tabindex="-1">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">
-                    <i class="fas fa-ghost me-2"></i>Confirm Ghost Transaction
-                </h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <div class="alert alert-warning">
-                    <i class="fas fa-exclamation-triangle me-2"></i>
-                    <strong>Ghost Transaction Detected!</strong><br>
-                    This transaction was automatically detected based on balance discrepancies. 
-                    Please review and confirm the details below.
-                </div>
-                
-                <form id="ghostTransactionForm">
-                    <!-- Saving Space Display (Read-only) -->
-                    <div class="mb-3">
-                        <label class="form-label">Saving Space</label>
-                        <div class="form-control-plaintext" id="ghost_transaction_wallet_display">
-                            <i class="fas fa-wallet me-2"></i><span id="ghost_wallet_name">Loading...</span>
-                        </div>
-                    </div>
-                    
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label for="ghost_transaction_type" class="form-label">Transaction Type *</label>
-                                <select class="form-select" id="ghost_transaction_type" required>
-                                    <option value="">Select Transaction Type</option>
-                                    <option value="income">Income</option>
-                                    <option value="expense">Expense</option>
-                                </select>
-                                <small class="text-muted">Choose transaction type based on what you want to explain</small>
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label for="ghost_transaction_amount" class="form-label">Amount *</label>
-                                <input type="number" class="form-control" id="ghost_transaction_amount" 
-                                       placeholder="0" step="0.01" min="0" required>
-                                <small class="text-muted">Maximum: <span id="ghost_amount_max">0</span></small>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label for="ghost_transaction_category" class="form-label">Category *</label>
-                                <select class="form-select" id="ghost_transaction_category" required>
-                                    <option value="">Select Category</option>
-                                    <!-- Categories will be populated dynamically -->
-                                </select>
-                                <div class="invalid-feedback">Please select a category</div>
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label for="ghost_transaction_scope" class="form-label">Scope *</label>
-                                <select class="form-select" id="ghost_transaction_scope" required>
-                                    <option value="">Select Scope</option>
-                                    <!-- Scopes will be populated dynamically -->
-                                </select>
-                                <div class="invalid-feedback">Please select a scope</div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- Timestamp Section -->
-                    <div class="mb-3">
-                        <label class="form-label">Transaction Time</label>
-                        <div class="form-control-plaintext" id="ghost_timestamp_display"></div>
-                        <div class="form-text">
-                            <div id="ghost_timestamp_info" class="text-info small"></div>
-                            <div id="ghost_timestamp_range" class="text-warning small"></div>
-                        </div>
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label for="ghost_transaction_description" class="form-label">Description *</label>
-                        <input type="text" class="form-control" id="ghost_transaction_description" 
-                               placeholder="Transaction description" required>
-                        <div class="invalid-feedback">Please enter a description</div>
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label for="ghost_transaction_note" class="form-label">Note (Optional)</label>
-                        <textarea class="form-control" id="ghost_transaction_note" rows="3" 
-                                  placeholder="Additional notes about this transaction"></textarea>
-                    </div>
-                    
-                    <input type="hidden" id="ghost_transaction_wallet_id">
-                    
-                    <div class="alert alert-info">
-                        <i class="fas fa-info-circle me-2"></i>
-                        <strong>Note:</strong> You can modify the amount (max: ghost transaction value), description, category, and scope before confirming. 
-                        This will help reconcile the balance discrepancy.
-                    </div>
-                </form>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-warning" id="btn_confirm_ghost">
-                    <i class="fas fa-check me-1"></i>Confirm Transaction
-                </button>
-            </div>
-        </div>
-    </div>
-</div>
-{% endblock %}
+ {% endblock %}
 
 {% block scripts %}
 <style>
@@ -445,6 +473,76 @@
 
 .transaction-card::-webkit-scrollbar {
     width: 6px;
+}
+
+/* Transfer Section Styles */
+.transfer-section {
+    margin: 2rem 0;
+}
+
+.transfer-section .card-header {
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+.transfer-section .card-header:hover {
+    background-color: #0aa2c0 !important;
+}
+
+.transfer-section .card-header .fas {
+    transition: transform 0.3s ease;
+}
+
+.transfer-section .card-header[aria-expanded="false"] .fas {
+    transform: rotate(180deg);
+}
+
+.transfer-section .card {
+    border: none;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+    border-radius: 15px;
+}
+
+.transfer-section .card-header {
+    border-radius: 15px 15px 0 0 !important;
+    border-bottom: none;
+}
+
+.transfer-section .form-label {
+    font-weight: 600;
+    color: #495057;
+    margin-bottom: 0.5rem;
+}
+
+.transfer-section .form-select,
+.transfer-section .form-control {
+    border-radius: 8px;
+    border: 1px solid #dee2e6;
+    transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+}
+
+.transfer-section .form-select:focus,
+.transfer-section .form-control:focus {
+    border-color: #0dcaf0;
+    box-shadow: 0 0 0 0.2rem rgba(13, 202, 240, 0.25);
+}
+
+.transfer-section .btn-info {
+    border-radius: 8px;
+    font-weight: 600;
+    transition: all 0.3s ease;
+}
+
+.transfer-section .btn-info:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(13, 202, 240, 0.3);
+}
+
+.transfer-section .input-group-text {
+    background-color: #f8f9fa;
+    border-color: #dee2e6;
+    color: #6c757d;
+    font-weight: 500;
 }
 
 .transaction-card::-webkit-scrollbar-track {
@@ -722,6 +820,137 @@
     color: #ffffff;
 }
 
+/* Real Balance Selector Styles */
+.manual-balance-selector {
+    margin-top: 0.5rem;
+}
+
+.manual-balance-selector .form-select {
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    color: #ffffff;
+    font-size: 0.8rem;
+}
+
+.manual-balance-selector .form-select:focus {
+    background: rgba(255, 255, 255, 0.15);
+    border-color: rgba(255, 255, 255, 0.5);
+    color: #ffffff;
+    box-shadow: 0 0 0 0.2rem rgba(255, 255, 255, 0.25);
+}
+
+.manual-balance-selector .form-select option {
+    background: #2c3e50;
+    color: #ffffff;
+}
+
+/* Improved Head Card Design */
+.card-header-savingspace {
+    margin-bottom: 1.5rem;
+}
+
+.wallet-info {
+    margin-bottom: 1rem;
+}
+
+.wallet-name {
+    color: #ffffff;
+    font-weight: 700;
+    font-size: 1.1rem;
+    margin: 0;
+    line-height: 1.3;
+}
+
+.wallet-meta {
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.wallet-type {
+    background: rgba(255, 255, 255, 0.2) !important;
+    color: #ffffff !important;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    font-size: 0.75rem;
+    padding: 0.4rem 0.6rem;
+}
+
+.balance-date {
+    background: rgba(13, 110, 253, 0.8) !important;
+    color: #ffffff !important;
+    border: 1px solid rgba(13, 110, 253, 0.5);
+    font-size: 0.75rem;
+    padding: 0.4rem 0.6rem;
+}
+
+.manual-balance-selector .form-label {
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 0.8rem;
+    font-weight: 500;
+    margin-bottom: 0.5rem;
+}
+
+/* Enhanced Balance Display */
+.balance-display {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    padding: 1rem;
+    margin-bottom: 1rem;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.balance small {
+    font-size: 0.8rem;
+    color: rgba(255, 255, 255, 0.9);
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+}
+
+.amount {
+    font-size: 1.4rem;
+    font-weight: 800;
+    margin: 0;
+    color: #ffffff;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+/* Enhanced Quick Actions */
+.quick-actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-top: 1rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.quick-actions .btn {
+    background: rgba(255, 255, 255, 0.15);
+    border-color: rgba(255, 255, 255, 0.4);
+    color: #ffffff;
+    font-weight: 500;
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+    transition: all 0.3s ease;
+}
+
+.quick-actions .btn:hover {
+    background: rgba(255, 255, 255, 0.25);
+    border-color: rgba(255, 255, 255, 0.6);
+    color: #ffffff;
+    transform: translateY(-1px);
+}
+
+.quick-actions .badge {
+    background: rgba(255, 255, 255, 0.25) !important;
+    color: #ffffff !important;
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    font-size: 0.8rem;
+    padding: 0.5rem 0.75rem;
+    font-weight: 500;
+}
+
 /* Responsive Design */
 @media (max-width: 768px) {
     .sticky-savingspaces {
@@ -821,453 +1050,267 @@
 </style>
 
 <script>
-// Visual Balance JavaScript
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('💰 Visual Balance initialized');
-    
-    // Enhanced scroll behavior with snap points
-    const mainScrollContainer = document.querySelector('.main-scroll-container');
-    if (mainScrollContainer) {
-        let isScrolling = false;
-        let startX = 0;
-        let scrollLeft = 0;
-        
-        // Touch events for mobile
-        mainScrollContainer.addEventListener('touchstart', function(e) {
-            startX = e.touches[0].pageX - mainScrollContainer.offsetLeft;
-            scrollLeft = mainScrollContainer.scrollLeft;
-        });
-        
-        mainScrollContainer.addEventListener('touchend', function() {
-            // Snap to nearest card after touch ends
-            setTimeout(() => {
-                snapToNearestCard();
-            }, 100);
-        });
-        
-        // Mouse events for desktop
-        mainScrollContainer.addEventListener('mousedown', function(e) {
-            isScrolling = true;
-            startX = e.pageX - mainScrollContainer.offsetLeft;
-            scrollLeft = mainScrollContainer.scrollLeft;
-        });
-        
-        mainScrollContainer.addEventListener('mouseup', function() {
-            isScrolling = false;
-            // Snap to nearest card after mouse release
-            setTimeout(() => {
-                snapToNearestCard();
-            }, 100);
-        });
-        
-        // Snap to nearest card function
-        function snapToNearestCard() {
-            const cardWidth = 320; // Width of each card
-            const gap = 32; // Gap between cards (2rem = 32px)
-            const totalCardWidth = cardWidth + gap;
-            
-            const currentScroll = mainScrollContainer.scrollLeft;
-            const nearestIndex = Math.round(currentScroll / totalCardWidth);
-            const targetScroll = nearestIndex * totalCardWidth;
-            
-            mainScrollContainer.scrollTo({
-                left: targetScroll,
-                behavior: 'smooth'
-            });
-        }
-    }
-    
-    // Add event listener for ghost transaction confirmation button
-    const btnConfirmGhost = document.getElementById('btn_confirm_ghost');
-    if (btnConfirmGhost) {
-        btnConfirmGhost.addEventListener('click', confirmGhostTransaction);
-    }
-});
-
-// Edit balance function
+// Edit Balance Function
 function editBalance(walletId, walletName, currentBalance) {
-    // Populate modal
-    document.getElementById('edit_wallet_id').value = walletId;
-    document.getElementById('edit_wallet_name').value = walletName;
-    document.getElementById('edit_manual_balance').value = currentBalance;
-    document.getElementById('edit_balance_note').value = '';
+    document.getElementById('walletName').value = walletName;
+    document.getElementById('balanceAmount').value = currentBalance;
+    document.getElementById('balanceNote').value = '';
+    
+    // Store wallet ID for save function
+    document.getElementById('editBalanceForm').dataset.walletId = walletId;
     
     // Show modal
     const modal = new bootstrap.Modal(document.getElementById('editBalanceModal'));
     modal.show();
  }
 
-// Save balance function
+// Save Balance Function
 async function saveBalance() {
-    const walletId = document.getElementById('edit_wallet_id').value;
-    const manualBalance = parseFloat(document.getElementById('edit_manual_balance').value);
-    const note = document.getElementById('edit_balance_note').value.trim();
-    
-    if (isNaN(manualBalance) || manualBalance < 0) {
-        showAlert('Please enter a valid balance amount', 'warning');
+    try {
+        const walletId = document.getElementById('editBalanceForm').dataset.walletId;
+        const amount = parseFloat(document.getElementById('balanceAmount').value);
+        const note = document.getElementById('balanceNote').value.trim();
+        
+        if (!amount || amount < 0) {
+            alert('Please enter a valid amount');
         return;
     }
     
-    try {
+        const balanceData = {
+            amount: amount,
+            note: note
+        };
+        
         const response = await fetch(`/api/wallets/${walletId}/balance`, {
             method: 'PUT',
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({
-                manual_balance: manualBalance,
-                note: note || undefined
-            })
+            body: JSON.stringify(balanceData)
         });
         
         if (response.ok) {
             const result = await response.json();
-            showAlert('Balance updated successfully!', 'success');
+            console.log('Balance updated successfully:', result);
             
             // Close modal
             const modal = bootstrap.Modal.getInstance(document.getElementById('editBalanceModal'));
             modal.hide();
             
             // Reload page to show updated data
-            setTimeout(() => {
                 window.location.reload();
-            }, 1500);
         } else {
             const error = await response.json();
-            showAlert(error.error || 'Failed to update balance', 'danger');
+            alert('Failed to update balance: ' + (error.error || 'Unknown error'));
         }
+        
     } catch (error) {
-        console.error('Error updating balance:', error);
-        showAlert('Error updating balance. Please try again.', 'danger');
+        console.error('Error saving balance:', error);
+        alert('Error saving balance. Please try again.');
     }
 }
 
-// Ghost Transaction Functions
-async function showGhostTransactionModal(ghostData) {
+// Change Manual Balance by Date Function
+async function changeManualBalanceByDate(walletId, timestamp) {
     try {
-        console.log('🔍 Opening ghost transaction modal with data:', ghostData);
+        console.log(`🔄 Changing manual balance for wallet ${walletId} to timestamp ${timestamp}`);
         
-        // Determine transaction type based on ghost amount
-        const isPositive = ghostData.amount > 0;
-        const transactionType = isPositive ? 'income' : 'expense';
-        const absAmount = Math.abs(ghostData.amount);
+        // Show loading state
+        const selector = document.querySelector(`select[data-wallet-id="${walletId}"]`);
+        const originalText = selector.options[selector.selectedIndex].text;
+        selector.disabled = true;
         
-        console.log('📊 Transaction details:', { isPositive, transactionType, absAmount, originalAmount: ghostData.amount });
+        // Find the selected balance from the dropdown options
+        const selectedOption = selector.options[selector.selectedIndex];
+        const manualBalanceId = selectedOption.getAttribute('data-balance-id');
         
-        // Get ghost transaction timestamp and calculate valid range
-        const ghostTimestamp = ghostData.timestamp || Math.floor(Date.now() / 1000);
-        const walletId = ghostData.wallet_id;
-        
-        console.log('⏰ Timestamp info:', { ghostTimestamp, walletId });
-        
-        // Calculate timestamp range based on manual balance transactions
-        console.log('🔄 Calculating timestamp range...');
-        const timestampRange = await calculateTimestampRange(walletId, ghostTimestamp);
-        const minTimestamp = timestampRange.min;
-        const maxTimestamp = timestampRange.max;
-        
-        console.log('📅 Timestamp range calculated:', { minTimestamp, maxTimestamp, ghostTimestamp });
-        
-        // Populate modal with ghost transaction data
-        console.log('📝 Populating form fields...');
-        // Let user choose transaction type freely - don't auto-set
-        document.getElementById('ghost_transaction_amount').value = absAmount;
-        document.getElementById('ghost_transaction_amount').max = absAmount;
-        document.getElementById('ghost_transaction_description').value = ghostData.description || 'Ghost Transaction';
-        document.getElementById('ghost_transaction_note').value = ghostData.note || 'Automatically detected ghost transaction';
-        document.getElementById('ghost_transaction_wallet_id').value = walletId;
-        document.getElementById('ghost_amount_max').textContent = formatCurrency(absAmount);
-        
-        console.log('📝 Form fields populated:', {
-            type: transactionType,
-            amount: absAmount,
-            max: absAmount,
-            description: ghostData.description || 'Ghost Transaction',
-            note: ghostData.note || 'Automatically detected ghost transaction',
-            wallet_id: walletId
-        });
-        
-        // Display timestamp information (read-only)
-        console.log('⏰ Setting timestamp display...');
-        const timestampDisplay = document.getElementById('ghost_timestamp_display');
-        const timestampFormatted = formatTimestamp(ghostTimestamp);
-        
-        timestampDisplay.textContent = timestampFormatted;
-        
-        console.log('📅 Timestamp display set:', {
-            ghostTimestamp,
-            timestampFormatted
-        });
-        
-        // Store ghost timestamp for later use in confirmation
-        timestampDisplay.dataset.ghostTimestamp = ghostTimestamp;
-        
-        // Display timestamp range info
-        document.getElementById('ghost_timestamp_info').textContent = `Ghost transaction detected at: ${formatTimestamp(ghostTimestamp)}`;
-        document.getElementById('ghost_timestamp_range').textContent = `Using ghost transaction timestamp as default`;
-        
-        // Get wallet name for display
-        const walletName = getWalletNameById(walletId);
-        document.getElementById('ghost_wallet_name').textContent = walletName;
-        
-        // Load categories and scopes
-        await loadCategoriesAndScopes();
-        
-        // Show modal
-        const modal = new bootstrap.Modal(document.getElementById('ghostTransactionModal'));
-        modal.show();
-        
-    } catch (error) {
-        console.error('Error showing ghost transaction modal:', error);
-        showAlert('Error loading ghost transaction details', 'danger');
-    }
-}
-
-async function calculateTimestampRange(walletId, ghostTimestamp) {
-    try {
-        // Get all transactions for this wallet
-        const response = await fetch(`/api/transactions/?wallet_id=${walletId}`);
-        if (!response.ok) {
-            throw new Error('Failed to fetch transactions');
+        if (!manualBalanceId) {
+            throw new Error('Manual balance ID not found');
         }
         
-        const transactions = await response.json();
-        
-        // Filter manual balance transactions and sort by timestamp
-        const manualBalanceTxs = transactions
-            .filter(tx => tx.type === 'manual_balance')
-            .sort((a, b) => a.timestamp - b.timestamp);
-        
-        let minTimestamp = 0; // Default minimum
-        let maxTimestamp = ghostTimestamp; // Default maximum
-        
-        if (manualBalanceTxs.length > 0) {
-            // Find the manual balance transaction before and after ghost transaction
-            let beforeManualBalance = null;
-            let afterManualBalance = null;
-            
-            for (let i = 0; i < manualBalanceTxs.length; i++) {
-                if (manualBalanceTxs[i].timestamp < ghostTimestamp) {
-                    beforeManualBalance = manualBalanceTxs[i];
-                } else {
-                    afterManualBalance = manualBalanceTxs[i];
-                    break;
-                }
-            }
-            
-            // Set min timestamp (after the manual balance before ghost transaction)
-            if (beforeManualBalance) {
-                minTimestamp = beforeManualBalance.timestamp + 1; // +1 second to avoid overlap
-            }
-            
-            // Set max timestamp (before the manual balance after ghost transaction)
-            if (afterManualBalance) {
-                maxTimestamp = afterManualBalance.timestamp - 1; // -1 second to avoid overlap
-            }
-            
-            // Ensure maxTimestamp is not less than ghostTimestamp
-            if (maxTimestamp < ghostTimestamp) {
-                maxTimestamp = ghostTimestamp;
-            }
+        // Get transactions for selected manual balance
+        const transactionsResponse = await fetch(`/api/manual-balance/${manualBalanceId}/transactions`);
+        if (!transactionsResponse.ok) {
+            throw new Error('Failed to get transactions');
         }
         
-        return { min: minTimestamp, max: maxTimestamp };
+        const transactions = await transactionsResponse.json();
         
-    } catch (error) {
-        console.error('Error calculating timestamp range:', error);
-        // Fallback to default range
-        return { min: 0, max: ghostTimestamp };
-    }
-}
-
-function formatTimestamp(timestamp) {
-    const date = new Date(timestamp * 1000);
-    return date.toLocaleString('id-ID', {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit'
-    });
-}
-
-function formatCurrency(amount) {
-    return new Intl.NumberFormat('id-ID', {
-        style: 'currency',
-        currency: 'IDR',
-        minimumFractionDigits: 0
-    }).format(amount);
-}
-
-async function loadCategoriesAndScopes() {
-    try {
-        // Load categories
-        const categoriesResponse = await fetch('/api/categories/');
-        if (categoriesResponse.ok) {
-            const categories = await categoriesResponse.json();
-            const categorySelect = document.getElementById('ghost_transaction_category');
-            categorySelect.innerHTML = '<option value="">Select Category</option>';
-            
-            categories.forEach(category => {
-                const option = document.createElement('option');
-                option.value = category._id;
-                option.textContent = category.name;
-                categorySelect.appendChild(option);
-            });
-        }
-        
-        // Load scopes
-        const scopesResponse = await fetch('/api/scopes/');
-        if (scopesResponse.ok) {
-            const scopes = await scopesResponse.json();
-            const scopeSelect = document.getElementById('ghost_transaction_scope');
-            scopeSelect.innerHTML = '<option value="">Select Scope</option>';
-            
-            scopes.forEach(scope => {
-                const option = document.createElement('option');
-                option.value = scope._id;
-                option.textContent = scope.name;
-                scopeSelect.appendChild(option);
-            });
-        }
-    } catch (error) {
-        console.error('Error loading categories and scopes:', error);
-    }
-}
-
-function getWalletNameById(walletId) {
-    // Try to get wallet name from the current page data
-    const balanceData = {{ balance_data|tojson }};
-    const wallet = balanceData.find(item => item.wallet._id === walletId);
-    return wallet ? wallet.wallet.name : 'Unknown Wallet';
-}
-
-async function confirmGhostTransaction() {
-    const btnConfirm = document.getElementById('btn_confirm_ghost');
-    btnConfirm.disabled = true;
-    btnConfirm.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Confirming...';
-    
-    try {
-        console.log('🔍 Starting ghost transaction validation...');
-        
-        // Validate form
-        const amount = parseFloat(document.getElementById('ghost_transaction_amount').value);
-        const maxAmount = parseFloat(document.getElementById('ghost_transaction_amount').max);
-        const category = document.getElementById('ghost_transaction_category').value;
-        const scope = document.getElementById('ghost_transaction_scope').value;
-        const description = document.getElementById('ghost_transaction_description').value;
-        
-        console.log('📊 Form values:', { amount, maxAmount, category, scope, description });
-        
-        if (!amount || amount <= 0) {
-            console.log('❌ Amount validation failed:', { amount, maxAmount });
-            showAlert('Please enter a valid amount', 'warning');
-            btnConfirm.disabled = false;
-            btnConfirm.innerHTML = 'Confirm Ghost Transaction';
-            return;
-        }
-        
-        if (amount > maxAmount) {
-            console.log('❌ Amount exceeds max:', { amount, maxAmount });
-            showAlert(`Amount cannot exceed ${formatCurrency(maxAmount)}`, 'warning');
-            btnConfirm.disabled = false;
-            btnConfirm.innerHTML = 'Confirm Ghost Transaction';
-            return;
-        }
-        
-        if (!category) {
-            console.log('❌ Category validation failed:', { category });
-            showAlert('Please select a category', 'warning');
-            btnConfirm.disabled = false;
-            btnConfirm.innerHTML = 'Confirm Ghost Transaction';
-            return;
-        }
-        
-        if (!scope) {
-            console.log('❌ Scope validation failed:', { scope });
-            showAlert('Please select a scope', 'warning');
-            btnConfirm.disabled = false;
-            btnConfirm.innerHTML = 'Confirm Ghost Transaction';
-            return;
-        }
-        
-        if (!description.trim()) {
-            console.log('❌ Description validation failed:', { description });
-            showAlert('Please enter a description', 'warning');
-            btnConfirm.innerHTML = 'Confirm Ghost Transaction';
-            return;
-        }
-        
-        // Use ghost transaction timestamp (no validation needed)
-        const ghostTimestamp = parseInt(document.getElementById('ghost_timestamp_display').dataset.ghostTimestamp);
-        console.log('⏰ Using ghost transaction timestamp:', { ghostTimestamp });
-        
-        if (!ghostTimestamp) {
-            console.log('❌ Ghost timestamp not found');
-            showAlert('Ghost transaction timestamp not found', 'warning');
-            btnConfirm.disabled = false;
-            btnConfirm.innerHTML = 'Confirm Ghost Transaction';
-            return;
-        }
-        
-        console.log('✅ All validations passed!');
-        
-        const transactionData = {
-            type: document.getElementById('ghost_transaction_type').value,
-            amount: amount,
-            description: description.trim(),
-            note: document.getElementById('ghost_transaction_note').value,
-            wallet_id: document.getElementById('ghost_transaction_wallet_id').value,
-            category_id: category,
-            scope_id: scope,
-            timestamp: ghostTimestamp,  // Use ghost transaction timestamp
-            currency: 'IDR',
-            is_from_ghost_transaction: true,  // Flag to indicate this transaction was created from ghost transaction
-            ghost_transaction_resolved: true   // Flag to indicate ghost transaction is resolved
+        // Get balance data from selected option
+        const balanceData = {
+            _id: manualBalanceId,
+            balance_amount: parseFloat(selectedOption.text.split(' - ')[1].replace(/[^\d.-]/g, '')),
+            sequence_number: null, // Not using sequence number anymore
+            balance_date: parseInt(timestamp)
         };
         
-        console.log('📤 Sending transaction data:', transactionData);
+        // Update UI for this wallet
+        updateWalletDisplay(walletId, balanceData, transactions);
         
-        const response = await fetch('/api/transactions/', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(transactionData)
+        // Format date for display
+        const date = new Date(parseInt(timestamp) * 1000);
+        const formattedDate = date.toLocaleDateString('en-US', { 
+            day: 'numeric', 
+            month: 'short', 
+            year: 'numeric' 
         });
         
-        console.log('📡 Response status:', response.status);
+        // Show success message
+        showAlert(`Switched to ${formattedDate} - Balance: ${balanceData.balance_amount.toLocaleString('id-ID')}`, 'success');
         
-        if (response.ok) {
-            const result = await response.json();
-            console.log('✅ Success response:', result);
-            showAlert(`Ghost transaction confirmed successfully!<br><small>Transaction ID: ${result.transaction_id}</small>`, 'success');
-            
-            // Close modal
-            const modal = bootstrap.Modal.getInstance(document.getElementById('ghostTransactionModal'));
-            modal.hide();
-            
-            // Reload page to show updated balances
-            setTimeout(() => {
-                window.location.reload();
-            }, 1500);
-        } else {
-            const error = await response.json();
-            console.log('❌ Error response:', error);
-            showAlert(error.error || 'Failed to confirm ghost transaction', 'danger');
-        }
     } catch (error) {
-        console.error('❌ Exception in confirmGhostTransaction:', error);
-        showAlert('Error confirming ghost transaction. Please try again.', 'danger');
+        console.error('❌ Error changing manual balance by date:', error);
+        showAlert('Failed to change manual balance. Please try again.', 'danger');
+        
+        // Reset selector to previous value
+        selector.selectedIndex = selector.selectedIndex;
     } finally {
-        // Re-enable button
-        btnConfirm.disabled = false;
-        btnConfirm.innerHTML = 'Confirm Ghost Transaction';
+        // Re-enable selector
+        selector.disabled = false;
     }
 }
 
-// Show alert function
+// Update Wallet Display Function
+function updateWalletDisplay(walletId, balanceData, transactions) {
+    try {
+        // Find the wallet container
+        const walletContainer = document.querySelector(`[data-wallet-id="${walletId}"]`).closest('.saving-space-item');
+        if (!walletContainer) {
+            console.error('Wallet container not found');
+            return;
+        }
+        
+        // Update balance display
+        const balanceAmount = walletContainer.querySelector('.amount');
+        if (balanceAmount) {
+            balanceAmount.textContent = new Intl.NumberFormat('id-ID').format(balanceData.balance_amount);
+        }
+        
+        // Update date badge
+        const dateBadge = walletContainer.querySelector('.badge.bg-primary');
+        if (dateBadge) {
+            const date = new Date(balanceData.balance_date * 1000);
+            const formattedDate = date.toLocaleDateString('en-US', { 
+                day: 'numeric', 
+                month: 'short', 
+                year: 'numeric' 
+            });
+            dateBadge.innerHTML = `<i class="fas fa-calendar me-1"></i>${formattedDate}`;
+        }
+        
+        // Update transaction count
+        const transactionCount = walletContainer.querySelector('.badge.bg-info');
+        if (transactionCount) {
+            transactionCount.textContent = `${transactions.length} tx`;
+        }
+        
+        // Find corresponding transaction card and update it
+        const transactionCard = document.querySelector(`.transaction-item[data-wallet-id="${walletId}"]`);
+        if (transactionCard) {
+            updateTransactionList(transactionCard, transactions);
+        }
+        
+    } catch (error) {
+        console.error('❌ Error updating wallet display:', error);
+    }
+}
+
+// Update Transaction List Function
+function updateTransactionList(transactionCard, transactions) {
+    try {
+        const transactionItems = transactionCard.querySelector('.transaction-items');
+        if (!transactionItems) {
+            console.error('Transaction items container not found');
+            return;
+        }
+        
+        // Clear existing transactions
+        transactionItems.innerHTML = '';
+        
+        if (transactions && transactions.length > 0) {
+            // Add new transactions
+            transactions.forEach(tx => {
+                const transactionItem = createTransactionItem(tx);
+                transactionItems.appendChild(transactionItem);
+            });
+        } else {
+            // Show no transactions message
+            transactionItems.innerHTML = `
+                <div class="no-transactions">
+                    <div class="text-center py-3">
+                        <div class="text-muted small">No transactions for this date</div>
+                    </div>
+                </div>
+            `;
+        }
+        
+    } catch (error) {
+        console.error('❌ Error updating transaction list:', error);
+    }
+}
+
+// Create Transaction Item Function
+function createTransactionItem(tx) {
+    const itemDiv = document.createElement('div');
+    itemDiv.className = `transaction-item-vertical ${tx.type}`;
+    
+    // Determine icon and styling based on transaction type
+    let iconClass = 'fas fa-circle text-secondary';
+    let amountClass = 'text-secondary';
+    let amountPrefix = '';
+    
+    if (tx.type === 'income') {
+        iconClass = 'fas fa-plus-circle text-success';
+        amountClass = 'text-success';
+        amountPrefix = '+';
+    } else if (tx.type === 'expense') {
+        iconClass = 'fas fa-minus-circle text-danger';
+        amountClass = 'text-danger';
+        amountPrefix = '-';
+    } else if (tx.type === 'transfer') {
+        iconClass = 'fas fa-exchange-alt text-info';
+        amountClass = 'text-info';
+    }
+    
+    // Format timestamp
+    const timestamp = new Date(tx.timestamp * 1000);
+    const formattedTime = timestamp.toLocaleString('id-ID');
+    
+    itemDiv.innerHTML = `
+        <div class="item-icon">
+            <i class="${iconClass}"></i>
+        </div>
+
+        <div class="item-details">
+            <div class="item-amount ${amountClass}">
+                ${amountPrefix}${new Intl.NumberFormat('id-ID').format(tx.amount)}
+            </div>
+            <div class="item-label">
+                ${tx.type === 'income' ? 'Income' : 
+                  tx.type === 'expense' ? 'Expense' : 
+                  tx.type === 'transfer' ? 'Transfer' : 
+                  tx.type.charAt(0).toUpperCase() + tx.type.slice(1)}
+            </div>
+            <div class="item-description">
+                ${tx.note || 'No description'}
+            </div>
+            ${tx.category_name ? `
+                <div class="item-category">
+                    <small class="badge bg-light text-dark">${tx.category_name}</small>
+                </div>
+            ` : ''}
+            <div class="item-timestamp">
+                <small class="text-muted">
+                    <i class="fas fa-clock me-1"></i>${formattedTime}
+                </small>
+            </div>
+        </div>
+    `;
+    
+    return itemDiv;
+}
+
+// Show Alert Function
 function showAlert(message, type = 'info') {
     // Remove existing alerts
     const existingAlerts = document.querySelectorAll('.alert');
@@ -1292,6 +1335,422 @@ function showAlert(message, type = 'info') {
                 alertDiv.remove();
             }
         }, 5000);
+    }
+}
+
+// Add event listeners when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('🚀 DOM loaded, setting up balance history event listeners');
+    
+    // Set up event listeners for all balance dropdowns
+    setupBalanceDropdownListeners();
+    
+    // Add global error handler for dropdowns
+    setupGlobalDropdownErrorHandler();
+});
+
+// Setup event listeners for balance dropdowns
+function setupBalanceDropdownListeners() {
+    try {
+        const dropdowns = document.querySelectorAll('select[data-wallet-id]');
+        console.log(`🔧 Setting up ${dropdowns.length} balance dropdown listeners`);
+        
+        dropdowns.forEach(dropdown => {
+            const walletId = dropdown.getAttribute('data-wallet-id');
+            
+            // Add change event listener
+            dropdown.addEventListener('change', function(e) {
+                console.log(`🔄 Dropdown change event for wallet ${walletId}`);
+                // Ensure dropdown is enabled after change
+                setTimeout(() => {
+                    ensureDropdownEnabled(walletId);
+                }, 100);
+            });
+            
+            // Add focus event listener
+            dropdown.addEventListener('focus', function(e) {
+                console.log(`🎯 Dropdown focus event for wallet ${walletId}`);
+                ensureDropdownEnabled(walletId);
+            });
+            
+            // Add click event listener
+            dropdown.addEventListener('click', function(e) {
+                console.log(`🖱️ Dropdown click event for wallet ${walletId}`);
+                ensureDropdownEnabled(walletId);
+            });
+            
+            console.log(`✅ Event listeners added for wallet ${walletId}`);
+        });
+        
+    } catch (error) {
+        console.error('❌ Error setting up dropdown listeners:', error);
+    }
+}
+
+// Setup global error handler for dropdowns
+function setupGlobalDropdownErrorHandler() {
+    try {
+        // Monitor for any disabled dropdowns and re-enable them
+        setInterval(() => {
+            const disabledDropdowns = document.querySelectorAll('select[data-wallet-id]:disabled');
+            if (disabledDropdowns.length > 0) {
+                console.log(`⚠️ Found ${disabledDropdowns.length} disabled dropdowns, re-enabling...`);
+                disabledDropdowns.forEach(dropdown => {
+                    const walletId = dropdown.getAttribute('data-wallet-id');
+                    ensureDropdownEnabled(walletId);
+                });
+            }
+        }, 5000); // Check every 5 seconds
+        
+        console.log('✅ Global dropdown error handler set up');
+        
+    } catch (error) {
+        console.error('❌ Error setting up global error handler:', error);
+    }
+}
+
+// Helper function to ensure dropdown is always enabled
+function ensureDropdownEnabled(walletId) {
+    try {
+        const selector = document.querySelector(`select[data-wallet-id="${walletId}"]`);
+        if (selector && selector.disabled) {
+            console.log(`⚙️ Re-enabling dropdown for wallet ${walletId}`);
+            selector.disabled = false;
+        }
+    } catch (error) {
+        console.error('❌ Error re-enabling dropdown:', error);
+    }
+}
+
+// Function to change balance history display
+function changeBalanceHistory(walletId, balanceId) {
+    try {
+        console.log(`🔄 Changing balance history for wallet ${walletId} to balance ${balanceId}`);
+        
+        // Get the balance data from hidden elements
+        const balanceDataContainer = document.getElementById(`balance-data-${walletId}`);
+        if (!balanceDataContainer) {
+            console.error(`❌ Balance data container not found for wallet ${walletId}`);
+            return;
+        }
+        
+        // Find the selected balance data
+        const balanceDataItems = balanceDataContainer.querySelectorAll('.balance-data-item');
+        let selectedBalanceData = null;
+        
+        for (let item of balanceDataItems) {
+            if (item.getAttribute('data-balance-id') === balanceId) {
+                selectedBalanceData = item;
+                break;
+            }
+        }
+        
+        if (!selectedBalanceData) {
+            console.error(`❌ Balance data not found for balance ID ${balanceId}`);
+            return;
+        }
+        
+        // Extract data from the selected balance
+        const balanceDate = selectedBalanceData.getAttribute('data-balance-date');
+        const balanceAmount = selectedBalanceData.getAttribute('data-balance-amount');
+        const isClosed = selectedBalanceData.getAttribute('data-is-closed') === 'true';
+        const closeBalance = selectedBalanceData.getAttribute('data-close-balance');
+        
+        console.log(`📊 Extracted data: Date=${balanceDate}, Amount=${balanceAmount}, Closed=${isClosed}, CloseBalance=${closeBalance}`);
+        
+        // Update the display elements
+        const dateElement = document.getElementById(`balance-date-${walletId}`);
+        const amountElement = document.getElementById(`balance-amount-${walletId}`);
+        const statusElement = document.getElementById(`balance-status-${walletId}`);
+        const closeBalanceElement = document.getElementById(`close-balance-${walletId}`);
+        
+        if (dateElement) {
+            dateElement.textContent = balanceDate;
+            console.log(`✅ Updated date to: ${balanceDate}`);
+        }
+        
+        if (amountElement) {
+            amountElement.textContent = balanceAmount;
+            console.log(`✅ Updated amount to: ${balanceAmount}`);
+        }
+        
+        // Update status badge
+        if (statusElement) {
+            if (isClosed) {
+                statusElement.textContent = 'Closed';
+                statusElement.className = 'badge bg-warning';
+                console.log(`✅ Updated status to: Closed`);
+            } else {
+                statusElement.textContent = 'Active';
+                statusElement.className = 'badge bg-success';
+                console.log(`✅ Updated status to: Active`);
+            }
+        }
+        
+        // Update close balance display
+        if (closeBalanceElement) {
+            if (isClosed && closeBalance) {
+                closeBalanceElement.style.display = 'block';
+                const closeAmountElement = closeBalanceElement.querySelector('.text-warning');
+                if (closeAmountElement) {
+                    closeAmountElement.textContent = closeBalance;
+                    console.log(`✅ Updated close balance to: ${closeBalance}`);
+                }
+            } else {
+                closeBalanceElement.style.display = 'none';
+                console.log(`ℹ️ Hiding close balance (isClosed=${isClosed}, closeBalance=${closeBalance})`);
+            }
+        }
+        
+        // Update the current balance ID in the card's data attribute
+        const balanceCard = document.querySelector(`#balance-history-${walletId}`).closest('.collapse').querySelector('.balance-history-card');
+        if (balanceCard) {
+            balanceCard.setAttribute('data-current-balance-id', balanceId);
+            console.log(`✅ Updated card data-current-balance-id to: ${balanceId}`);
+        }
+        
+        console.log(`✅ Balance history fully updated for wallet ${walletId}`);
+        
+    } catch (error) {
+        console.error('❌ Error changing balance history:', error);
+    }
+}
+
+// Function to view balance history details
+function viewBalanceHistory(walletId) {
+    try {
+        console.log(`🔍 Viewing balance history for wallet ${walletId}`);
+        
+        // Get balance ID from dropdown - this should be the currently selected balance
+        const dropdown = document.getElementById(`balance-history-${walletId}`);
+        let selectedBalanceId = null;
+        
+        if (dropdown && dropdown.value) {
+            selectedBalanceId = dropdown.value;
+            console.log(`✅ Using balance ID from dropdown: ${selectedBalanceId}`);
+        } else {
+            // Fallback: get the current balance ID from the card's data attribute
+            console.log(`⚠️ No dropdown value, trying fallback for wallet ${walletId}`);
+            
+            const balanceCard = document.querySelector(`#balance-history-${walletId}`).closest('.collapse').querySelector('.balance-history-card');
+            if (balanceCard) {
+                selectedBalanceId = balanceCard.getAttribute('data-current-balance-id');
+                console.log(`✅ Using current balance ID from card: ${selectedBalanceId}`);
+            }
+            
+            // If still no balance ID, try to get from hidden data elements
+            if (!selectedBalanceId) {
+                const balanceDataContainer = document.getElementById(`balance-data-${walletId}`);
+                if (balanceDataContainer) {
+                    const firstBalanceData = balanceDataContainer.querySelector('.balance-data-item');
+                    if (firstBalanceData) {
+                        selectedBalanceId = firstBalanceData.getAttribute('data-balance-id');
+                        console.log(`✅ Using first balance ID as fallback: ${selectedBalanceId}`);
+                    }
+                }
+            }
+        }
+        
+        // Validate balance ID
+        if (selectedBalanceId && selectedBalanceId !== 'undefined' && selectedBalanceId.trim() !== '') {
+            console.log(`🚀 Redirecting to balance history: /balance-history/${selectedBalanceId}`);
+            window.location.href = `/balance-history/${selectedBalanceId}`;
+        } else {
+            console.error(`❌ No valid balance ID found for wallet ${walletId}`);
+            alert('Unable to load balance history. Please try again.');
+        }
+        
+    } catch (error) {
+        console.error('❌ Error viewing balance history:', error);
+        alert('Error loading balance history. Please try again.');
+    }
+}
+
+// Setup collapse event listeners for balance history toggle
+document.addEventListener('DOMContentLoaded', function() {
+    // Add event listeners for all balance history collapse elements
+    const collapseElements = document.querySelectorAll('[id^="balance-history-"]');
+    
+    collapseElements.forEach(collapseElement => {
+        collapseElement.addEventListener('show.bs.collapse', function() {
+            const walletId = this.id.replace('balance-history-', '');
+            const toggleButton = document.querySelector(`[data-bs-target="#${this.id}"]`);
+            if (toggleButton) {
+                const icon = toggleButton.querySelector('i');
+                const text = toggleButton.querySelector('.toggle-text');
+                if (icon) icon.className = 'fas fa-chevron-up me-2';
+                if (text) text.textContent = 'Hide Balance History';
+            }
+            
+            // Initialize balance history display for this wallet
+            initializeBalanceHistoryDisplay(walletId);
+        });
+        
+        collapseElement.addEventListener('hide.bs.collapse', function() {
+            const walletId = this.id.replace('balance-history-', '');
+            const toggleButton = document.querySelector(`[data-bs-target="#${this.id}"]`);
+            if (toggleButton) {
+                const icon = toggleButton.querySelector('i');
+                const text = toggleButton.querySelector('.toggle-text');
+                if (icon) icon.className = 'fas fa-chevron-down me-2';
+                if (text) text.textContent = 'Show Balance History';
+            }
+        });
+    });
+    
+    // Initialize all balance history displays on page load
+    initializeAllBalanceHistoryDisplays();
+    
+    // Setup transfer section collapse event listeners
+    const transferCollapse = document.getElementById('transferCollapse');
+    if (transferCollapse) {
+        transferCollapse.addEventListener('show.bs.collapse', function() {
+            const icon = document.getElementById('transferToggleIcon');
+            if (icon) {
+                icon.className = 'fas fa-chevron-up';
+            }
+        });
+        
+        transferCollapse.addEventListener('hide.bs.collapse', function() {
+            const icon = document.getElementById('transferToggleIcon');
+            if (icon) {
+                icon.className = 'fas fa-chevron-down';
+            }
+        });
+        
+        // Set initial icon state (closed by default)
+        const icon = document.getElementById('transferToggleIcon');
+        if (icon) {
+            icon.className = 'fas fa-chevron-down';
+        }
+    }
+});
+
+// Function to initialize balance history display for a specific wallet
+function initializeBalanceHistoryDisplay(walletId) {
+    try {
+        const dropdown = document.getElementById(`balance-history-${walletId}`);
+        if (dropdown && dropdown.value) {
+            console.log(`🔧 Initializing balance history display for wallet ${walletId} with balance ${dropdown.value}`);
+            changeBalanceHistory(walletId, dropdown.value);
+        }
+    } catch (error) {
+        console.error(`❌ Error initializing balance history for wallet ${walletId}:`, error);
+    }
+}
+
+// Function to initialize all balance history displays
+function initializeAllBalanceHistoryDisplays() {
+    try {
+        const dropdowns = document.querySelectorAll('select[id^="balance-history-"]');
+        console.log(`🔧 Initializing ${dropdowns.length} balance history displays`);
+        
+        dropdowns.forEach(dropdown => {
+            const walletId = dropdown.id.replace('balance-history-', '');
+            if (dropdown.value) {
+                console.log(`✅ Initializing wallet ${walletId} with balance ${dropdown.value}`);
+                changeBalanceHistory(walletId, dropdown.value);
+            }
+        });
+    } catch (error) {
+        console.error('❌ Error initializing balance history displays:', error);
+    }
+}
+
+// Function to process transfer between wallets
+function processTransfer(event) {
+    event.preventDefault();
+    
+    try {
+        const fromWalletId = document.getElementById('fromWallet').value;
+        const toWalletId = document.getElementById('toWallet').value;
+        const amount = parseFloat(document.getElementById('transferAmount').value);
+        const adminFee = parseFloat(document.getElementById('adminFee').value) || 0;
+        
+        // Validation
+        if (!fromWalletId || !toWalletId) {
+            alert('Pilih saving space pengirim dan penerima');
+            return;
+        }
+        
+        if (fromWalletId === toWalletId) {
+            alert('Tidak bisa transfer ke saving space yang sama');
+            return;
+        }
+        
+        if (!amount || amount <= 0) {
+            alert('Masukkan jumlah transfer yang valid');
+            return;
+        }
+        
+        // Get current balance from selected option
+        const fromWalletOption = document.getElementById('fromWallet');
+        const selectedOption = fromWalletOption.options[fromWalletOption.selectedIndex];
+        const currentBalance = parseFloat(selectedOption.getAttribute('data-balance') || 0);
+        
+        if (amount + adminFee > currentBalance) {
+            alert(`Saldo tidak cukup. Saldo: ${currentBalance.toLocaleString('id-ID')}, Transfer: ${amount.toLocaleString('id-ID')}, Admin: ${adminFee.toLocaleString('id-ID')}`);
+            return;
+        }
+        
+        // Confirm transfer
+        const confirmMessage = `Konfirmasi Transfer:\n\n` +
+            `Dari: ${fromWalletOption.options[fromWalletOption.selectedIndex].text}\n` +
+            `Ke: ${document.getElementById('toWallet').options[document.getElementById('toWallet').selectedIndex].text}\n` +
+            `Jumlah: ${amount.toLocaleString('id-ID')}\n` +
+            `Admin Fee: ${adminFee.toLocaleString('id-ID')}\n` +
+            `Total: ${(amount + adminFee).toLocaleString('id-ID')}`;
+        
+        if (!confirm(confirmMessage)) {
+            return;
+        }
+        
+        // Process transfer via API
+        const transferData = {
+            from_wallet_id: fromWalletId,
+            to_wallet_id: toWalletId,
+            amount: amount,
+            admin_fee: adminFee
+        };
+        
+        console.log('🚀 Processing transfer:', transferData);
+        
+        fetch('/api/transfer', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(transferData)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.error) {
+                alert(`Error: ${data.error}`);
+            } else {
+                alert(`✅ Transfer berhasil!\n\n` +
+                    `Dari: ${data.from_wallet}\n` +
+                    `Ke: ${data.to_wallet}\n` +
+                    `Jumlah: ${data.amount.toLocaleString('id-ID')}\n` +
+                    `Admin Fee: ${data.admin_fee.toLocaleString('id-ID')}\n` +
+                    `Total: ${data.total_debit.toLocaleString('id-ID')}`);
+                
+                // Reset form
+                document.getElementById('transferForm').reset();
+                
+                // Refresh page to show updated balances
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1500);
+            }
+        })
+        .catch(error => {
+            console.error('❌ Transfer error:', error);
+            alert('Terjadi error saat memproses transfer. Silakan coba lagi.');
+        });
+        
+    } catch (error) {
+        console.error('❌ Error in processTransfer:', error);
+        alert('Terjadi error. Silakan coba lagi.');
     }
 }
 </script>

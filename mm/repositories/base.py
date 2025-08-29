@@ -11,8 +11,17 @@ class MongoRepository:
 
     def insert_one(self, data: Dict[str, Any]) -> str:
         """Insert satu dokumen dan return ID"""
-        result = self.collection.insert_one(data)
-        return str(result.inserted_id)
+        try:
+            print(f"🔍 [BASE] insert_one called with data: {data}")
+            result = self.collection.insert_one(data)
+            inserted_id = str(result.inserted_id)
+            print(f"🔍 [BASE] insert_one successful, inserted_id: {inserted_id}")
+            return inserted_id
+        except Exception as e:
+            print(f"❌ [BASE] Error in insert_one: {e}")
+            import traceback
+            print(f"❌ [BASE] Error traceback: {traceback.format_exc()}")
+            raise e
 
     def find_by_id(self, id_str: str) -> Optional[Dict[str, Any]]:
         """Find dokumen berdasarkan ID"""

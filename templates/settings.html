@@ -291,10 +291,18 @@
 <script>
 // Scope Functions
 function editScope(scopeId, name, description) {
+    // Clear form first
+    document.getElementById('scopeForm').reset();
+    
+    // Set values
     document.getElementById('scope_id').value = scopeId;
     document.getElementById('scope_name').value = name;
     document.getElementById('scope_description').value = description;
+    
+    // Change modal title
     document.getElementById('scopeModalTitle').textContent = 'Edit Scope';
+    
+    // Show modal
     new bootstrap.Modal(document.getElementById('scopeModal')).show();
 }
 
@@ -355,10 +363,18 @@ function deleteScope(scopeId) {
 
 // Saving Space Functions
 function editSavingSpace(walletId, name, type) {
+    // Clear form first
+    document.getElementById('savingSpaceForm').reset();
+    
+    // Set values
     document.getElementById('wallet_id').value = walletId;
     document.getElementById('wallet_name').value = name;
     document.getElementById('wallet_type').value = type;
+    
+    // Change modal title
     document.getElementById('savingSpaceModalTitle').textContent = 'Edit Saving Space';
+    
+    // Show modal
     new bootstrap.Modal(document.getElementById('savingSpaceModal')).show();
 }
 
@@ -419,10 +435,18 @@ function deleteSavingSpace(walletId) {
 
 // Category Functions
 function editCategory(categoryId, name, description) {
+    // Clear form first
+    document.getElementById('categoryForm').reset();
+    
+    // Set values
     document.getElementById('category_id').value = categoryId;
     document.getElementById('category_name').value = name;
     document.getElementById('category_description').value = description;
+    
+    // Change modal title
     document.getElementById('categoryModalTitle').textContent = 'Edit Category';
+    
+    // Show modal
     new bootstrap.Modal(document.getElementById('categoryModal')).show();
 }
 
@@ -481,18 +505,35 @@ function deleteCategory(categoryId) {
     }
 }
 
-// Reset modal forms when opened
+// Reset modal forms when opened for new items
 document.addEventListener('DOMContentLoaded', function() {
     const modals = ['scopeModal', 'savingSpaceModal', 'categoryModal'];
     modals.forEach(modalId => {
         const modal = document.getElementById(modalId);
-        modal.addEventListener('show.bs.modal', function() {
+        modal.addEventListener('show.bs.modal', function(event) {
+            // Only reset if it's not triggered by edit button
+            if (!event.relatedTarget || !event.relatedTarget.hasAttribute('onclick')) {
+                const form = this.querySelector('form');
+                form.reset();
+                const hiddenInput = form.querySelector('input[type="hidden"]');
+                if (hiddenInput) hiddenInput.value = '';
+                
+                // Reset modal title
+                const title = this.querySelector('.modal-title');
+                if (modalId === 'scopeModal') title.textContent = 'Add New Scope';
+                else if (modalId === 'savingSpaceModal') title.textContent = 'Add New Saving Space';
+                else if (modalId === 'categoryModal') title.textContent = 'Add New Category';
+            }
+        });
+        
+        // Reset form when modal is hidden
+        modal.addEventListener('hidden.bs.modal', function() {
             const form = this.querySelector('form');
             form.reset();
             const hiddenInput = form.querySelector('input[type="hidden"]');
             if (hiddenInput) hiddenInput.value = '';
             
-            // Reset modal title
+            // Reset modal title back to "Add New"
             const title = this.querySelector('.modal-title');
             if (modalId === 'scopeModal') title.textContent = 'Add New Scope';
             else if (modalId === 'savingSpaceModal') title.textContent = 'Add New Saving Space';

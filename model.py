@@ -107,10 +107,26 @@ domain_models: Dict[str, Dict[str, Any]] = {
         "name": "",  # e.g., Bank BCA, OVO, Kas, Saham
         "type": "",  # bank | ewallet | cash | stock | mutual_fund | crypto | other
         "currency": "IDR",  # default currency
+        "actual_balance": 0.0,  # actual balance dari manual balance terbaru
+        "expected_balance": 0.0,  # expected balance dari kalkulasi transaksi
         "metadata": {},  # account numbers, broker code, etc
         "is_active": True,
         "created_at": 0,
         "updated_at": 0,
+    },
+
+    # Manual Balance Collection
+    "manual_balances": {
+        "collection": "manual_balances",
+        "indexes": [
+            [("user_id", 1)],
+            [("wallet_id", 1)],
+            [("user_id", 1), ("wallet_id", 1)],
+            [("user_id", 1), ("wallet_id", 1), ("is_latest", 1)],
+            [("user_id", 1), ("wallet_id", 1), ("balance_date", -1)],
+            [("user_id", 1), ("wallet_id", 1), ("sequence_number", 1)],
+            [("user_id", 1), ("wallet_id", 1), ("is_closed", 1)]
+        ]
     },
 
     # High-level and granular categories
@@ -144,6 +160,8 @@ domain_models: Dict[str, Dict[str, Any]] = {
         "scope_id": "",  # reference to scopes
         "wallet_id": "",  # reference to wallets
         "category_id": "",  # reference to categories (sub-category allowed)
+        "fk_manual_balance_id": "",  # reference to manual_balances._id (base balance untuk transaksi ini)
+        "sequence_number": 1,  # urutan transaksi berdasarkan real balance (1, 2, 3, dst)
         "tags": [],  # e.g., ["#harian", "#netflix", "#clientX"]
         "note": "",
         "timestamp": 0,  # unix seconds
@@ -188,6 +206,15 @@ domain_models: Dict[str, Dict[str, Any]] = {
 # Suggested indexes (to be applied via config.ensure_indexes)
 index_specs: Dict[str, List] = {
     "wallets": [(("user_id", 1), {"name": "idx_wallet_user"})],
+    "manual_balances": [
+        [("user_id", 1)],
+        [("wallet_id", 1)],
+        [("user_id", 1), ("wallet_id", 1)],
+        [("user_id", 1), ("wallet_id", 1), ("is_latest", 1)],
+        [("user_id", 1), ("wallet_id", 1), ("balance_date", -1)],
+        [("user_id", 1), ("wallet_id", 1), ("sequence_number", 1)],
+        [("user_id", 1), ("wallet_id", 1), ("is_closed", 1)]
+    ],
     "categories": [
         (("user_id", 1), {"name": "idx_cat_user"}),
         (("parent_id", 1), {"name": "idx_cat_parent"}),
@@ -199,6 +226,8 @@ index_specs: Dict[str, List] = {
         (("scope_id", 1), {"name": "idx_tx_scope"}),
         (("wallet_id", 1), {"name": "idx_tx_wallet"}),
         (("category_id", 1), {"name": "idx_tx_category"}),
+        (("fk_manual_balance_id", 1), {"name": "idx_tx_manual_balance"}),
+        (("sequence_number", 1), {"name": "idx_tx_sequence"}),
     ],
     "goals": [(("user_id", 1), {"name": "idx_goal_user"})],
     "advisor_insights": [(("user_id", 1), {"name": "idx_ai_user"})],

@@ -1,0 +1,263 @@
+{% extends 'layout.html' %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1 class="h3 mb-0">
+                    <i class="fas fa-book me-2"></i>Balance History
+                </h1>
+                <a href="/balance" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left me-2"></i>Back to Balance
+                </a>
+            </div>
+
+            <!-- Balance Summary Card -->
+            <div class="row mb-4">
+                <div class="col-md-6">
+                    <div class="card bg-primary text-white">
+                        <div class="card-body">
+                            <h5 class="card-title">
+                                <i class="fas fa-piggy-bank me-2"></i>{{ wallet.name }}
+                            </h5>
+                            <p class="card-text mb-1">
+                                <strong>Balance Date:</strong> {{ manual_balance.balance_date|datetime }}
+                            </p>
+                            <p class="card-text mb-1">
+                                <strong>Balance Amount:</strong> {{ manual_balance.balance_amount|currency_decimal }}
+                            </p>
+                            {% if manual_balance.close_balance %}
+                            <p class="card-text mb-0">
+                                <strong>Close Balance:</strong> {{ manual_balance.close_balance|currency_decimal }}
+                            </p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card bg-success text-white">
+                        <div class="card-body">
+                            <h5 class="card-title">
+                                <i class="fas fa-chart-pie me-2"></i>Summary
+                            </h5>
+                            <div class="row">
+                                <div class="col-6">
+                                    <p class="card-text mb-1">
+                                        <strong>Total Debit:</strong>
+                                        {% if manual_balance.close_balance and manual_balance.balance_amount != manual_balance.close_balance %}
+                                            <small class="d-block text-white-50">(includes ghost transaction)</small>
+                                        {% endif %}
+                                    </p>
+                                    <h4 class="text-danger">
+                                        {% if manual_balance.close_balance and manual_balance.balance_amount != manual_balance.close_balance %}
+                                            {% set gap_amount = (manual_balance.balance_amount - manual_balance.close_balance) %}
+                                            {% if gap_amount > 0 %}
+                                                {{ (total_debit + gap_amount)|currency_decimal }}
+                                            {% else %}
+                                                {{ total_debit|currency_decimal }}
+                                            {% endif %}
+                                        {% else %}
+                                            {{ total_debit|currency_decimal }}
+                                        {% endif %}
+                                    </h4>
+                                </div>
+                                <div class="col-6">
+                                    <p class="card-text mb-1">
+                                        <strong>Total Kredit:</strong>
+                                        {% if manual_balance.close_balance and manual_balance.balance_amount != manual_balance.close_balance %}
+                                            <small class="d-block text-white-50">(includes ghost transaction)</small>
+                                        {% endif %}
+                                    </p>
+                                    <h4 class="text-success">
+                                        {% if manual_balance.close_balance and manual_balance.balance_amount != manual_balance.close_balance %}
+                                            {% set gap_amount = (manual_balance.balance_amount - manual_balance.close_balance) %}
+                                            {% if gap_amount < 0 %}
+                                                {{ (total_kredit + gap_amount|abs)|currency_decimal }}
+                                            {% else %}
+                                                {{ total_kredit|currency_decimal }}
+                                            {% endif %}
+                                        {% else %}
+                                            {{ total_kredit|currency_decimal }}
+                                        {% endif %}
+                                    </h4>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Transactions Table -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-list me-2"></i>Transactions ({{ transactions|length }} entries)
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if transactions %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th>#</th>
+                                    <th>Date</th>
+                                    <th>Type</th>
+                                    <th>Category</th>
+                                    <th>Amount</th>
+                                    <th>Balance Before</th>
+                                    <th>Balance After</th>
+                                    <th>Note</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for tx in transactions %}
+                                <tr class="{% if tx.type == 'income' %}table-success{% elif tx.type == 'expense' %}table-danger{% elif tx.type == 'transfer' %}table-info{% endif %}">
+                                    <td>
+                                        <span class="badge bg-secondary">{{ tx.sequence_number }}</span>
+                                    </td>
+                                    <td>
+                                        <small>{{ tx.formatted_time }}</small>
+                                    </td>
+                                    <td>
+                                        {% if tx.type == 'income' %}
+                                            <span class="badge bg-success">
+                                                <i class="fas fa-plus-circle me-1"></i>Income
+                                            </span>
+                                        {% elif tx.type == 'expense' %}
+                                            <span class="badge bg-danger">
+                                                <i class="fas fa-minus-circle me-1"></i>Expense
+                                            </span>
+                                        {% elif tx.type == 'transfer' %}
+                                            <span class="badge bg-info">
+                                                <i class="fas fa-exchange-alt me-1"></i>Transfer
+                                            </span>
+                                        {% else %}
+                                            <span class="badge bg-secondary">{{ tx.type }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-outline-secondary">{{ tx.category_name }}</span>
+                                    </td>
+                                    <td>
+                                        <span class="fw-bold {% if tx.type == 'income' %}text-success{% elif tx.type == 'expense' %}text-danger{% endif %}">
+                                            {{ tx.amount|currency_decimal }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <small class="text-muted">{{ tx.balance_before|currency_decimal }}</small>
+                                    </td>
+                                    <td>
+                                        <small class="text-muted">{{ tx.balance_after|currency_decimal }}</small>
+                                    </td>
+                                    <td>
+                                        {% if tx.note %}
+                                            <small class="text-muted">{{ tx.note }}</small>
+                                        {% else %}
+                                            <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                                
+                                <!-- Ghost Transaction for Gap -->
+                                {% if manual_balance.close_balance and manual_balance.balance_amount != manual_balance.close_balance %}
+                                    {% set gap_amount = (manual_balance.balance_amount - manual_balance.close_balance) %}
+                                    {% if gap_amount != 0 %}
+                                        <tr class="ghost-transaction">
+                                            <td>
+                                                <span class="badge bg-warning">GHOST</span>
+                                            </td>
+                                            <td>
+                                                <small class="text-muted">{{ manual_balance.close_date|datetime if manual_balance.close_date else manual_balance.updated_at|datetime }}</small>
+                                            </td>
+                                            <td>
+                                                {% if gap_amount > 0 %}
+                                                    <span class="badge bg-danger">
+                                                        <i class="fas fa-minus-circle me-1"></i>Ghost Expense
+                                                    </span>
+                                                {% else %}
+                                                    <span class="badge bg-success">
+                                                        <i class="fas fa-plus-circle me-1"></i>Ghost Income
+                                                    </span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                <span class="badge bg-warning">Ghost Transaction</span>
+                                            </td>
+                                            <td>
+                                                <span class="fw-bold text-warning">
+                                                    {{ gap_amount|abs|currency_decimal }}
+                                                </span>
+                                            </td>
+                                            <td>
+                                                <small class="text-muted">{{ manual_balance.balance_amount|currency_decimal }}</small>
+                                            </td>
+                                            <td>
+                                                <small class="text-muted">{{ manual_balance.close_balance|currency_decimal }}</small>
+                                            </td>
+                                            <td>
+                                                <small class="text-warning">
+                                                    <i class="fas fa-ghost me-1"></i>Gap filler
+                                                </small>
+                                            </td>
+                                        </tr>
+                                    {% endif %}
+                                {% endif %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-4">
+                        <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
+                        <h5 class="text-muted">No transactions found</h5>
+                        <p class="text-muted">This balance period has no transactions recorded.</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.badge.bg-outline-secondary {
+    background-color: transparent !important;
+    color: #6c757d !important;
+    border: 1px solid #6c757d;
+}
+
+.table-hover tbody tr:hover {
+    background-color: rgba(0,0,0,.075);
+}
+
+.card {
+    border: none;
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+}
+
+.table-responsive {
+    border-radius: 0.375rem;
+}
+
+/* Ghost Transaction Styling */
+.ghost-transaction {
+    background-color: rgba(255, 193, 7, 0.1) !important;
+    border-left: 4px solid #ffc107;
+}
+
+.ghost-transaction:hover {
+    background-color: rgba(255, 193, 7, 0.2) !important;
+}
+
+.ghost-transaction td {
+    border-color: rgba(255, 193, 7, 0.3);
+}
+
+.ghost-transaction .badge.bg-warning {
+    background-color: #ffc107 !important;
+    color: #000 !important;
+}
+</style>
+{% endblock %}
