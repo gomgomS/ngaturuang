@@ -1,0 +1,92 @@
+[
+  {
+    "id": "transfer",
+    "name": "Transfer",
+    "type": "transfer",
+    "description": "Default category for wallet transfers",
+    "icon": "fas fa-exchange-alt",
+    "color": "#17a2b8",
+    "is_default": true,
+    "is_system": true
+  },
+  {
+    "id": "income_general",
+    "name": "General Income",
+    "type": "income",
+    "description": "Default category for general income",
+    "icon": "fas fa-plus-circle",
+    "color": "#28a745",
+    "is_default": true,
+    "is_system": true
+  },
+  {
+    "id": "expense_general",
+    "name": "General Expense",
+    "type": "expense",
+    "description": "Default category for general expenses",
+    "icon": "fas fa-minus-circle",
+    "color": "#dc3545",
+    "is_default": true,
+    "is_system": true
+  },
+  {
+    "id": "food",
+    "name": "Food & Dining",
+    "type": "expense",
+    "description": "Food, restaurants, groceries",
+    "icon": "fas fa-utensils",
+    "color": "#fd7e14",
+    "is_default": true,
+    "is_system": true
+  },
+  {
+    "id": "transport",
+    "name": "Transportation",
+    "type": "expense",
+    "description": "Fuel, public transport, maintenance",
+    "icon": "fas fa-car",
+    "color": "#6f42c1",
+    "is_default": true,
+    "is_system": true
+  },
+  {
+    "id": "shopping",
+    "name": "Shopping",
+    "type": "expense",
+    "description": "Clothes, electronics, personal items",
+    "icon": "fas fa-shopping-bag",
+    "color": "#e83e8c",
+    "is_default": true,
+    "is_system": true
+  },
+  {
+    "id": "bills",
+    "name": "Bills & Utilities",
+    "type": "expense",
+    "description": "Electricity, water, internet, phone",
+    "icon": "fas fa-file-invoice-dollar",
+    "color": "#20c997",
+    "is_default": true,
+    "is_system": true
+  },
+  {
+    "id": "salary",
+    "name": "Salary",
+    "type": "income",
+    "description": "Regular salary or wages",
+    "icon": "fas fa-money-bill-wave",
+    "color": "#28a745",
+    "is_default": true,
+    "is_system": true
+  },
+  {
+    "id": "investment",
+    "name": "Investment",
+    "type": "income",
+    "description": "Investment returns, dividends",
+    "icon": "fas fa-chart-line",
+    "color": "#ffc107",
+    "is_default": true,
+    "is_system": true
+  }
+]
