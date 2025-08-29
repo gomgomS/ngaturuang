@@ -8,6 +8,8 @@ from mm.repositories.users import UserRepository
 from bson import ObjectId
 from config import ensure_indexes
 from model import index_specs
+from mm.repositories.manual_balance import ManualBalanceRepository
+from datetime import datetime
 
 app = Flask(__name__)
 app.secret_key = "your-secret-key-here"
@@ -175,7 +177,7 @@ def transactions():
         # Get master data for filters
         scopes = scope_repo.list_by_user(user_id)
         wallets = wallet_repo.list_by_user(user_id)
-        categories = category_repo.list_by_user(user_id)
+        categories = category_repo.list_by_user_with_defaults(user_id)  # Include default categories
         
         # Get selected items for display
         selected_scope = None
@@ -310,10 +312,32 @@ def balance():
         tx_repo = TransactionRepository()
         category_repo = CategoryRepository()
         
-        # Get all saving spaces (same as settings)
-        wallets = wallet_repo.list_by_user(user_id)
+        # Get all wallets for the user
+        all_wallets = wallet_repo.list_by_user(user_id)
+        if all_wallets:
+            wallets = all_wallets  # Take all wallets
+            print(f"💰 [BALANCE] Found {len(wallets)} wallets for user")
+        else:
+            wallets = []
+            print(f"⚠️ [BALANCE] No wallets found for user")
         
-        # Get balance data with transactions for each saving space
+        # Ensure the single wallet has actual_balance field initialized
+        for wallet in wallets:
+            if "actual_balance" not in wallet or wallet["actual_balance"] is None:
+                wallet_id_str = str(wallet.get("_id"))
+                print(f"💰 [BALANCE] Initializing actual_balance for wallet: {wallet.get('name')}")
+                
+                # Set default actual_balance to 0 if not exists
+                wallet["actual_balance"] = 0.0
+                
+                # Update in database
+                try:
+                    wallet_repo.update_wallet_balance(wallet_id_str, user_id, 0.0)
+                    print(f"✅ [BALANCE] Initialized actual_balance for {wallet.get('name')}")
+                except Exception as e:
+                    print(f"❌ [BALANCE] Failed to initialize actual_balance for {wallet.get('name')}: {e}")
+        
+        # Get balance data with transactions for the single wallet
         balance_data = []
         for wallet in wallets:
             wallet_id = wallet.get("_id")
@@ -323,14 +347,42 @@ def balance():
             
             print(f"🔍 Processing wallet: {wallet.get('name')} (ID: {wallet_id_str})")
             
-            # Get transactions that belong to this specific wallet
+            # Get latest manual balance for this wallet
+            latest_manual_balance = None
+            try:
+                from mm.repositories.manual_balance import ManualBalanceRepository
+                manual_balance_repo = ManualBalanceRepository()
+                latest_manual_balance = manual_balance_repo.get_latest_balance(user_id, wallet_id_str)
+                
+                if latest_manual_balance:
+                    print(f"🔍 [BALANCE] Found latest manual balance: {latest_manual_balance['_id']} (seq: {latest_manual_balance.get('sequence_number', 0)})")
+                else:
+                    print(f"⚠️ [BALANCE] No manual balance found for {wallet.get('name')}")
+            except Exception as e:
+                print(f"❌ [BALANCE] Error getting latest manual balance: {e}")
+            
+            # Get transactions that belong to this specific wallet AND manual balance sequence
             try:
                 print(f"🔍 Querying transactions for wallet {wallet_id_str}")
-                transactions = tx_repo.get_transactions_with_filters(
-                    user_id, 
-                    {"wallet_id": wallet_id_str}, 
-                    limit=1000
-                )
+                
+                if latest_manual_balance:
+                    # Get transactions from the latest manual balance sequence
+                    manual_balance_id = str(latest_manual_balance['_id'])
+                    print(f"🔍 [BALANCE] Filtering transactions by manual balance ID: {manual_balance_id}")
+                    
+                    transactions = tx_repo.get_transactions_by_manual_balance(
+                        user_id, 
+                        manual_balance_id, 
+                        limit=1000
+                    )
+                else:
+                    # Fallback: get all transactions for this wallet
+                    print(f"🔍 [BALANCE] No manual balance found, getting all transactions for wallet")
+                    transactions = tx_repo.get_transactions_with_filters(
+                        user_id, 
+                        {"wallet_id": wallet_id_str}, 
+                        limit=1000
+                    )
                 
                 print(f"🔍 Raw transactions result type: {type(transactions)}")
                 print(f"🔍 Raw transactions result: {transactions}")
@@ -409,37 +461,51 @@ def balance():
                 print(f"Error calculating total_transfer for {wallet.get('name')}: {e}")
                 total_transfer = 0
             
-            # Get manual balance from latest manual_balance transaction
+            # Get manual balance from manual balance table (tidak lagi dari transaksi)
             manual_balance = 0  # Initialize variable outside try-catch
-            manual_balance_txs = []  # Initialize variable outside try-catch
             try:
-                if transactions and isinstance(transactions, list):
-                    manual_balance_txs = [tx for tx in transactions if tx.get("type") == "manual_balance"]
-                    if manual_balance_txs:
-                        # Sort by timestamp and get the latest
-                        latest_manual_balance = max(manual_balance_txs, key=lambda x: x.get("timestamp", 0))
-                        manual_balance = float(latest_manual_balance.get("amount", 0))
+                from mm.repositories.manual_balance import ManualBalanceRepository
+                manual_balance_repo = ManualBalanceRepository()
+                latest_manual_balance = manual_balance_repo.get_latest_balance(user_id, wallet_id_str)
+                
+                if latest_manual_balance:
+                    manual_balance = float(latest_manual_balance.get("balance_amount", 0))
+                    print(f"✅ [MANUAL_BALANCE] Found manual balance for {wallet.get('name')}: {manual_balance}")
+                else:
+                    print(f"⚠️ [MANUAL_BALANCE] No manual balance found for {wallet.get('name')}, using 0")
+                    manual_balance = 0
             except Exception as e:
-                print(f"Error processing manual balance for {wallet.get('name')}: {e}")
-                manual_balance_txs = []
+                print(f"❌ [MANUAL_BALANCE] Error getting manual balance for {wallet.get('name')}: {e}")
                 manual_balance = 0
             
-            # Calculate expected balance based on transactions (excluding manual_balance)
+            # Calculate expected balance based on transactions
             # This is what the balance should be based on recorded transactions
             expected_balance_from_transactions = 0
             
             try:
                 if transactions and isinstance(transactions, list):
-                    # Get the earliest manual balance as starting point
-                    if manual_balance_txs:
-                        earliest_manual_balance = min(manual_balance_txs, key=lambda x: x.get("timestamp", 0))
-                        starting_balance = float(earliest_manual_balance.get("amount", 0))
-                        starting_timestamp = earliest_manual_balance.get("timestamp", 0)
+                    # Get manual balance history untuk starting point
+                    from mm.repositories.manual_balance import ManualBalanceRepository
+                    manual_balance_repo = ManualBalanceRepository()
+                    balance_history = manual_balance_repo.get_balance_history(user_id, wallet_id_str, limit=100)
+                    
+                    if balance_history and len(balance_history) > 0:
+                        # Sort by balance_date dan ambil yang earliest
+                        sorted_history = sorted(balance_history, key=lambda x: x.get("balance_date", 0))
+                        earliest_balance = sorted_history[0]
+                        starting_balance = float(earliest_balance.get("balance_amount", 0))
+                        starting_timestamp = earliest_balance.get("balance_date", 0)
+                        
+                        print(f"🔍 [MANUAL_BALANCE] Starting balance for {wallet.get('name')}: {starting_balance} at {starting_timestamp}")
                         
                         # Calculate balance changes from transactions after the starting manual balance
-                        # INCLUDE all transactions to calculate expected balance correctly
                         balance_changes = 0
+                        
                         for tx in transactions:
+                            if not tx or not isinstance(tx, dict):
+                                continue
+                                
+                            # Hanya hitung transaksi setelah manual balance pertama (bukan manual_balance transaction)
                             if tx.get("timestamp", 0) > starting_timestamp and tx.get("type") != "manual_balance":
                                 if tx.get("type") == "income":
                                     balance_changes += float(tx.get("amount", 0))
@@ -452,8 +518,31 @@ def balance():
                                         balance_changes += float(tx.get("amount", 0))
                         
                         expected_balance_from_transactions = starting_balance + balance_changes
+                        print(f"🔍 [MANUAL_BALANCE] Expected balance for {wallet.get('name')}: {expected_balance_from_transactions}")
+                    else:
+                        # Tidak ada manual balance history, hitung dari semua transaksi
+                        print(f"⚠️ [MANUAL_BALANCE] No manual balance history for {wallet.get('name')}, calculating from all transactions")
+                        balance_changes = 0
+                        
+                        for tx in transactions:
+                            if not tx or not isinstance(tx, dict):
+                                continue
+                                
+                            if tx.get("type") != "manual_balance":
+                                if tx.get("type") == "income":
+                                    balance_changes += float(tx.get("amount", 0))
+                                elif tx.get("type") == "expense":
+                                    balance_changes -= float(tx.get("amount", 0))
+                                elif tx.get("type") == "transfer":
+                                    if tx.get("type") == "expense" and tx.get("transfer_metadata", {}).get("transfer_type") == "outgoing":
+                                        balance_changes -= float(tx.get("amount", 0))
+                                    elif tx.get("type") == "income" and tx.get("transfer_metadata", {}).get("transfer_type") == "incoming":
+                                        balance_changes += float(tx.get("amount", 0))
+                        
+                        expected_balance_from_transactions = balance_changes
+                        print(f"🔍 [MANUAL_BALANCE] Expected balance from all transactions for {wallet.get('name')}: {expected_balance_from_transactions}")
             except Exception as e:
-                print(f"Error calculating expected balance from transactions for {wallet.get('name')}: {e}")
+                print(f"❌ [MANUAL_BALANCE] Error calculating expected balance for {wallet.get('name')}: {e}")
                 expected_balance_from_transactions = 0
             
             # Calculate current balance: manual balance yang bertambah/berkurang sesuai transaksi
@@ -463,50 +552,68 @@ def balance():
             
             try:
                 if transactions:
-                    if manual_balance_txs:
-                        # Ada manual balance: hitung perubahan setelah manual balance terakhir
-                        latest_manual_timestamp = max(manual_balance_txs, key=lambda x: x.get("timestamp", 0)).get("timestamp", 0)
+                    # Get manual balance history untuk menentukan starting point
+                    from mm.repositories.manual_balance import ManualBalanceRepository
+                    manual_balance_repo = ManualBalanceRepository()
+                    balance_history = manual_balance_repo.get_balance_history(user_id, wallet_id_str, limit=100)
+                    
+                    if balance_history and len(balance_history) > 0:
+                        # Sort by balance_date dan ambil yang latest
+                        sorted_history = sorted(balance_history, key=lambda x: x.get("balance_date", 0))
+                        latest_real_balance = sorted_history[-1]  # Yang terbaru
+                        latest_balance_timestamp = latest_real_balance.get("balance_date", 0)
                         
-                        # Calculate balance changes from transactions after the latest manual balance
-                        # INCLUDE all transactions to calculate current balance correctly
+                        print(f"🔍 [REAL_BALANCE] Latest real balance for {wallet.get('name')}: {latest_real_balance.get('balance_amount', 0)} at {latest_balance_timestamp}")
+                        
+                        # Calculate balance changes from transactions after the latest real balance
                         balance_changes_after_manual = 0
-                        for tx in transactions:
-                            if (tx.get("timestamp", 0) > latest_manual_timestamp and 
-                                tx.get("type") != "manual_balance"):
-                                
-                                if tx.get("type") == "income":
-                                    balance_changes_after_manual += float(tx.get("amount", 0))
-                                elif tx.get("type") == "expense":
-                                    balance_changes_after_manual -= float(tx.get("amount", 0))
-                                elif tx.get("is_transfer"):
-                                    if tx.get("type") == "expense" and tx.get("transfer_metadata", {}).get("transfer_type") == "outgoing":
-                                        balance_changes_after_manual -= float(tx.get("amount", 0))
-                                    elif tx.get("type") == "income" and tx.get("transfer_metadata", {}).get("transfer_type") == "incoming":
-                                        balance_changes_after_manual += float(tx.get("amount", 0))
                         
-                        # Current balance = manual balance + perubahan setelah manual balance
+                        if transactions and isinstance(transactions, list):
+                            for tx in transactions:
+                                if not tx or not isinstance(tx, dict):
+                                    continue
+                                    
+                                # Hanya hitung transaksi setelah real balance terakhir (bukan manual_balance transaction)
+                                if tx.get("timestamp", 0) > latest_balance_timestamp and tx.get("type") != "manual_balance":
+                                    if tx.get("type") == "income":
+                                        balance_changes_after_manual += float(tx.get("amount", 0))
+                                    elif tx.get("type") == "expense":
+                                        balance_changes_after_manual -= float(tx.get("amount", 0))
+                                    elif tx.get("is_transfer"):
+                                        if tx.get("type") == "expense" and tx.get("transfer_metadata", {}).get("transfer_type") == "outgoing":
+                                            balance_changes_after_manual -= float(tx.get("amount", 0))
+                                        elif tx.get("type") == "income" and tx.get("transfer_metadata", {}).get("transfer_type") == "incoming":
+                                            balance_changes_after_manual += float(tx.get("amount", 0))
+                        
+                        # Current balance = manual balance + perubahan setelah real balance terakhir
                         current_balance = manual_balance + balance_changes_after_manual
+                        print(f"🔍 [REAL_BALANCE] Current balance for {wallet.get('name')}: {current_balance}")
                     else:
-                        # Belum ada manual balance: hitung dari semua transaksi (baseline = 0)
-                        # INCLUDE all transactions to calculate current balance correctly
-                        print(f"⚠️  No manual balance found for {wallet.get('name')}, calculating from all transactions")
+                        # Tidak ada real balance history, hitung dari semua transaksi
+                        print(f"⚠️ [REAL_BALANCE] No real balance history for {wallet.get('name')}, calculating from all transactions")
                         balance_changes_from_all = 0
-                        for tx in transactions:
-                            if tx.get("type") != "manual_balance":
-                                if tx.get("type") == "income":
-                                    balance_changes_from_all += float(tx.get("amount", 0))
-                                elif tx.get("type") == "expense":
-                                    balance_changes_from_all -= float(tx.get("amount", 0))
-                                elif tx.get("is_transfer"):
-                                    if tx.get("type") == "expense" and tx.get("transfer_metadata", {}).get("transfer_type") == "outgoing":
-                                        balance_changes_from_all -= float(tx.get("amount", 0))
-                                    elif tx.get("type") == "income" and tx.get("transfer_metadata", {}).get("transfer_type") == "incoming":
+                        
+                        if transactions and isinstance(transactions, list):
+                            for tx in transactions:
+                                if not tx or not isinstance(tx, dict):
+                                    continue
+                                    
+                                if tx.get("type") != "manual_balance":
+                                    if tx.get("type") == "income":
                                         balance_changes_from_all += float(tx.get("amount", 0))
+                                    elif tx.get("type") == "expense":
+                                        balance_changes_from_all -= float(tx.get("amount", 0))
+                                    elif tx.get("is_transfer"):
+                                        if tx.get("type") == "expense" and tx.get("transfer_metadata", {}).get("transfer_type") == "outgoing":
+                                            balance_changes_from_all -= float(tx.get("amount", 0))
+                                        elif tx.get("type") == "income" and tx.get("transfer_metadata", {}).get("transfer_type") == "incoming":
+                                            balance_changes_from_all += float(tx.get("amount", 0))
                         
                         # Current balance = 0 + perubahan dari semua transaksi
                         current_balance = 0 + balance_changes_from_all
+                        print(f"🔍 [REAL_BALANCE] Current balance from all transactions for {wallet.get('name')}: {current_balance}")
             except Exception as e:
-                print(f"Error calculating current balance for {wallet.get('name')}: {e}")
+                print(f"❌ [REAL_BALANCE] Error calculating current balance for {wallet.get('name')}: {e}")
                 current_balance = manual_balance
             
             # Calculate ghost transactions: difference between manual balance and expected balance
@@ -515,20 +622,23 @@ def balance():
             total_ghost_negative = 0
             
             try:
-                if manual_balance_txs and len(manual_balance_txs) > 1:
-                    # NEW: Sort by transaction_order if available, otherwise by timestamp
-                    if any(tx.get("transaction_order") is not None for tx in manual_balance_txs):
-                        # Use transaction_order for precise ordering
-                        sorted_manual_balances = sorted(manual_balance_txs, key=lambda x: x.get("transaction_order", 0))
-                    else:
-                        # Fallback to timestamp sorting
-                        sorted_manual_balances = sorted(manual_balance_txs, key=lambda x: x.get("timestamp", 0))
-                    
-                    for i in range(1, len(sorted_manual_balances)):
-                        prev_manual_balance = float(sorted_manual_balances[i-1].get("amount", 0))
-                        curr_manual_balance = float(sorted_manual_balances[i].get("amount", 0))
-                        prev_timestamp = sorted_manual_balances[i-1].get("timestamp", 0)
-                        curr_timestamp = sorted_manual_balances[i].get("timestamp", 0)
+                if manual_balance_txs and isinstance(manual_balance_txs, list) and len(manual_balance_txs) > 1:
+                    # Ensure all items in manual_balance_txs are valid
+                    valid_manual_balances = [tx for tx in manual_balance_txs if tx and isinstance(tx, dict)]
+                    if valid_manual_balances and len(valid_manual_balances) > 1:
+                        # NEW: Sort by transaction_order if available, otherwise by timestamp
+                        if any(tx.get("transaction_order") is not None for tx in valid_manual_balances):
+                            # Use transaction_order for precise ordering
+                            sorted_manual_balances = sorted(valid_manual_balances, key=lambda x: x.get("transaction_order", 0) if x and isinstance(x, dict) else 0)
+                        else:
+                            # Fallback to timestamp sorting
+                            sorted_manual_balances = sorted(valid_manual_balances, key=lambda x: x.get("timestamp", 0) if x and isinstance(x, dict) else 0)
+                        
+                        for i in range(1, len(sorted_manual_balances)):
+                            prev_manual_balance = float(sorted_manual_balances[i-1].get("amount", 0)) if sorted_manual_balances[i-1] and isinstance(sorted_manual_balances[i-1], dict) else 0
+                            curr_manual_balance = float(sorted_manual_balances[i].get("amount", 0)) if sorted_manual_balances[i] and isinstance(sorted_manual_balances[i], dict) else 0
+                            prev_timestamp = sorted_manual_balances[i-1].get("timestamp", 0) if sorted_manual_balances[i-1] and isinstance(sorted_manual_balances[i-1], dict) else 0
+                            curr_timestamp = sorted_manual_balances[i].get("timestamp", 0) if sorted_manual_balances[i] and isinstance(sorted_manual_balances[i], dict) else 0
                         
                         # Calculate what the balance should be at this point based on transactions
                         # between prev_timestamp and curr_timestamp (inclusive for same timestamp)
@@ -539,47 +649,53 @@ def balance():
                         # NEW: Track unique transactions to avoid duplicates
                         seen_transactions = set()
                         
-                        for tx in transactions:
-                            # NEW LOGIC: Check if transaction should be between manual balances
-                            # Option 1: Use transaction_order field if available
-                            # Option 2: Fallback to timestamp logic
-                            should_include = False
-                            
-                            if tx.get("transaction_order") is not None:
-                                # Use transaction_order field for precise ordering
-                                prev_order = sorted_manual_balances[i-1].get("transaction_order", 0)
-                                curr_order = sorted_manual_balances[i].get("transaction_order", 0)
-                                tx_order = tx.get("transaction_order", 0)
-                                
-                                # Include if transaction_order is between manual balance orders
-                                if (tx_order > prev_order and 
-                                    tx_order < curr_order and 
-                                    tx.get("type") != "manual_balance"):
-                                    should_include = True
-                            else:
-                                # Fallback to timestamp logic
-                                if (tx.get("timestamp", 0) >= prev_timestamp and 
-                                    tx.get("timestamp", 0) <= curr_timestamp and 
-                                    tx.get("type") != "manual_balance"):
-                                    should_include = True
-                            
-                            if should_include:
-                                # NEW: Create unique identifier to avoid duplicates
-                                tx_key = f"{tx.get('type')}_{tx.get('amount')}_{tx.get('timestamp')}_{tx.get('description', '')}"
-                                
-                                # Only process if we haven't seen this transaction before
-                                if tx_key not in seen_transactions:
-                                    seen_transactions.add(tx_key)
+                        # Ensure transactions is a valid list before iterating
+                        if transactions and isinstance(transactions, list):
+                            for tx in transactions:
+                                # Ensure tx is a valid transaction object
+                                if not tx or not isinstance(tx, dict):
+                                    continue
                                     
-                                    if tx.get("type") == "income":
-                                        balance_changes_between += float(tx.get("amount", 0))
-                                    elif tx.get("type") == "expense":
-                                        balance_changes_between -= float(tx.get("amount", 0))
-                                    elif tx.get("is_transfer"):
-                                        if tx.get("type") == "expense" and tx.get("transfer_metadata", {}).get("transfer_type") == "outgoing":
-                                            balance_changes_between -= float(tx.get("amount", 0))
-                                        elif tx.get("type") == "income" and tx.get("transfer_metadata", {}).get("transfer_type") == "incoming":
+                                # NEW LOGIC: Check if transaction should be between manual balances
+                                # Option 1: Use transaction_order field if available
+                                # Option 2: Fallback to timestamp logic
+                                should_include = False
+                                
+                                if tx.get("transaction_order") is not None:
+                                    # Use transaction_order field for precise ordering
+                                    prev_order = sorted_manual_balances[i-1].get("transaction_order", 0)
+                                    curr_order = sorted_manual_balances[i].get("transaction_order", 0)
+                                    tx_order = tx.get("transaction_order", 0)
+                                    
+                                    # Include if transaction_order is between manual balance orders
+                                    if (tx_order > prev_order and 
+                                        tx_order < curr_order and 
+                                        tx.get("type") != "manual_balance"):
+                                        should_include = True
+                                else:
+                                    # Fallback to timestamp logic
+                                    if (tx.get("timestamp", 0) >= prev_timestamp and 
+                                        tx.get("timestamp", 0) <= curr_timestamp and 
+                                        tx.get("type") != "manual_balance"):
+                                        should_include = True
+                                
+                                if should_include:
+                                    # NEW: Create unique identifier to avoid duplicates
+                                    tx_key = f"{tx.get('type')}_{tx.get('amount')}_{tx.get('timestamp')}_{tx.get('description', '')}"
+                                    
+                                    # Only process if we haven't seen this transaction before
+                                    if tx_key not in seen_transactions:
+                                        seen_transactions.add(tx_key)
+                                        
+                                        if tx.get("type") == "income":
                                             balance_changes_between += float(tx.get("amount", 0))
+                                        elif tx.get("type") == "expense":
+                                            balance_changes_between -= float(tx.get("amount", 0))
+                                        elif tx.get("is_transfer"):
+                                            if tx.get("type") == "expense" and tx.get("transfer_metadata", {}).get("transfer_type") == "outgoing":
+                                                balance_changes_between -= float(tx.get("amount", 0))
+                                            elif tx.get("type") == "income" and tx.get("transfer_metadata", {}).get("transfer_type") == "incoming":
+                                                balance_changes_between += float(tx.get("amount", 0))
                         
                         # Expected balance should be: prev_manual_balance + balance_changes_between
                         expected_balance_at_curr = prev_manual_balance + balance_changes_between
@@ -606,41 +722,48 @@ def balance():
                             # NEW: Look for confirmed ghost transactions AFTER this point
                             # Use transaction_order if available, otherwise fallback to timestamp
                             confirmed_for_this_ghost = 0
-                            for tx in transactions:
-                                # NEW LOGIC: Check if transaction is after current manual balance
-                                should_include = False
-                                
-                                if tx.get("transaction_order") is not None:
-                                    # Use transaction_order for precise ordering
-                                    curr_order = sorted_manual_balances[i].get("transaction_order", 0)
-                                    tx_order = tx.get("transaction_order", 0)
+                            
+                            # Ensure transactions is a valid list before iterating
+                            if transactions and isinstance(transactions, list):
+                                for tx in transactions:
+                                    # Ensure tx is a valid transaction object
+                                    if not tx or not isinstance(tx, dict):
+                                        continue
+                                        
+                                    # NEW LOGIC: Check if transaction is after current manual balance
+                                    should_include = False
                                     
-                                    # Include if transaction_order is after current manual balance order
-                                    if (tx_order > curr_order and 
-                                        tx.get("type") != "manual_balance" and
-                                        tx.get("is_from_ghost_transaction")):
-                                        should_include = True
-                                else:
-                                    # Fallback to timestamp logic
-                                    if (tx.get("timestamp", 0) > curr_timestamp and 
-                                        tx.get("type") != "manual_balance" and
-                                        tx.get("is_from_ghost_transaction")):
-                                        should_include = True
-                                
-                                if should_include:
-                                    
-                                    if ghost_type == "positive":
-                                        # For positive ghost (unexplained income), reduce by confirmed income
-                                        if tx.get("type") == "income":
-                                            confirmed_for_this_ghost += float(tx.get("amount", 0))
-                                        elif tx.get("type") == "expense":
-                                            confirmed_for_this_ghost -= float(tx.get("amount", 0))
+                                    if tx.get("transaction_order") is not None:
+                                        # Use transaction_order for precise ordering
+                                        curr_order = sorted_manual_balances[i].get("transaction_order", 0) if sorted_manual_balances[i] and isinstance(sorted_manual_balances[i], dict) else 0
+                                        tx_order = tx.get("transaction_order", 0)
+                                        
+                                        # Include if transaction_order is after current manual balance order
+                                        if (tx_order > curr_order and 
+                                            tx.get("type") != "manual_balance" and
+                                            tx.get("is_from_ghost_transaction")):
+                                            should_include = True
                                     else:
-                                        # For negative ghost (unexplained expense), reduce by confirmed expense
-                                        if tx.get("type") == "income":
-                                            confirmed_for_this_ghost += float(tx.get("amount", 0))
-                                        elif tx.get("type") == "expense":
-                                            confirmed_for_this_ghost -= float(tx.get("amount", 0))
+                                        # Fallback to timestamp logic
+                                        if (tx.get("timestamp", 0) > curr_timestamp and 
+                                            tx.get("type") != "manual_balance" and
+                                            tx.get("is_from_ghost_transaction")):
+                                            should_include = True
+                                    
+                                    if should_include:
+                                        
+                                        if ghost_type == "positive":
+                                            # For positive ghost (unexplained income), reduce by confirmed income
+                                            if tx.get("type") == "income":
+                                                confirmed_for_this_ghost += float(tx.get("amount", 0))
+                                            elif tx.get("type") == "expense":
+                                                confirmed_for_this_ghost -= float(tx.get("amount", 0))
+                                        else:
+                                            # For negative ghost (unexplained expense), reduce by confirmed expense
+                                            if tx.get("type") == "income":
+                                                confirmed_for_this_ghost += float(tx.get("amount", 0))
+                                            elif tx.get("type") == "expense":
+                                                confirmed_for_this_ghost -= float(tx.get("amount", 0))
                             
                             # Calculate remaining ghost amount
                             if ghost_type == "positive":
@@ -679,9 +802,9 @@ def balance():
             
             try:
                 if transactions and isinstance(transactions, list):
-                    income_txs = [tx for tx in transactions if tx.get("type") == "income" and tx.get("timestamp")]
+                    income_txs = [tx for tx in transactions if tx and isinstance(tx, dict) and tx.get("type") == "income" and tx.get("timestamp")]
                     if income_txs:
-                        last_income = max(int(tx.get("timestamp", 0)) for tx in income_txs)
+                        last_income = max(int(tx.get("timestamp", 0)) for tx in income_txs if tx and isinstance(tx, dict))
                     else:
                         last_income = 0
                 else:
@@ -692,9 +815,9 @@ def balance():
                 
             try:
                 if transactions and isinstance(transactions, list):
-                    expense_txs = [tx for tx in transactions if tx.get("type") == "expense" and tx.get("timestamp")]
+                    expense_txs = [tx for tx in transactions if tx and isinstance(tx, dict) and tx.get("type") == "expense" and tx.get("timestamp")]
                     if expense_txs:
-                        last_expense = max(int(tx.get("timestamp", 0)) for tx in expense_txs)
+                        last_expense = max(int(tx.get("timestamp", 0)) for tx in expense_txs if tx and isinstance(tx, dict))
                     else:
                         last_expense = 0
                 else:
@@ -705,9 +828,9 @@ def balance():
                 
             try:
                 if transactions and isinstance(transactions, list):
-                    transfer_txs = [tx for tx in transactions if tx.get("type") == "transfer" and tx.get("timestamp")]
+                    transfer_txs = [tx for tx in transactions if tx and isinstance(tx, dict) and tx.get("type") == "transfer" and tx.get("timestamp")]
                     if transfer_txs:
-                        last_transfer = max(int(tx.get("timestamp", 0)) for tx in transfer_txs)
+                        last_transfer = max(int(tx.get("timestamp", 0)) for tx in transfer_txs if tx and isinstance(tx, dict))
                     else:
                         last_transfer = 0
                 else:
@@ -718,9 +841,9 @@ def balance():
                 
             try:
                 if transactions and isinstance(transactions, list):
-                    valid_txs = [tx for tx in transactions if tx.get("timestamp")]
+                    valid_txs = [tx for tx in transactions if tx and isinstance(tx, dict) and tx.get("timestamp")]
                     if valid_txs:
-                        last_transaction = max(int(tx.get("timestamp", 0)) for tx in valid_txs)
+                        last_transaction = max(int(tx.get("timestamp", 0)) for tx in valid_txs if tx and isinstance(tx, dict))
                     else:
                         last_transaction = 0
                 else:
@@ -733,7 +856,7 @@ def balance():
             transfer_count = 0  # Initialize variable outside try-catch
             try:
                 if transactions and isinstance(transactions, list):
-                    transfer_count = len([tx for tx in transactions if tx.get("type") == "transfer"])
+                    transfer_count = len([tx for tx in transactions if tx and isinstance(tx, dict) and tx.get("type") == "transfer"])
             except Exception as e:
                 print(f"Error counting transfer transactions for {wallet.get('name')}: {e}")
                 transfer_count = 0
@@ -747,80 +870,85 @@ def balance():
                     seen_tx_keys = set()
                     
                     for tx in transactions:
-                        # Get category name if available
-                        category_name = None
-                        if tx.get("category_id"):
-                            try:
-                                category = category_repo.find_one({"_id": ObjectId(tx["category_id"])})
-                                category_name = category["name"] if category else None
-                            except Exception:
-                                category_name = None
-                        
-                        # Special handling for manual balance transactions
-                        if tx.get("type") == "manual_balance":
-                            category_name = "Manual Balance Update"
-                            # Add base_time for sorting multiple balance updates
-                            if tx.get("base_time"):
-                                tx["timestamp"] = tx["base_time"]
-                        
-                        # Special handling for transfer transactions
-                        if tx.get("is_transfer"):
-                            if tx.get("type") == "expense" and tx.get("transfer_metadata", {}).get("transfer_type") == "outgoing":
-                                # This is an outgoing transfer (expense)
-                                to_wallet_name = tx.get("transfer_metadata", {}).get("to_wallet_name", "Unknown")
-                                net_amount = tx.get("transfer_metadata", {}).get("net_amount", 0)
-                                admin_fee = tx.get("transfer_metadata", {}).get("admin_fee", 0)
-                                category_name = f"Transfer to {to_wallet_name}"
-                                display_amount = -float(tx.get("amount", 0))  # Negative for expense
-                                description = f"Transfer to {to_wallet_name} (Net: {net_amount}, Fee: {admin_fee})"
-                            elif tx.get("type") == "income" and tx.get("transfer_metadata", {}).get("transfer_type") == "incoming":
-                                # This is an incoming transfer (income)
-                                from_wallet_name = tx.get("transfer_metadata", {}).get("from_wallet_name", "Unknown")
-                                category_name = f"Transfer from {from_wallet_name}"
-                                display_amount = float(tx.get("amount", 0))  # Positive for income
-                                description = f"Transfer from {from_wallet_name}"
+                            # Ensure tx is a valid transaction object
+                            if not tx or not isinstance(tx, dict):
+                                continue
+                                
+                            # Get category name if available
+                            category_name = None
+                            if tx.get("category_id"):
+                                try:
+                                    # Try to get category using new method that includes defaults
+                                    category = category_repo.get_category_by_id(tx["category_id"], user_id)
+                                    category_name = category["name"] if category else None
+                                except Exception:
+                                    category_name = None
+                            
+                            # Special handling for manual balance transactions
+                            if tx.get("type") == "manual_balance":
+                                category_name = "Manual Balance Update"
+                                # Add base_time for sorting multiple balance updates
+                                if tx.get("base_time"):
+                                    tx["timestamp"] = tx["base_time"]
+                            
+                            # Special handling for transfer transactions
+                            if tx.get("is_transfer"):
+                                if tx.get("type") == "expense" and tx.get("transfer_metadata", {}).get("transfer_type") == "outgoing":
+                                    # This is an outgoing transfer (expense)
+                                    to_wallet_name = tx.get("transfer_metadata", {}).get("to_wallet_name", "Unknown")
+                                    net_amount = tx.get("transfer_metadata", {}).get("net_amount", 0)
+                                    admin_fee = tx.get("transfer_metadata", {}).get("admin_fee", 0)
+                                    category_name = f"Transfer to {to_wallet_name}"
+                                    display_amount = -float(tx.get("amount", 0))  # Negative for expense
+                                    description = f"Transfer to {to_wallet_name} (Net: {net_amount}, Fee: {admin_fee})"
+                                elif tx.get("type") == "income" and tx.get("transfer_metadata", {}).get("transfer_type") == "incoming":
+                                    # This is an incoming transfer (income)
+                                    from_wallet_name = tx.get("transfer_metadata", {}).get("from_wallet_name", "Unknown")
+                                    category_name = f"Transfer from {from_wallet_name}"
+                                    display_amount = float(tx.get("amount", 0))  # Positive for income
+                                    description = f"Transfer from {from_wallet_name}"
+                                else:
+                                    display_amount = tx.get("amount", 0)
+                                    description = tx.get("description", "")
                             else:
                                 display_amount = tx.get("amount", 0)
                                 description = tx.get("description", "")
-                        else:
-                            display_amount = tx.get("amount", 0)
-                            description = tx.get("description", "")
-                        
-                        # NEW: Create unique identifier to avoid duplicates
-                        tx_key = f"{tx.get('type')}_{tx.get('amount')}_{tx.get('timestamp')}_{tx.get('description', '')}"
-                        
-                        # Only add if we haven't seen this transaction before
-                        if tx_key not in seen_tx_keys:
-                            seen_tx_keys.add(tx_key)
                             
-                            individual_transactions.append({
-                            "type": tx.get("type"),
-                            "amount": display_amount,
-                            "description": description,
-                            "timestamp": tx.get("timestamp", 0),
-                            "note": tx.get("note", ""),
-                            "category_name": category_name,
-                            "is_manual_balance": tx.get("is_manual_balance", False),
-                            "base_time": tx.get("base_time", tx.get("timestamp", 0)),
-                            "is_transfer": tx.get("is_transfer", False),
-                            "transfer_metadata": tx.get("transfer_metadata", {}),
-                            "transaction_order": tx.get("transaction_order", None)  # NEW: Add transaction_order field
-                            })
-                        # End of if not duplicate
+                            # NEW: Create unique identifier to avoid duplicates
+                            tx_key = f"{tx.get('type')}_{tx.get('amount')}_{tx.get('timestamp')}_{tx.get('description', '')}"
+                            
+                            # Only add if we haven't seen this transaction before
+                            if tx_key not in seen_tx_keys:
+                                seen_tx_keys.add(tx_key)
+                                
+                                individual_transactions.append({
+                                "type": tx.get("type"),
+                                "amount": display_amount,
+                                "description": description,
+                                "timestamp": tx.get("timestamp", 0),
+                                "note": tx.get("note", ""),
+                                "category_name": category_name,
+                                "is_manual_balance": tx.get("is_manual_balance", False),
+                                "base_time": tx.get("base_time", tx.get("timestamp", 0)),
+                                "is_transfer": tx.get("is_transfer", False),
+                                "transfer_metadata": tx.get("transfer_metadata", {}),
+                                "transaction_order": tx.get("transaction_order", None)  # NEW: Add transaction_order field
+                                })
+                            # End of if not duplicate
             except Exception as e:
                 print(f"Error processing individual transactions for {wallet.get('name')}: {e}")
                 individual_transactions = []
             
             # NEW: Sort transactions by transaction_order if available, otherwise by timestamp
             try:
-                if individual_transactions:
+                if individual_transactions and isinstance(individual_transactions, list):
                     # Check if any transaction has transaction_order field
-                    if any(tx.get("transaction_order") is not None for tx in individual_transactions):
+                    if any(tx and isinstance(tx, dict) and tx.get("transaction_order") is not None for tx in individual_transactions):
                         # Sort by transaction_order (ascending - oldest first)
-                        individual_transactions.sort(key=lambda x: x.get("transaction_order", 0))
+                        individual_transactions.sort(key=lambda x: x.get("transaction_order", 0) if x and isinstance(x, dict) else 0)
                     else:
                         # Fallback to timestamp sorting (newest first)
-                        individual_transactions.sort(key=lambda x: x["timestamp"], reverse=True)
+                        individual_transactions.sort(key=lambda x: x.get("timestamp", 0) if x and isinstance(x, dict) else 0, reverse=True)
             except Exception as e:
                 print(f"Error sorting individual transactions for {wallet.get('name')}: {e}")
             
@@ -830,17 +958,26 @@ def balance():
                 
                 # NEW: Sort all transactions by transaction_order if available, otherwise by timestamp
                 # This will show transactions in the correct order when scrolling
-                if all_transactions:
+                if all_transactions and isinstance(all_transactions, list):
                     # Check if any transaction has transaction_order field
-                    if any(tx.get("transaction_order") is not None for tx in all_transactions):
+                    if any(tx and isinstance(tx, dict) and tx.get("transaction_order") is not None for tx in all_transactions):
                         # Sort by transaction_order (ascending - oldest first)
-                        all_transactions.sort(key=lambda x: x.get("transaction_order", 0))
+                        all_transactions.sort(key=lambda x: x.get("transaction_order", 0) if x and isinstance(x, dict) else 0)
                     else:
                         # Fallback to timestamp sorting (oldest first), with manual balance transactions prioritized by base_time
-                        all_transactions.sort(key=lambda x: (x.get("base_time", x.get("timestamp", 0)), x.get("is_manual_balance", False)), reverse=False)
+                        all_transactions.sort(key=lambda x: (x.get("base_time", x.get("timestamp", 0)) if x and isinstance(x, dict) else 0, x.get("is_manual_balance", False) if x and isinstance(x, dict) else False), reverse=False)
             except Exception as e:
                 print(f"Error combining and sorting all transactions for {wallet.get('name')}: {e}")
                 all_transactions = individual_transactions
+            
+            # Get manual balance history untuk display (sorted by timestamp descending)
+            from mm.repositories.manual_balance import ManualBalanceRepository
+            manual_balance_repo = ManualBalanceRepository()
+            manual_balance_history = manual_balance_repo.get_balance_history(user_id, wallet_id_str, limit=100)
+            
+            # Sort by timestamp descending (newest first) untuk dropdown
+            if manual_balance_history:
+                manual_balance_history.sort(key=lambda x: x.get("balance_date", 0), reverse=True)
             
             balance_data.append({
                 "wallet": wallet,
@@ -860,7 +997,8 @@ def balance():
                 "ghost_transactions": ghost_transactions,
                 "total_ghost_positive": total_ghost_positive,
                 "total_ghost_negative": total_ghost_negative,
-                "manual_balance_transactions": manual_balance_txs
+                "manual_balance_transactions": manual_balance_history,  # Sekarang menggunakan manual balance history
+                "manual_balance_history": manual_balance_history  # Tambahan field untuk manual balance
             })
         
         # Ensure lists are passed
@@ -889,7 +1027,7 @@ def settings():
         # Get data
         scopes = scope_repo.list_by_user(user_id)
         wallets = wallet_repo.list_by_user(user_id)
-        categories = category_repo.list_by_user(user_id)
+        categories = category_repo.list_by_user_with_defaults(user_id)  # Include default categories
         
         # Ensure lists are passed
         scopes = scopes or []
@@ -1109,117 +1247,107 @@ def update_wallet(wallet_id):
         print(f"Error in update_wallet: {e}")
         return jsonify({"error": str(e)}), 500
 
-@app.route("/api/wallets/<wallet_id>/balance", methods=["PUT"])
+@app.route('/api/wallets/<wallet_id>/balance', methods=['PUT'])
 def update_wallet_balance(wallet_id):
-    """Update manual balance for saving space"""
     try:
-        user_id = session.get("user_id", "demo_user")
-        body = request.get_json(force=True) or {}
+        data = request.get_json()
+        amount = data.get('amount', 0)
+        note = data.get('note', '')
         
-        # Validate balance input
-        if "manual_balance" not in body:
-            return jsonify({"error": "manual_balance is required"}), 400
+        if not amount or amount < 0:
+            return jsonify({'error': 'Invalid amount'}), 400
         
-        try:
-            manual_balance = float(body["manual_balance"])
-        except (ValueError, TypeError):
-            return jsonify({"error": "manual_balance must be a valid number"}), 400
-        
-        # Get current wallet to check if we need to add to history
-        repo = WalletRepository()
-        current_wallet = repo.find_one({"_id": ObjectId(wallet_id), "user_id": user_id})
-        
-        if not current_wallet:
-            return jsonify({"error": "Saving space not found"}), 404
-        
-        # Prepare updates
-        updates = {"manual_balance": manual_balance}
-        
-        # Create manual balance transaction for history tracking
-        current_balance = current_wallet.get("manual_balance", 0)
-        if abs(manual_balance - current_balance) > 0.01:  # Allow small floating point differences
-            import time
-            current_timestamp = int(time.time())
-            
-            # Create manual balance transaction for history tracking
-            tx_repo = TransactionRepository()
-            manual_balance_tx = {
-                "user_id": user_id,
-                "type": "manual_balance",  # Special type for manual balance updates
-                "amount": manual_balance,
-                "wallet_id": wallet_id,
-                "description": f"Manual balance update: {current_balance} → {manual_balance}",
-                "note": body.get("note", "Balance update"),
-                "timestamp": current_timestamp,
-                "currency": "IDR",
-                "category_id": None,
-                "scope_id": None,
-                "base_time": current_timestamp,  # For sorting multiple balance updates
-                "is_manual_balance": True  # Flag to identify manual balance transactions
-            }
-            
-            # Insert the transaction
-            tx_repo.insert_one(manual_balance_tx)
-        
-        # Update wallet with new balance (no history needed)
-        success = repo.update_wallet(wallet_id, user_id, updates)
-        
-        if not success:
-            return jsonify({"error": "Update failed"}), 500
-        
-        return jsonify({
-            "message": "Manual balance updated successfully",
-            "manual_balance": manual_balance,
-            "added_to_history": True
-        })
-    except Exception as e:
-        print(f"Error in update_wallet_balance: {e}")
-        return jsonify({"error": str(e)}), 500
-
-@app.route("/api/wallets/<wallet_id>/balance-history", methods=["GET"])
-def get_wallet_balance_history(wallet_id):
-    """Get manual balance history for saving space from transactions"""
-    try:
-        user_id = session.get("user_id", "demo_user")
-        
-        # Get repositories
+        # Get wallet info
         wallet_repo = WalletRepository()
-        tx_repo = TransactionRepository()
-        
-        # Validate wallet exists and belongs to user
-        wallet = wallet_repo.find_one({"_id": ObjectId(wallet_id), "user_id": user_id})
+        wallet = wallet_repo.find_one({"_id": ObjectId(wallet_id), "user_id": session.get("user_id", "demo_user")})
         if not wallet:
-            return jsonify({"error": "Saving space not found"}), 404
+            return jsonify({'error': 'Wallet not found'}), 404
         
-        # Get manual balance transactions
-        manual_balance_txs = tx_repo.get_transactions_with_filters(
-            user_id, 
-            {"wallet_id": wallet_id, "type": "manual_balance"}, 
-            limit=100
+        # Create new manual balance
+        balance_repo = ManualBalanceRepository()
+        balance_data = {
+            'balance_amount': amount,
+            'note': note,
+            'currency': 'IDR'
+        }
+        
+        balance_id = balance_repo.create_balance(
+            session.get("user_id", "demo_user"), 
+            wallet_id, 
+            balance_data
         )
         
-        # Convert to history format
-        history = []
-        for tx in manual_balance_txs:
-            history.append({
-                "balance": float(tx.get("amount", 0)),
-                "timestamp": tx.get("timestamp", 0),
-                "note": tx.get("note", "Balance update"),
-                "description": tx.get("description", "")
+        if balance_id:
+            return jsonify({
+                'success': True,
+                'balance_id': balance_id,
+                'message': 'Balance updated successfully'
             })
-        
-        # Sort by timestamp (newest first)
-        history.sort(key=lambda x: x["timestamp"], reverse=True)
-        
-        return jsonify({
-            "wallet_id": str(wallet["_id"]),
-            "wallet_name": wallet["name"],
-            "current_manual_balance": wallet.get("manual_balance", 0),
-            "balance_history": history
-        })
+        else:
+            return jsonify({'error': 'Failed to update balance'}), 500
+            
     except Exception as e:
-        print(f"Error in get_wallet_balance_history: {e}")
-        return jsonify({"error": str(e)}), 500
+        print(f"❌ [API] Error updating wallet balance: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@app.route('/api/manual-balance/<wallet_id>/history')
+def get_manual_balance_history(wallet_id):
+    try:
+        balance_repo = ManualBalanceRepository()
+        history = balance_repo.get_balance_history(session.get("user_id", "demo_user"), wallet_id, limit=100)
+        
+        # Format dates for frontend
+        for balance in history:
+            if 'balance_date' in balance:
+                balance['formatted_date'] = datetime.fromtimestamp(balance['balance_date']).strftime('%d %b %Y')
+        
+        return jsonify(history)
+        
+    except Exception as e:
+        print(f"❌ [API] Error getting manual balance history: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@app.route('/api/manual-balance/<balance_id>/transactions')
+def get_transactions_by_manual_balance(balance_id):
+    try:
+        tx_repo = TransactionRepository()
+        transactions = tx_repo.get_transactions_by_manual_balance(
+            session.get("user_id", "demo_user"), 
+            balance_id, 
+            limit=1000
+        )
+        
+        return jsonify(transactions)
+        
+    except Exception as e:
+        print(f"❌ [API] Error getting transactions by manual balance: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@app.route('/api/manual-balance/<wallet_id>/sequence-summary')
+def get_manual_balance_sequence_summary(wallet_id):
+    try:
+        balance_repo = ManualBalanceRepository()
+        summary = balance_repo.get_balance_sequence_summary(session.get("user_id", "demo_user"), wallet_id)
+        return jsonify(summary)
+        
+    except Exception as e:
+        print(f"❌ [API] Error getting manual balance sequence summary: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@app.route('/api/manual-balance/<wallet_id>/sequence/<int:sequence_number>')
+def get_manual_balance_by_sequence(wallet_id, sequence_number):
+    try:
+        balance_repo = ManualBalanceRepository()
+        balance = balance_repo.get_balance_by_sequence(session.get("user_id", "demo_user"), wallet_id, sequence_number)
+        
+        if balance:
+            return jsonify(balance)
+        else:
+            return jsonify({'error': 'Balance not found'}), 404
+            
+    except Exception as e:
+        print(f"❌ [API] Error getting manual balance by sequence: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
 
 @app.route("/api/transfer", methods=["POST"])
 def transfer_funds():
@@ -1271,45 +1399,8 @@ def transfer_funds():
         if from_wallet["_id"] == to_wallet["_id"]:
             return jsonify({"error": "Cannot transfer to the same saving space"}), 400
         
-        # Check if source wallet has sufficient balance (use actual balance including transactions)
-        manual_balance = from_wallet.get("manual_balance", 0)
-        
-        # Get actual balance by calculating from transactions
-        try:
-            from_wallet_transactions = tx_repo.get_transactions_with_filters(
-                user_id, 
-                {"wallet_id": str(from_wallet["_id"])}, 
-                limit=1000
-            )
-            
-            # Ensure we always have a list
-            if from_wallet_transactions is None:
-                from_wallet_transactions = []
-            
-            # Calculate actual balance
-            total_income = 0
-            total_expense = 0
-            try:
-                if from_wallet_transactions and isinstance(from_wallet_transactions, list):
-                    total_income = sum(float(tx.get("amount", 0)) for tx in from_wallet_transactions if tx.get("type") == "income")
-            except (ValueError, TypeError) as e:
-                print(f"Error calculating total_income for transfer: {e}")
-                total_income = 0
-                
-            try:
-                if from_wallet_transactions and isinstance(from_wallet_transactions, list):
-                    total_expense = sum(float(tx.get("amount", 0)) for tx in from_wallet_transactions if tx.get("type") == "expense")
-            except (ValueError, TypeError) as e:
-                print(f"Error calculating total_expense for transfer: {e}")
-                total_expense = 0
-            
-            current_balance = manual_balance + total_income - total_expense
-        except Exception as e:
-            print(f"Error getting wallet transactions for transfer: {e}")
-            # Fallback to manual balance only
-            current_balance = manual_balance
-            total_income = 0
-            total_expense = 0
+        # Check if source wallet has sufficient balance (use actual_balance from wallet)
+        current_balance = from_wallet.get("actual_balance", 0)
         
         total_debit = amount + admin_fee
         
@@ -1317,10 +1408,7 @@ def transfer_funds():
         print(f"Transfer Debug - User ID: {user_id}")
         print(f"From Wallet ID: {from_wallet_id}, Found: {from_wallet is not None}")
         print(f"To Wallet ID: {to_wallet_id}, Found: {to_wallet is not None}")
-        print(f"Manual Balance: {manual_balance}")
-        print(f"Total Income: {total_income}")
-        print(f"Total Expense: {total_expense}")
-        print(f"Current Balance: {current_balance}")
+        print(f"Actual Balance: {current_balance}")
         print(f"Transfer Amount: {amount}")
         print(f"Admin Fee: {admin_fee}")
         print(f"Total Debit: {total_debit}")
@@ -1341,7 +1429,7 @@ def transfer_funds():
             "description": f"Transfer to {to_wallet['name']}",
             "timestamp": current_timestamp,
             "currency": "IDR",
-            "category_id": None,
+            "category_id": "transfer",  # Use default transfer category
             "scope_id": None,
             "note": f"Transfer amount: {amount}, Admin fee: {admin_fee}",
             "is_transfer": True,
@@ -1363,7 +1451,7 @@ def transfer_funds():
             "description": f"Transfer from {from_wallet['name']}",
             "timestamp": current_timestamp,
             "currency": "IDR",
-            "category_id": None,
+            "category_id": "transfer",  # Use default transfer category
             "scope_id": None,
             "note": f"Incoming transfer from {from_wallet['name']}",
             "is_transfer": True,
@@ -1380,23 +1468,23 @@ def transfer_funds():
         
         # Update balances
         new_from_balance = current_balance - total_debit
-        new_to_balance = to_wallet.get("manual_balance", 0) + amount
+        new_to_balance = to_wallet.get("actual_balance", 0) + amount
         
-        # Update source wallet balance
+        # Update source wallet actual_balance
         try:
-            success_from = wallet_repo.update_wallet(str(from_wallet_id), user_id, {"manual_balance": new_from_balance})
+            success_from = wallet_repo.update_wallet(str(from_wallet_id), user_id, {"actual_balance": new_from_balance})
             if not success_from:
-                print(f"Warning: Failed to update source wallet balance for {from_wallet['name']}")
+                print(f"Warning: Failed to update source wallet actual_balance for {from_wallet['name']}")
         except Exception as e:
-            print(f"Error updating source wallet balance: {e}")
+            print(f"Error updating source wallet actual_balance: {e}")
         
-        # Update destination wallet balance
+        # Update destination wallet actual_balance
         try:
-            success_to = wallet_repo.update_wallet(str(to_wallet_id), user_id, {"manual_balance": new_to_balance})
+            success_to = wallet_repo.update_wallet(str(to_wallet_id), user_id, {"actual_balance": new_to_balance})
             if not success_to:
-                print(f"Warning: Failed to update destination wallet balance for {to_wallet['name']}")
+                print(f"Warning: Failed to update destination wallet actual_balance for {to_wallet['name']}")
         except Exception as e:
-            print(f"Error updating destination wallet balance: {e}")
+            print(f"Error updating destination wallet actual_balance: {e}")
         
         return jsonify({
             "message": "Transfer completed successfully",
@@ -1501,6 +1589,99 @@ def get_current_user():
     """Get current user info"""
     user_id = session.get("user_id", "demo_user")
     return jsonify({"user_id": user_id, "username": "demo_user"})
+
+@app.route("/balance-history/<manual_balance_id>")
+def balance_history(manual_balance_id):
+    """Halaman balance history dengan pembukuan debit/kredit"""
+    try:
+        user_id = session.get("user_id", "demo_user")
+        
+        # Get repositories
+        tx_repo = TransactionRepository()
+        manual_balance_repo = ManualBalanceRepository()
+        wallet_repo = WalletRepository()
+        category_repo = CategoryRepository()
+        
+        # Get manual balance info
+        manual_balance = manual_balance_repo.find_by_id(manual_balance_id)
+        if not manual_balance:
+            return "Manual balance not found", 404
+        
+        # Validate user ownership
+        if manual_balance.get("user_id") != user_id:
+            return "Access denied", 403
+        
+        # Get wallet info
+        wallet = wallet_repo.get_wallet_by_id(manual_balance.get("wallet_id"), user_id)
+        if not wallet:
+            return "Wallet not found", 404
+        
+        # Ensure wallet _id is string
+        if "_id" in wallet:
+            wallet["_id"] = str(wallet["_id"])
+        
+        # Get transactions berdasarkan fk_manual_balance_id
+        transactions = tx_repo.get_transactions_by_manual_balance(user_id, manual_balance_id, limit=1000)
+        
+        # Get categories untuk display (including defaults)
+        categories = category_repo.list_by_user_with_defaults(user_id)
+        category_map = {cat["_id"]: cat["name"] for cat in categories}
+        
+        # Calculate totals
+        total_debit = 0
+        total_kredit = 0
+        
+        for tx in transactions:
+            try:
+                if tx.get("type") == "expense":
+                    total_debit += float(tx.get("amount", 0))
+                elif tx.get("type") == "income":
+                    total_kredit += float(tx.get("amount", 0))
+            except (ValueError, TypeError):
+                print(f"⚠️ [BALANCE_HISTORY] Invalid amount in transaction: {tx.get('_id')}")
+                continue
+        
+        # Format transactions dengan category name dan balance info
+        formatted_transactions = []
+        for tx in transactions:
+            # Handle both string IDs (default categories) and ObjectId (user categories)
+            category_id = tx.get("category_id")
+            if category_id:
+                # Convert ObjectId to string if needed
+                if hasattr(category_id, '__str__'):
+                    category_id = str(category_id)
+                tx["category_name"] = category_map.get(category_id, "Unknown")
+            else:
+                tx["category_name"] = "Unknown"
+            # Safe timestamp formatting
+            try:
+                timestamp = tx.get("timestamp", 0)
+                if timestamp:
+                    tx["formatted_time"] = datetime.fromtimestamp(timestamp).strftime("%d %b %Y %H:%M")
+                else:
+                    tx["formatted_time"] = "No date"
+            except (ValueError, TypeError):
+                tx["formatted_time"] = "Invalid date"
+            
+            # Ensure _id is string
+            if "_id" in tx:
+                tx["_id"] = str(tx["_id"])
+            formatted_transactions.append(tx)
+        
+        # Ensure manual_balance _id is string
+        if "_id" in manual_balance:
+            manual_balance["_id"] = str(manual_balance["_id"])
+        
+        return render_template("balance_history.html", 
+                             manual_balance=manual_balance,
+                             wallet=wallet,
+                             transactions=formatted_transactions,
+                             total_debit=total_debit,
+                             total_kredit=total_kredit)
+                             
+    except Exception as e:
+        print(f"Error in balance_history: {e}")
+        return "Error loading balance history", 500
 
 if __name__ == "__main__":
     print("🚀 Starting Money Management AI Application...")

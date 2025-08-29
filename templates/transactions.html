@@ -1,15 +1,102 @@
 {% extends 'layout.html' %}
 
+{% block head %}
+<style>
+.action-card {
+    cursor: pointer;
+    transition: all 0.3s ease;
+    border: 2px solid transparent;
+}
+
+.action-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+    border-color: #007bff;
+}
+
+.action-card:hover .action-icon i {
+    transform: scale(1.1);
+}
+
+.action-icon i {
+    transition: transform 0.3s ease;
+}
+
+.action-card .card-body {
+    padding: 2rem 1rem;
+}
+
+@media (max-width: 768px) {
+    .action-card .card-body {
+        padding: 1.5rem 1rem;
+    }
+    
+    .action-card h5 {
+        font-size: 1.1rem;
+    }
+    
+    .action-card p {
+        font-size: 0.9rem;
+    }
+}
+
+/* Styling for disabled wallet options */
+#add_wallet_id option:disabled {
+    color: #6c757d;
+    font-style: italic;
+    background-color: #f8f9fa;
+}
+
+#add_wallet_id option:disabled:hover {
+    background-color: #e9ecef;
+}
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="container-fluid">
     <div class="row">
         <div class="col-12">
-            <div class="d-flex justify-content-between align-items-center mb-4">
-                <h1 class="h3 mb-0">Transactions</h1>
-                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addTransactionModal">
-                    <i class="fas fa-plus"></i> Add Transaction
-                </button>
+            <div class="text-center mb-5">
+                <h1 class="h2 mb-4">Transactions</h1>
+                <p class="text-muted mb-4">Manage your financial transactions and view history</p>
+                
+                <!-- Main Action Buttons -->
+                <div class="row justify-content-center">
+                    <div class="col-md-4 col-sm-6 mb-3">
+                        <div class="card h-100 action-card" onclick="showAddTransaction()">
+                            <div class="card-body text-center p-4">
+                                <div class="action-icon mb-3">
+                                    <i class="fas fa-plus-circle fa-3x text-primary"></i>
+                                </div>
+                                <h5 class="card-title">Add Transaction</h5>
+                                <p class="card-text text-muted">Create new income or expense transaction</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-4 col-sm-6 mb-3">
+                        <div class="card h-100 action-card" onclick="showTransactionHistory()">
+                            <div class="card-body text-center p-4">
+                                <div class="action-icon mb-3">
+                                    <i class="fas fa-history fa-3x text-success"></i>
+                                </div>
+                                <h5 class="card-title">Transaction History</h5>
+                                <p class="card-text text-muted">View and filter all your transactions</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
+
+            <!-- Transaction History Section (Hidden by default) -->
+            <div id="transactionHistorySection" style="display: none;">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h3 class="h4 mb-0">Transaction History</h3>
+                    <button class="btn btn-outline-secondary" onclick="hideTransactionHistory()">
+                        <i class="fas fa-arrow-left"></i> Back to Menu
+                    </button>
+                </div>
 
             <!-- Filter Panel -->
             <div class="card mb-4">
@@ -333,20 +420,91 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
-                <form id="addTransactionForm">
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label for="add_amount" class="form-label">Amount *</label>
-                            <input type="text" class="form-control" id="add_amount" name="amount" required placeholder="1.000.000">
-                            <small class="form-text text-muted">Format: 1.000.000 (gunakan titik sebagai separator ribuan)</small>
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            <label for="add_type" class="form-label">Type *</label>
-                            <select class="form-select" id="add_type" name="type" required>
-                                <option value="expense">Expense</option>
-                                <option value="income">Income</option>
+                <!-- Progress Bar -->
+                <div class="progress mb-4" style="height: 8px;">
+                    <div class="progress-bar" id="transactionProgress" role="progressbar" style="width: 16.66%"></div>
+                </div>
+                
+                <!-- Step 1: Scope Selection -->
+                <div id="step1" class="step-content">
+                    <div class="text-center mb-4">
+                        <i class="fas fa-folder-open fa-3x text-primary mb-3"></i>
+                        <h4>Select Scope</h4>
+                        <p class="text-muted">Choose the scope for this transaction</p>
+                    </div>
+                    <div class="row justify-content-center">
+                        <div class="col-md-8">
+                            <select class="form-select form-select-lg" id="add_scope_id" name="scope_id" required>
+                                <option value="">Select Scope</option>
+                                {% for scope in scopes %}
+                                <option value="{{ scope._id }}">{{ scope.name }}</option>
+                                {% endfor %}
                             </select>
                         </div>
+                    </div>
+                </div>
+
+                <!-- Step 2: Saving Space Selection -->
+                <div id="step2" class="step-content" style="display: none;">
+                    <div class="text-center mb-4">
+                        <i class="fas fa-wallet fa-3x text-success mb-3"></i>
+                        <h4>Select Saving Space</h4>
+                        <p class="text-muted">Choose which wallet this transaction affects</p>
+                    </div>
+                    <div class="row justify-content-center">
+                        <div class="col-md-8">
+                            <select class="form-select form-select-lg" id="add_wallet_id" name="wallet_id" required>
+                                <option value="">Select Saving Space</option>
+                                {% for wallet in wallets %}
+                                {% if wallet.actual_balance and wallet.actual_balance > 0 %}
+                                <option value="{{ wallet._id }}">{{ wallet.name }} ({{ wallet.type or 'bank' }}) - Balance: IDR {{ "{:,.0f}".format(wallet.actual_balance) }}</option>
+                                {% else %}
+                                <option value="{{ wallet._id }}" disabled>{{ wallet.name }} ({{ wallet.type or 'bank' }}) - Balance: IDR 0 (Add balance first)</option>
+                                {% endif %}
+                                {% endfor %}
+                            </select>
+                            <div class="mt-2 text-center">
+                                <small class="text-muted">
+                                    <i class="fas fa-info-circle me-1"></i>
+                                    Wallets with 0 balance are disabled. 
+                                    <a href="/balance" class="text-primary">Go to Balance page</a> to add funds.
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Step 3: Transaction Type -->
+                <div id="step3" class="step-content" style="display: none;">
+                    <div class="text-center mb-4">
+                        <i class="fas fa-exchange-alt fa-3x text-info mb-3"></i>
+                        <h4>Transaction Type</h4>
+                        <p class="text-muted">Is this income or expense?</p>
+                    </div>
+                    <div class="row justify-content-center">
+                        <div class="col-md-8">
+                            <div class="d-grid gap-3">
+                                <button type="button" class="btn btn-outline-success btn-lg" onclick="selectTransactionType('income')">
+                                    <i class="fas fa-plus-circle me-2"></i>Income
+                                </button>
+                                <button type="button" class="btn btn-outline-danger btn-lg" onclick="selectTransactionType('expense')">
+                                    <i class="fas fa-minus-circle me-2"></i>Expense
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Step 4: Category and Tags -->
+                <div id="step4" class="step-content" style="display: none;">
+                    <div class="text-center mb-4">
+                        <i class="fas fa-tags fa-3x text-warning mb-3"></i>
+                        <h4>Category & Tags</h4>
+                        <p class="text-muted">Categorize and tag your transaction</p>
+                        <small class="text-info">
+                            <i class="fas fa-info-circle me-1"></i>
+                            Sequence number will be automatically assigned based on the latest manual balance
+                        </small>
                     </div>
                     <div class="row">
                         <div class="col-md-6 mb-3">
@@ -359,43 +517,98 @@
                             </select>
                         </div>
                         <div class="col-md-6 mb-3">
-                            <label for="add_wallet_id" class="form-label">Saving Space</label>
-                            <select class="form-select" id="add_wallet_id" name="wallet_id">
-                                <option value="">Select Saving Space</option>
-                                {% for wallet in wallets %}
-                                <option value="{{ wallet._id }}">{{ wallet.name }} ({{ wallet.type or 'bank' }})</option>
-                                {% endfor %}
-                            </select>
+                            <label for="add_tags" class="form-label">Tags (comma separated)</label>
+                            <input type="text" class="form-control" id="add_tags" name="tags" placeholder="food, entertainment, work">
                         </div>
                     </div>
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label for="add_scope_id" class="form-label">Scope</label>
-                            <select class="form-select" id="add_scope_id" name="scope_id">
-                                <option value="">Select Scope</option>
-                                {% for scope in scopes %}
-                                <option value="{{ scope._id }}">{{ scope.name }}</option>
-                                {% endfor %}
-                            </select>
+                </div>
+
+                <!-- Step 5: Amount -->
+                <div id="step5" class="step-content" style="display: none;">
+                    <div class="text-center mb-4">
+                        <i class="fas fa-money-bill-wave fa-3x text-success mb-3"></i>
+                        <h4>Transaction Amount</h4>
+                        <p class="text-muted">Enter the amount for this transaction</p>
+                    </div>
+                    <div class="row justify-content-center">
+                        <div class="col-md-8">
+                            <!-- Balance Information -->
+                            <div class="alert alert-info mb-3" id="balanceInfo" style="display: none;">
+                                <i class="fas fa-wallet me-2"></i>
+                                <strong>Available Balance:</strong> <span id="availableBalance">IDR 0</span>
+                                <br>
+                                <small class="text-muted">For expense transactions, amount cannot exceed available balance</small>
+                            </div>
+                            
+                            <!-- Balance Warning (Red) -->
+                            <div class="alert alert-danger mb-3" id="balanceWarning" style="display: none;">
+                                <i class="fas fa-exclamation-triangle me-2"></i>
+                                <strong>Insufficient Balance!</strong>
+                                <br>
+                                <span id="balanceWarningText">Amount exceeds available balance</span>
+                            </div>
+                            
+                            <div class="input-group input-group-lg">
+                                <span class="input-group-text">IDR</span>
+                                <input type="text" class="form-control form-control-lg text-center" id="add_amount" name="amount" required placeholder="1.000.000">
+                            </div>
+                            <small class="form-text text-muted">Format: 1.000.000 (gunakan titik sebagai separator ribuan)</small>
                         </div>
-                        <div class="col-md-6 mb-3">
-                            <label for="add_timestamp" class="form-label">Date & Time</label>
-                            <input type="datetime-local" class="form-control" id="add_timestamp" name="timestamp" value="">
+                    </div>
+                </div>
+
+                <!-- Step 6: Date Confirmation -->
+                <div id="step6" class="step-content" style="display: none;">
+                    <div class="text-center mb-4">
+                        <i class="fas fa-calendar-check fa-3x text-primary mb-3"></i>
+                        <h4>Date Confirmation</h4>
+                        <p class="text-muted">Just to make sure, this transaction happened recently, right?</p>
+                    </div>
+                    <div class="row justify-content-center">
+                        <div class="col-md-8">
+                            <div class="d-grid gap-3">
+                                <button type="button" class="btn btn-outline-primary btn-lg" onclick="confirmRecentTransaction()">
+                                    <i class="fas fa-check me-2"></i>Yes, it's recent
+                                </button>
+                                <button type="button" class="btn btn-outline-secondary btn-lg" onclick="showDatePicker()">
+                                    <i class="fas fa-calendar me-2"></i>No, pick different date
+                                </button>
+                            </div>
                         </div>
                     </div>
-                    <div class="mb-3">
-                        <label for="add_tags" class="form-label">Tags (comma separated)</label>
-                        <input type="text" class="form-control" id="add_tags" name="tags" placeholder="food, entertainment, work">
+                </div>
+
+                <!-- Step 7: Note and Submit -->
+                <div id="step7" class="step-content" style="display: none;">
+                    <div class="text-center mb-4">
+                        <i class="fas fa-sticky-note fa-3x text-info mb-3"></i>
+                        <h4>Final Note</h4>
+                        <p class="text-muted">Add any additional notes (optional)</p>
                     </div>
-                    <div class="mb-3">
-                        <label for="add_note" class="form-label">Note</label>
-                        <textarea class="form-control" id="add_note" name="note" rows="3"></textarea>
+                    <div class="row justify-content-center">
+                        <div class="col-md-8">
+                            <textarea class="form-control" id="add_note" name="note" rows="4" placeholder="Add any notes about this transaction..."></textarea>
+                        </div>
                     </div>
+                </div>
+
+                <!-- Hidden form for submission -->
+                <form id="addTransactionForm" style="display: none;">
+                    <input type="hidden" id="add_type" name="type">
+                    <input type="hidden" id="add_timestamp" name="timestamp">
                 </form>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-primary" onclick="submitTransaction()">Add Transaction</button>
+                <button type="button" class="btn btn-secondary" id="prevBtn" onclick="previousStep()" style="display: none;">
+                    <i class="fas fa-arrow-left me-1"></i>Previous
+                </button>
+                <button type="button" class="btn btn-primary" id="nextBtn" onclick="nextStep()">
+                    Next<i class="fas fa-arrow-right ms-1"></i>
+                </button>
+                <button type="button" class="btn btn-success" id="submitBtn" onclick="submitTransaction()" style="display: none;">
+                    <i class="fas fa-check me-1"></i>Submit Transaction
+                </button>
             </div>
         </div>
     </div>
@@ -497,6 +710,9 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Setup amount formatting for add and edit forms
     setupAmountFormatting();
+    
+    // Setup wallet selection listener for balance info
+    setupWalletSelectionListener();
 });
 
 // Set default datetime to today
@@ -531,6 +747,30 @@ function setupAmountFormatting() {
     if (editAmountField) {
         editAmountField.addEventListener('input', function(e) {
             formatAmountInput(e.target);
+        });
+    }
+}
+
+// Setup wallet selection listener for balance info
+function setupWalletSelectionListener() {
+    const addWalletField = document.getElementById('add_wallet_id');
+    if (addWalletField) {
+        addWalletField.addEventListener('change', function() {
+            // Update balance info if we're on step 5
+            if (currentStep === 5) {
+                updateBalanceInfo();
+                validateAmountInRealTime();
+            }
+        });
+    }
+    
+    // Setup amount input listener for real-time validation
+    const addAmountField = document.getElementById('add_amount');
+    if (addAmountField) {
+        addAmountField.addEventListener('input', function() {
+            if (currentStep === 5) {
+                validateAmountInRealTime();
+            }
         });
     }
 }
@@ -656,9 +896,17 @@ function deleteTransaction(transactionId) {
 }
 
 function submitTransaction() {
-    const form = document.getElementById('addTransactionForm');
-    const formData = new FormData(form);
-    const data = Object.fromEntries(formData.entries());
+    // Collect data from all visible form elements
+    const data = {
+        scope_id: document.getElementById('add_scope_id').value,
+        wallet_id: document.getElementById('add_wallet_id').value,
+        type: document.getElementById('add_type').value,
+        category_id: document.getElementById('add_category_id').value,
+        tags: document.getElementById('add_tags').value,
+        amount: document.getElementById('add_amount').value,
+        note: document.getElementById('add_note').value,
+        timestamp: document.getElementById('add_timestamp').value
+    };
     
     // Parse amount from formatted string (e.g., "1.000.000" -> 1000000)
     if (data.amount) {
@@ -670,10 +918,22 @@ function submitTransaction() {
         data.tags = data.tags.split(',').map(tag => tag.trim()).filter(tag => tag);
     }
     
-    // Convert datetime-local to timestamp
-    if (data.timestamp) {
-        data.timestamp = Math.floor(new Date(data.timestamp).getTime() / 1000);
+    // Validate timestamp
+    if (!data.timestamp) {
+        alert('Timestamp is missing. Please go back and confirm the date.');
+        return;
     }
+    
+    // Ensure timestamp is a number
+    data.timestamp = parseInt(data.timestamp);
+    
+    // Debug logging
+    console.log('Submitting transaction data:', data);
+    console.log('Timestamp value:', data.timestamp, 'Type:', typeof data.timestamp);
+    console.log('Date from timestamp:', new Date(data.timestamp * 1000));
+    console.log('Wallet ID:', data.wallet_id);
+    console.log('User ID will be set by backend');
+    console.log('Manual Balance ID and Sequence Number will be auto-populated by backend');
     
     fetch('/api/transactions/', {
         method: 'POST',
@@ -723,6 +983,343 @@ function exportTransactions() {
     link.click();
     document.body.removeChild(link);
 }
+
+// New functions for improved UI/UX
+let currentStep = 1;
+const totalSteps = 7;
+
+function showAddTransaction() {
+    // Reset to first step
+    currentStep = 1;
+    resetTransactionForm();
+    
+    // Show the add transaction modal
+    const modal = new bootstrap.Modal(document.getElementById('addTransactionModal'));
+    modal.show();
+    
+    // Update progress bar
+    updateProgressBar();
+    
+    // Debug: check if timestamp field is reset
+    console.log('Form reset - Timestamp field value:', document.getElementById('add_timestamp').value);
+}
+
+function nextStep() {
+    if (currentStep < totalSteps) {
+        // Validate current step
+        if (validateCurrentStep()) {
+            currentStep++;
+            showStep(currentStep);
+            updateProgressBar();
+            updateButtons();
+        }
+    }
+}
+
+function previousStep() {
+    if (currentStep > 1) {
+        currentStep--;
+        showStep(currentStep);
+        updateProgressBar();
+        updateButtons();
+    }
+}
+
+function showStep(stepNumber) {
+    // Hide all steps
+    for (let i = 1; i <= totalSteps; i++) {
+        const stepElement = document.getElementById(`step${i}`);
+        if (stepElement) {
+            stepElement.style.display = 'none';
+        }
+    }
+    
+    // Show current step
+    const currentStepElement = document.getElementById(`step${stepNumber}`);
+    if (currentStepElement) {
+        currentStepElement.style.display = 'block';
+    }
+    
+    // Update modal title
+    const modalTitle = document.querySelector('#addTransactionModal .modal-title');
+    if (modalTitle) {
+        const stepTitles = [
+            'Step 1: Select Scope',
+            'Step 2: Select Saving Space', 
+            'Step 3: Transaction Type',
+            'Step 4: Category & Tags',
+            'Step 5: Transaction Amount',
+            'Step 6: Date Confirmation',
+            'Step 7: Final Note'
+        ];
+        modalTitle.textContent = stepTitles[stepNumber - 1];
+    }
+    
+    // Special handling for step 5: show balance info and validate amount
+    if (stepNumber === 5) {
+        updateBalanceInfo();
+        validateAmountInRealTime();
+    }
+}
+
+function updateProgressBar() {
+    const progress = (currentStep / totalSteps) * 100;
+    const progressBar = document.getElementById('transactionProgress');
+    if (progressBar) {
+        progressBar.style.width = progress + '%';
+    }
+}
+
+function updateButtons() {
+    const prevBtn = document.getElementById('prevBtn');
+    const nextBtn = document.getElementById('nextBtn');
+    const submitBtn = document.getElementById('submitBtn');
+    
+    if (prevBtn) prevBtn.style.display = currentStep > 1 ? 'inline-block' : 'none';
+    if (nextBtn) nextBtn.style.display = currentStep < totalSteps ? 'inline-block' : 'none';
+    if (submitBtn) submitBtn.style.display = currentStep === totalSteps ? 'inline-block' : 'none';
+}
+
+function validateCurrentStep() {
+    switch (currentStep) {
+        case 1:
+            const scopeId = document.getElementById('add_scope_id').value;
+            if (!scopeId) {
+                alert('Please select a scope');
+                return false;
+            }
+            break;
+        case 2:
+            const walletId = document.getElementById('add_wallet_id').value;
+            if (!walletId) {
+                alert('Please select a saving space');
+                return false;
+            }
+            // Check if selected wallet has balance > 0
+            const selectedOption = document.querySelector(`#add_wallet_id option[value="${walletId}"]`);
+            if (selectedOption && selectedOption.disabled) {
+                alert('This wallet has 0 balance. Please go to Balance page to add funds first.');
+                return false;
+            }
+            break;
+        case 3:
+            const type = document.getElementById('add_type').value;
+            if (!type) {
+                alert('Please select transaction type');
+                return false;
+            }
+            break;
+        case 4:
+            // Category and tags are optional
+            break;
+        case 5:
+            const amount = document.getElementById('add_amount').value;
+            if (!amount) {
+                alert('Please enter transaction amount');
+                return false;
+            }
+            
+            // Check if amount exceeds wallet balance for expense transactions
+            const transactionType = document.getElementById('add_type').value;
+            if (transactionType === 'expense') {
+                const walletId = document.getElementById('add_wallet_id').value;
+                const selectedWalletOption = document.querySelector(`#add_wallet_id option[value="${walletId}"]`);
+                
+                if (selectedWalletOption) {
+                    // Extract balance from option text (format: "Wallet Name (type) - Balance: IDR 1,000,000")
+                    const balanceText = selectedWalletOption.textContent;
+                    const balanceMatch = balanceText.match(/Balance: IDR ([\d,]+)/);
+                    
+                    if (balanceMatch) {
+                        const currentBalance = parseInt(balanceMatch[1].replace(/,/g, ''));
+                        const transactionAmount = parseFormattedAmount(amount);
+                        
+                        if (transactionAmount > currentBalance) {
+                            // Don't show alert, just return false (red warning already visible)
+                            return false;
+                        }
+                    }
+                }
+            }
+            break;
+        case 6:
+            // Date confirmation handled by buttons
+            const timestamp = document.getElementById('add_timestamp').value;
+            if (!timestamp) {
+                alert('Please confirm the transaction date first');
+                return false;
+            }
+            break;
+        case 7:
+            // Note is optional
+            break;
+    }
+    return true;
+}
+
+function selectTransactionType(type) {
+    document.getElementById('add_type').value = type;
+    nextStep();
+}
+
+function updateBalanceInfo() {
+    const walletId = document.getElementById('add_wallet_id').value;
+    const balanceInfo = document.getElementById('balanceInfo');
+    const availableBalanceSpan = document.getElementById('availableBalance');
+    
+    if (walletId) {
+        const selectedWalletOption = document.querySelector(`#add_wallet_id option[value="${walletId}"]`);
+        if (selectedWalletOption && !selectedWalletOption.disabled) {
+            // Extract balance from option text (format: "Wallet Name (type) - Balance: IDR 1,000,000")
+            const balanceText = selectedWalletOption.textContent;
+            const balanceMatch = balanceText.match(/Balance: IDR ([\d,]+)/);
+            
+            if (balanceMatch) {
+                const currentBalance = parseInt(balanceMatch[1].replace(/,/g, ''));
+                availableBalanceSpan.textContent = `IDR ${currentBalance.toLocaleString('id-ID')}`;
+                balanceInfo.style.display = 'block';
+            }
+        } else {
+            balanceInfo.style.display = 'none';
+        }
+    } else {
+        balanceInfo.style.display = 'none';
+    }
+}
+
+function validateAmountInRealTime() {
+    const transactionType = document.getElementById('add_type').value;
+    const amount = document.getElementById('add_amount').value;
+    const balanceInfo = document.getElementById('balanceInfo');
+    const balanceWarning = document.getElementById('balanceWarning');
+    const balanceWarningText = document.getElementById('balanceWarningText');
+    
+    // Hide both alerts initially
+    balanceInfo.style.display = 'none';
+    balanceWarning.style.display = 'none';
+    
+    // Only validate for expense transactions
+    if (transactionType === 'expense' && amount) {
+        const walletId = document.getElementById('add_wallet_id').value;
+        const selectedWalletOption = document.querySelector(`#add_wallet_id option[value="${walletId}"]`);
+        
+        if (selectedWalletOption && !selectedWalletOption.disabled) {
+            // Extract balance from option text
+            const balanceText = selectedWalletOption.textContent;
+            const balanceMatch = balanceText.match(/Balance: IDR ([\d,]+)/);
+            
+            if (balanceMatch) {
+                const currentBalance = parseInt(balanceMatch[1].replace(/,/g, ''));
+                const transactionAmount = parseFormattedAmount(amount);
+                
+                if (transactionAmount > currentBalance) {
+                    // Show red warning
+                    balanceWarningText.textContent = `Amount (IDR ${transactionAmount.toLocaleString('id-ID')}) exceeds available balance (IDR ${currentBalance.toLocaleString('id-ID')})`;
+                    balanceWarning.style.display = 'block';
+                } else {
+                    // Show blue info
+                    balanceInfo.style.display = 'block';
+                }
+            }
+        }
+    } else if (transactionType === 'expense') {
+        // Show blue info for expense transactions without amount
+        balanceInfo.style.display = 'block';
+    }
+}
+
+function confirmRecentTransaction() {
+    // Set current timestamp
+    const now = new Date();
+    const timestamp = Math.floor(now.getTime() / 1000);
+    
+    // Set to hidden field
+    document.getElementById('add_timestamp').value = timestamp;
+    
+    // Also set to a visible field for debugging (optional)
+    console.log('Timestamp set to:', timestamp, 'Date:', new Date(timestamp * 1000));
+    
+    nextStep();
+}
+
+function showDatePicker() {
+    // Show date picker modal or input
+    const dateInput = document.createElement('input');
+    dateInput.type = 'datetime-local';
+    dateInput.className = 'form-control form-control-lg';
+    dateInput.id = 'custom_timestamp';
+    
+    // Replace the buttons with date input
+    const step6 = document.getElementById('step6');
+    step6.innerHTML = `
+        <div class="text-center mb-4">
+            <i class="fas fa-calendar fa-3x text-primary mb-3"></i>
+            <h4>Select Date & Time</h4>
+            <p class="text-muted">Choose when this transaction occurred</p>
+        </div>
+        <div class="row justify-content-center">
+            <div class="col-md-8">
+                <input type="datetime-local" class="form-control form-control-lg" id="custom_timestamp" required>
+                <div class="mt-3">
+                    <button type="button" class="btn btn-primary btn-lg" onclick="confirmCustomDate()">
+                        <i class="fas fa-check me-2"></i>Confirm Date
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+function confirmCustomDate() {
+    const customDate = document.getElementById('custom_timestamp').value;
+    if (customDate) {
+        const timestamp = Math.floor(new Date(customDate).getTime() / 1000);
+        document.getElementById('add_timestamp').value = timestamp;
+        nextStep();
+    } else {
+        alert('Please select a date and time');
+    }
+}
+
+function resetTransactionForm() {
+    // Reset all form fields
+    document.getElementById('add_scope_id').value = '';
+    document.getElementById('add_wallet_id').value = '';
+    document.getElementById('add_type').value = '';
+    document.getElementById('add_category_id').value = '';
+    document.getElementById('add_tags').value = '';
+    document.getElementById('add_amount').value = '';
+    document.getElementById('add_note').value = '';
+    document.getElementById('add_timestamp').value = '';
+    
+    // Reset to first step
+    showStep(1);
+    updateButtons();
+}
+
+function showTransactionHistory() {
+    // Hide the main menu and show transaction history
+    document.querySelector('.text-center.mb-5').style.display = 'none';
+    document.getElementById('transactionHistorySection').style.display = 'block';
+}
+
+function hideTransactionHistory() {
+    // Show the main menu and hide transaction history
+    document.querySelector('.text-center.mb-5').style.display = 'block';
+    document.getElementById('transactionHistorySection').style.display = 'none';
+}
+
+// Auto-show transaction history if there are filters applied
+document.addEventListener('DOMContentLoaded', function() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const hasFilters = Array.from(urlParams.keys()).some(key => 
+        key !== '' && urlParams.get(key) !== '' && urlParams.get(key) !== null
+    );
+    
+    if (hasFilters) {
+        showTransactionHistory();
+    }
+});
 </script>
 {% endblock %}
 
