@@ -22,6 +22,30 @@ except Exception as e:
     print(f"⚠️ Warning: Could not create database indexes: {e}")
     print("Application will continue without indexes...")
 
+# Context processor to add total balance to all templates
+@app.context_processor
+def inject_total_balance():
+    """Inject total balance from all user wallets into all templates"""
+    try:
+        user_id = session.get("user_id")
+        if user_id:
+            wallet_repo = WalletRepository()
+            wallets = wallet_repo.list_by_user(user_id)
+            
+            # Calculate total balance from all wallets
+            total_balance = 0
+            for wallet in wallets:
+                actual_balance = wallet.get("actual_balance", 0)
+                if actual_balance:
+                    total_balance += float(actual_balance)
+            
+            return {"total_balance": total_balance}
+        else:
+            return {"total_balance": 0}
+    except Exception as e:
+        print(f"Error calculating total balance: {e}")
+        return {"total_balance": 0}
+
 # Custom Jinja filters
 @app.template_filter('currency')
 def currency_filter(value):

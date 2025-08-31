@@ -1,191 +1,575 @@
 {% extends "layout.html" %}
 
+{% block head %}
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+{% endblock %}
+
 {% block content %}
+<style>
+    body {
+        font-family: 'Inter', sans-serif;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: 100vh;
+    }
+    
+    .dashboard-container {
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(20px);
+        border-radius: 25px;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+        margin: 2rem;
+        padding: 2rem;
+        min-height: calc(100vh - 4rem);
+    }
+    
+    .dashboard-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 2rem;
+        border-radius: 20px;
+        margin-bottom: 2rem;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .dashboard-header::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grain" width="100" height="100" patternUnits="userSpaceOnUse"><circle cx="25" cy="25" r="1" fill="white" opacity="0.1"/><circle cx="75" cy="75" r="1" fill="white" opacity="0.1"/><circle cx="50" cy="10" r="0.5" fill="white" opacity="0.1"/><circle cx="10" cy="60" r="0.5" fill="white" opacity="0.1"/><circle cx="90" cy="40" r="0.5" fill="white" opacity="0.1"/></pattern></defs><rect width="100" height="100" fill="url(%23grain)"/></svg>');
+        opacity: 0.3;
+    }
+    
+    .welcome-text {
+        position: relative;
+        z-index: 1;
+    }
+    
+    .welcome-text h1 {
+        font-size: 2.5rem;
+        font-weight: 700;
+        margin-bottom: 0.5rem;
+    }
+    
+    .welcome-text p {
+        font-size: 1.1rem;
+        opacity: 0.9;
+        margin: 0;
+    }
+    
+    .stats-card {
+        background: rgba(255, 255, 255, 0.9);
+        border: none;
+        border-radius: 20px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        transition: all 0.3s ease;
+        overflow: hidden;
+    }
+    
+    .stats-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 15px 40px rgba(0, 0, 0, 0.15);
+    }
+    
+    .stats-card .card-body {
+        padding: 1.5rem;
+        text-align: center;
+    }
+    
+    .stats-icon {
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 1rem;
+        color: white;
+        font-size: 1.5rem;
+    }
+    
+    .stats-value {
+        font-size: 2rem;
+        font-weight: 700;
+        color: #667eea;
+        margin-bottom: 0.5rem;
+    }
+    
+    .stats-label {
+        color: #6c757d;
+        font-weight: 500;
+    }
+    
+    .content-card {
+        background: rgba(255, 255, 255, 0.9);
+        border: none;
+        border-radius: 20px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        margin-bottom: 2rem;
+    }
+    
+    .content-card .card-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border: none;
+        border-radius: 20px 20px 0 0;
+        padding: 1.5rem;
+    }
+    
+    .content-card .card-header h5 {
+        margin: 0;
+        font-weight: 600;
+    }
+    
+    .btn-action {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border: none;
+        border-radius: 15px;
+        padding: 0.75rem 1.5rem;
+        font-weight: 600;
+        color: white;
+        transition: all 0.3s ease;
+    }
+    
+    .btn-action:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 20px rgba(102, 126, 234, 0.3);
+        color: white;
+    }
+    
+    .btn-outline-action {
+        background: transparent;
+        border: 2px solid #667eea;
+        color: #667eea;
+        border-radius: 15px;
+        padding: 0.75rem 1.5rem;
+        font-weight: 600;
+        transition: all 0.3s ease;
+    }
+    
+    .btn-outline-action:hover {
+        background: #667eea;
+        color: white;
+        transform: translateY(-2px);
+        box-shadow: 0 8px 20px rgba(102, 126, 234, 0.3);
+    }
+    
+    .transaction-item {
+        padding: 1rem;
+        border-bottom: 1px solid #e9ecef;
+        transition: background-color 0.2s ease;
+    }
+    
+    .transaction-item:hover {
+        background-color: rgba(102, 126, 234, 0.05);
+    }
+    
+    .transaction-item:last-child {
+        border-bottom: none;
+    }
+    
+    .transaction-amount {
+        font-weight: 600;
+        font-size: 1.1rem;
+    }
+    
+    .transaction-amount.income {
+        color: #28a745;
+    }
+    
+    .transaction-amount.expense {
+        color: #dc3545;
+    }
+    
+    .transaction-amount.transfer {
+        color: #17a2b8;
+    }
+    
+    .quick-actions {
+        background: rgba(255, 255, 255, 0.9);
+        border-radius: 20px;
+        padding: 1.5rem;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+    }
+    
+    .quick-action-btn {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border: none;
+        border-radius: 15px;
+        padding: 1rem;
+        color: white;
+        font-weight: 600;
+        transition: all 0.3s ease;
+        text-decoration: none;
+        display: block;
+        text-align: center;
+    }
+    
+    .quick-action-btn:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 10px 25px rgba(102, 126, 234, 0.4);
+        color: white;
+        text-decoration: none;
+    }
+    
+    .quick-action-btn i {
+        font-size: 1.5rem;
+        margin-bottom: 0.5rem;
+        display: block;
+    }
+    
+    /* Mobile Responsiveness */
+    @media (max-width: 767.98px) {
+        .dashboard-container {
+            margin: 0;
+            padding: 1rem;
+            border-radius: 0;
+            min-height: 100vh;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+        
+        .dashboard-header {
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            padding-left: 4rem;
+        }
+        
+        .welcome-text h1 {
+            font-size: 2rem;
+        }
+        
+        .welcome-text p {
+            font-size: 1rem;
+        }
+        
+        .stats-card .card-body {
+            padding: 1rem;
+        }
+        
+        .stats-value {
+            font-size: 1.5rem;
+        }
+        
+        .stats-icon {
+            width: 50px;
+            height: 50px;
+            font-size: 1.25rem;
+        }
+        
+        .content-card .card-header {
+            padding: 1rem;
+        }
+        
+        .btn-action, .btn-outline-action {
+            padding: 0.5rem 1rem;
+            font-size: 0.9rem;
+        }
+        
+        .chart-container {
+            height: 250px !important;
+        }
+    }
+    
+    @media (max-width: 575.98px) {
+        .dashboard-container {
+            margin: 0;
+            padding: 0.75rem;
+        }
+        
+        .dashboard-header {
+            padding: 1rem;
+            margin-bottom: 1rem;
+            padding-left: 3.5rem;
+        }
+        
+        .welcome-text h1 {
+            font-size: 1.75rem;
+        }
+        
+        .stats-card .card-body {
+            padding: 0.75rem;
+        }
+        
+        .stats-value {
+            font-size: 1.25rem;
+        }
+        
+        .content-card .card-header {
+            padding: 0.75rem;
+        }
+        
+        .btn-action, .btn-outline-action {
+            padding: 0.5rem 0.75rem;
+            font-size: 0.8rem;
+        }
+        
+        .chart-container {
+            height: 200px !important;
+        }
+        
+        .quick-actions {
+            padding: 1rem;
+        }
+        
+        .quick-action-btn {
+            padding: 0.75rem;
+            font-size: 0.9rem;
+        }
+        
+        .quick-action-btn i {
+            font-size: 1.25rem;
+        }
+    }
+    
+    /* Prevent horizontal scrolling and body movement */
+    @media (max-width: 991.98px) {
+        body {
+            overflow-x: hidden;
+            position: fixed;
+            width: 100%;
+            height: 100%;
+        }
+        
+        .dashboard-container {
+            -webkit-overflow-scrolling: touch;
+            overscroll-behavior: contain;
+        }
+        
+        .dashboard-header {
+            padding-left: 4.5rem;
+        }
+    }
+    
+    /* Animation */
+    .dashboard-container {
+        animation: slideInUp 0.6s ease-out;
+    }
+    
+    @keyframes slideInUp {
+        from {
+            opacity: 0;
+            transform: translateY(30px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    /* Touch and scroll optimizations */
+    .dashboard-container {
+        -webkit-overflow-scrolling: touch;
+        overscroll-behavior: contain;
+        scroll-behavior: smooth;
+    }
+    
+    /* Prevent text selection on mobile */
+    @media (max-width: 991.98px) {
+        .dashboard-container * {
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+        }
+        
+        .dashboard-container input,
+        .dashboard-container textarea {
+            -webkit-user-select: text;
+            -moz-user-select: text;
+            -ms-user-select: text;
+            user-select: text;
+        }
+    }
+</style>
+
 <div class="dashboard-container">
-    <!-- Header Section -->
-    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
-        <h1 class="h3 mb-0">Dashboard</h1>
-        <div class="d-flex gap-2 flex-wrap">
-            <a href="/transactions" class="btn btn-primary">
-                <i class="fas fa-list"></i> 
-                <span class="d-none d-sm-inline">View All Transactions</span>
-                <span class="d-inline d-sm-none">Transactions</span>
-            </a>
-            <a href="/settings" class="btn btn-outline-secondary">
-                <i class="fas fa-cog"></i> 
-                <span class="d-none d-sm-inline">Settings</span>
-                <span class="d-inline d-sm-none">Settings</span>
-            </a>
-        </div>
-    </div>
+    <!-- Header -->
+    <div class="dashboard-header">
+        <div class="welcome-text">
+            <h1>Welcome back, {{ username }}!</h1>
+            <p>Here's your financial overview</p>
+                </div>
+            </div>
 
     <!-- Stats Cards Row -->
     <div class="row g-3 mb-4">
         <div class="col-12 col-sm-6 col-lg-3">
-            <div class="card h-100 border-0 shadow-sm">
-                <div class="card-body text-center p-3">
-                    <div class="d-flex align-items-center justify-content-center mb-2">
-                        <i class="fas fa-wallet fa-2x text-primary"></i>
-                    </div>
-                    <h5 class="card-title mb-1">Total Balance</h5>
-                    <h3 class="text-primary mb-0">{{ "%.2f"|format((total_balance|default(0))|float) }}</h3>
-                </div>
-            </div>
-        </div>
+            <div class="card stats-card h-100">
+                        <div class="card-body">
+                    <div class="stats-icon">
+                        <i class="fas fa-wallet"></i>
+                                </div>
+                    <h5 class="stats-label">Total Balance</h5>
+                    <h3 class="stats-value">{{ "%.2f"|format((total_balance|default(0))|float) }}</h3>
+                                </div>
+                            </div>
+                        </div>
         
         <div class="col-12 col-sm-6 col-lg-3">
-            <div class="card h-100 border-0 shadow-sm">
-                <div class="card-body text-center p-3">
-                    <div class="d-flex align-items-center justify-content-center mb-2">
-                        <i class="fas fa-arrow-up fa-2x text-success"></i>
-                    </div>
-                    <h5 class="card-title mb-1">Income</h5>
-                    <h3 class="text-success mb-0">{{ "%.2f"|format((total_income|default(0))|float) }}</h3>
-                </div>
-            </div>
-        </div>
+            <div class="card stats-card h-100">
+                        <div class="card-body">
+                    <div class="stats-icon">
+                        <i class="fas fa-arrow-up"></i>
+                                </div>
+                    <h5 class="stats-label">Income</h5>
+                    <h3 class="stats-value">{{ "%.2f"|format((total_income|default(0))|float) }}</h3>
+                                </div>
+                            </div>
+                        </div>
         
         <div class="col-12 col-sm-6 col-lg-3">
-            <div class="card h-100 border-0 shadow-sm">
-                <div class="card-body text-center p-3">
-                    <div class="d-flex align-items-center justify-content-center mb-2">
-                        <i class="fas fa-arrow-down fa-2x text-danger"></i>
-                    </div>
-                    <h5 class="card-title mb-1">Expenses</h5>
-                    <h3 class="text-danger mb-0">{{ "%.2f"|format((total_expenses|default(0))|float) }}</h3>
-                </div>
-            </div>
-        </div>
+            <div class="card stats-card h-100">
+                        <div class="card-body">
+                    <div class="stats-icon">
+                        <i class="fas fa-arrow-down"></i>
+                                </div>
+                    <h5 class="stats-label">Expenses</h5>
+                    <h3 class="stats-value">{{ "%.2f"|format((total_expenses|default(0))|float) }}</h3>
+                                </div>
+                            </div>
+                        </div>
         
         <div class="col-12 col-sm-6 col-lg-3">
-            <div class="card h-100 border-0 shadow-sm">
-                <div class="card-body text-center p-3">
-                    <div class="d-flex align-items-center justify-content-center mb-2">
-                        <i class="fas fa-list fa-2x text-info"></i>
+            <div class="card stats-card h-100">
+                        <div class="card-body">
+                    <div class="stats-icon">
+                        <i class="fas fa-list"></i>
+                                </div>
+                    <h5 class="stats-label">Transactions</h5>
+                    <h3 class="stats-value">{{ transaction_count|default(0) }}</h3>
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                    <h5 class="card-title mb-1">Transactions</h5>
-                    <h3 class="text-info mb-0">{{ transaction_count|default(0) }}</h3>
-                </div>
-            </div>
-        </div>
-    </div>
 
     <!-- Charts and Recent Transactions Row -->
     <div class="row g-4">
         <!-- Chart Section -->
         <div class="col-12 col-lg-8">
-            <div class="card border-0 shadow-sm h-100">
-                <div class="card-header bg-white border-0">
+            <div class="card content-card h-100">
+                <div class="card-header">
                     <h5 class="mb-0">
-                        <i class="fas fa-chart-line me-2 text-primary"></i>
+                        <i class="fas fa-chart-line me-2"></i>
                         Monthly Overview
                     </h5>
                 </div>
-                <div class="card-body">
+                        <div class="card-body">
                     <div class="chart-container" style="position: relative; height: 300px;">
                         <canvas id="monthlyChart"></canvas>
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                </div>
-            </div>
-        </div>
 
         <!-- Recent Transactions -->
         <div class="col-12 col-lg-4">
-            <div class="card border-0 shadow-sm h-100">
-                <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center">
+            <div class="card content-card h-100">
+                <div class="card-header d-flex justify-content-between align-items-center">
                     <h5 class="mb-0">
-                        <i class="fas fa-clock me-2 text-primary"></i>
+                        <i class="fas fa-clock me-2"></i>
                         Recent Transactions
                     </h5>
-                    <a href="/transactions" class="btn btn-sm btn-outline-primary">
+                    <a href="/transactions" class="btn btn-sm btn-outline-action">
                         <span class="d-none d-sm-inline">View All</span>
                         <span class="d-inline d-sm-none">All</span>
                     </a>
                 </div>
                 <div class="card-body p-0">
-                    {% if recent_transactions %}
+                    {% if transactions %}
                         <div class="list-group list-group-flush">
-                            {% for tx in recent_transactions[:5] %}
-                            <div class="list-group-item border-0 px-3 py-2">
+                            {% for tx in transactions[:5] %}
+                            <div class="transaction-item">
                                 <div class="d-flex justify-content-between align-items-center">
                                     <div class="d-flex align-items-center">
                                         <div class="me-3">
                                             {% if tx.type == 'income' %}
                                                 <i class="fas fa-arrow-up text-success"></i>
-                                            {% else %}
+                                            {% elif tx.type == 'expense' %}
                                                 <i class="fas fa-arrow-down text-danger"></i>
+                                            {% else %}
+                                                <i class="fas fa-exchange-alt text-info"></i>
                                             {% endif %}
-                                        </div>
-                                        <div>
+                </div>
+                                <div>
                                             <div class="fw-medium text-truncate" style="max-width: 120px;">
                                                 {{ tx.description or 'No description' }}
-                                            </div>
+                                </div>
                                             <small class="text-muted">{{ tx.category or 'Uncategorized' }}</small>
-                                        </div>
-                                    </div>
-                                    <div class="text-end">
-                                        <div class="fw-medium {% if tx.type == 'income' %}text-success{% else %}text-danger{% endif %}">
-                                            {{ "%.2f"|format(tx.amount|default(0)|float) }}
-                                        </div>
-                                        <small class="text-muted">{{ tx.date.strftime('%m/%d') if tx.date else 'N/A' }}</small>
-                                    </div>
                                 </div>
                             </div>
-                            {% endfor %}
+                                    <div class="text-end">
+                                        <div class="transaction-amount {% if tx.type == 'income' %}income{% elif tx.type == 'expense' %}expense{% else %}transfer{% endif %}">
+                                            {{ "%.2f"|format((tx.amount|default(0))|float) }}
                         </div>
-                    {% else %}
-                        <div class="text-center py-4">
-                            <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
-                            <p class="text-muted mb-0">No transactions yet</p>
-                        </div>
-                    {% endif %}
+                                        <small class="text-muted">{{ tx.date.strftime('%m/%d') if tx.date else 'N/A' }}</small>
+                    </div>
                 </div>
             </div>
-        </div>
-    </div>
+                                        {% endfor %}
+                            </div>
+                            {% else %}
+                        <div class="text-center py-4">
+                                <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
+                            <p class="text-muted mb-0">No transactions yet</p>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                        </div>
+                    </div>
 
-    <!-- Quick Actions Row -->
+    <!-- Quick Actions Section -->
     <div class="row g-3 mt-4">
         <div class="col-12">
-            <div class="card border-0 shadow-sm">
-                <div class="card-header bg-white border-0">
-                    <h5 class="mb-0">
-                        <i class="fas fa-bolt me-2 text-primary"></i>
-                        Quick Actions
-                    </h5>
-                </div>
-                <div class="card-body">
-                    <div class="row g-3">
-                        <div class="col-6 col-sm-3">
-                            <a href="/transactions?action=add" class="btn btn-outline-primary w-100 h-100 d-flex flex-column align-items-center justify-content-center py-3">
-                                <i class="fas fa-plus fa-2x mb-2"></i>
-                                <span class="text-center">Add Transaction</span>
-                            </a>
+            <div class="quick-actions">
+                <h5 class="mb-3 text-center">
+                    <i class="fas fa-bolt me-2 text-primary"></i>
+                    Quick Actions
+                </h5>
+                <div class="row g-3">
+                    <div class="col-6 col-sm-3">
+                        <a href="/transactions" class="quick-action-btn">
+                            <i class="fas fa-list"></i>
+                            <span class="d-none d-sm-inline">Transactions</span>
+                            <span class="d-inline d-sm-none">Tx</span>
+                        </a>
                         </div>
-                        <div class="col-6 col-sm-3">
-                            <a href="/goals" class="btn btn-outline-success w-100 h-100 d-flex flex-column align-items-center justify-content-center py-3">
-                                <i class="fas fa-bullseye fa-2x mb-2"></i>
-                                <span class="text-center">Set Goals</span>
-                            </a>
-                        </div>
-                        <div class="col-6 col-sm-3">
-                            <a href="/balance" class="btn btn-outline-primary w-100 h-100 d-flex flex-column align-items-center justify-content-center py-3">
-                                <i class="fas fa-balance-scale fa-2x mb-2"></i>
-                                <span class="text-center">Check Balance</span>
-                            </a>
-                        </div>
-                        <div class="col-6 col-sm-3">
-                            <a href="/reports" class="btn btn-outline-warning w-100 h-100 d-flex flex-column align-items-center justify-content-center py-3">
-                                <i class="fas fa-chart-bar fa-2x mb-2"></i>
-                                <span class="text-center">Reports</span>
-                            </a>
+                    <div class="col-6 col-sm-3">
+                        <a href="/goals" class="quick-action-btn">
+                            <i class="fas fa-bullseye"></i>
+                            <span class="d-none d-sm-inline">Goals</span>
+                            <span class="d-inline d-sm-none">Goals</span>
+                        </a>
+                                </div>
+                    <div class="col-6 col-sm-3">
+                        <a href="/balance" class="quick-action-btn">
+                            <i class="fas fa-wallet"></i>
+                            <span class="d-none d-sm-inline">Balance</span>
+                            <span class="d-inline d-sm-none">Bal</span>
+                        </a>
+                            </div>
+                    <div class="col-6 col-sm-3">
+                        <a href="/settings" class="quick-action-btn">
+                            <i class="fas fa-cog"></i>
+                            <span class="d-none d-sm-inline">Settings</span>
+                            <span class="d-inline d-sm-none">Set</span>
+                        </a>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
     </div>
-</div>
 
 <!-- Mobile-specific styles -->
 <style>
@@ -224,38 +608,38 @@
     }
 }
 
-@media (max-width: 575.98px) {
-    .dashboard-container {
-        padding: 0.25rem;
-    }
-    
-    .card-body {
-        padding: 0.75rem;
-    }
-    
-    .chart-container {
-        height: 200px !important;
-    }
-    
-    .btn {
-        font-size: 0.8rem;
-        padding: 0.4rem 0.6rem;
-    }
-    
-    .h3 {
-        font-size: 1.25rem;
-    }
-    
-    .card-title {
-        font-size: 0.8rem;
-    }
-}
 </style>
 {% endblock %}
 
 {% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    // Prevent zoom and pan gestures on mobile
+    if (window.innerWidth <= 991.98) {
+        // Prevent zoom
+        document.addEventListener('gesturestart', function(e) {
+            e.preventDefault();
+        });
+        
+        // Prevent double tap zoom
+        let lastTouchEnd = 0;
+        document.addEventListener('touchend', function(event) {
+            const now = (new Date()).getTime();
+            if (now - lastTouchEnd <= 300) {
+                event.preventDefault();
+            }
+            lastTouchEnd = now;
+        }, false);
+        
+        // Prevent pinch zoom
+        document.addEventListener('touchmove', function(e) {
+            if (e.scale !== 1) {
+                e.preventDefault();
+            }
+        }, { passive: false });
+    }
+    
     // Chart data
     const ctx = document.getElementById('monthlyChart').getContext('2d');
     

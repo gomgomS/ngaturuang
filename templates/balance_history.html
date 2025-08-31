@@ -1,22 +1,211 @@
 {% extends 'layout.html' %}
 
+{% block head %}
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+{% endblock %}
+
 {% block content %}
-<div class="container-fluid">
-    <div class="row">
-        <div class="col-12">
-            <div class="d-flex justify-content-between align-items-center mb-4">
-                <h1 class="h3 mb-0">
-                    <i class="fas fa-book me-2"></i>Balance History
-                </h1>
-                <a href="/balance" class="btn btn-outline-secondary">
+<style>
+    body {
+        font-family: 'Inter', sans-serif;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: 100vh;
+    }
+    
+    .balance-history-container {
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(20px);
+        border-radius: 25px;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+        margin: 2rem;
+        padding: 2rem;
+        min-height: calc(100vh - 4rem);
+    }
+    
+    .balance-history-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 2rem;
+        border-radius: 20px;
+        margin-bottom: 2rem;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .balance-history-header::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grain" width="100" height="100" patternUnits="userSpaceOnUse"><circle cx="25" cy="25" r="1" fill="white" opacity="0.1"/><circle cx="75" cy="75" r="1" fill="white" opacity="0.1"/><circle cx="50" cy="10" r="0.5" fill="white" opacity="0.1"/><circle cx="10" cy="60" r="0.5" fill="white" opacity="0.1"/><circle cx="90" cy="40" r="0.5" fill="white" opacity="0.1"/></pattern></defs><rect width="100" height="100" fill="url(%23grain)"/></svg>');
+        opacity: 0.3;
+    }
+    
+    .balance-history-title {
+        position: relative;
+        z-index: 1;
+    }
+    
+    .balance-history-title h1 {
+        font-size: 2.5rem;
+        font-weight: 700;
+        margin-bottom: 0.5rem;
+    }
+    
+    .balance-history-title p {
+        font-size: 1.1rem;
+        opacity: 0.9;
+        margin: 0;
+    }
+    
+    .back-btn {
+        background: rgba(255, 255, 255, 0.2);
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        color: white;
+        border-radius: 15px;
+        padding: 0.75rem 1.5rem;
+        font-weight: 600;
+        transition: all 0.3s ease;
+        text-decoration: none;
+    }
+    
+    .back-btn:hover {
+        background: rgba(255, 255, 255, 0.3);
+        border-color: rgba(255, 255, 255, 0.5);
+        color: white;
+        transform: translateY(-2px);
+        text-decoration: none;
+    }
+    
+    /* Mobile Responsiveness */
+    @media (max-width: 767.98px) {
+        .balance-history-container {
+            margin: 0;
+            padding: 1rem;
+            border-radius: 0;
+            min-height: 100vh;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+        
+        .balance-history-header {
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            padding-left: 4rem;
+        }
+        
+        .balance-history-title h1 {
+            font-size: 2rem;
+        }
+        
+        .balance-history-title p {
+            font-size: 1rem;
+        }
+    }
+    
+    @media (max-width: 575.98px) {
+        .balance-history-container {
+            margin: 0;
+            padding: 0.75rem;
+        }
+        
+        .balance-history-header {
+            padding: 1rem;
+            margin-bottom: 1rem;
+            padding-left: 3.5rem;
+        }
+        
+        .balance-history-title h1 {
+            font-size: 1.75rem;
+        }
+    }
+    
+    /* Prevent horizontal scrolling and body movement */
+    @media (max-width: 991.98px) {
+        body {
+            overflow-x: hidden;
+            position: fixed;
+            width: 100%;
+            height: 100%;
+        }
+        
+        .balance-history-container {
+            -webkit-overflow-scrolling: touch;
+            overscroll-behavior: contain;
+        }
+        
+        .balance-history-header {
+            padding-left: 4.5rem;
+        }
+    }
+    
+    /* Animation */
+    .balance-history-container {
+        animation: slideInUp 0.6s ease-out;
+    }
+    
+    @keyframes slideInUp {
+        from {
+            opacity: 0;
+            transform: translateY(30px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    /* Touch and scroll optimizations */
+    .balance-history-container {
+        -webkit-overflow-scrolling: touch;
+        overscroll-behavior: contain;
+        scroll-behavior: smooth;
+    }
+    
+    /* Prevent text selection on mobile */
+    @media (max-width: 991.98px) {
+        .balance-history-container * {
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+        }
+        
+        .balance-history-container input,
+        .balance-history-container textarea {
+            -webkit-user-select: text;
+            -moz-user-select: text;
+            -ms-user-select: text;
+            user-select: text;
+        }
+    }
+</style>
+
+<div class="balance-history-container">
+    <!-- Header -->
+    <div class="balance-history-header">
+        <div class="balance-history-title">
+            <h1><i class="fas fa-book me-2"></i>Balance History</h1>
+            <p>Detailed transaction history for {{ wallet.name }}</p>
+        </div>
+        <div class="mt-3">
+            <a href="/balance" class="back-btn">
                     <i class="fas fa-arrow-left me-2"></i>Back to Balance
                 </a>
+        </div>
             </div>
 
-            <!-- Balance Summary Card -->
-            <div class="row mb-4">
-                <div class="col-md-6">
-                    <div class="card bg-primary text-white">
+    <!-- Balance Summary Cards -->
+    <div class="row g-3 mb-4">
+        <div class="col-12 col-md-6">
+            <div class="card summary-card wallet-card">
                         <div class="card-body">
                             <h5 class="card-title">
                                 <i class="fas fa-piggy-bank me-2"></i>{{ wallet.name }}
@@ -35,18 +224,18 @@
                         </div>
                     </div>
                 </div>
-                <div class="col-md-6">
-                    <div class="card bg-success text-white">
+        <div class="col-12 col-md-6">
+            <div class="card summary-card summary-stats-card">
                         <div class="card-body">
                             <h5 class="card-title">
                                 <i class="fas fa-chart-pie me-2"></i>Summary
                             </h5>
-                            <div class="row">
+                    <div class="row g-2">
                                 <div class="col-6">
                                     <p class="card-text mb-1">
                                         <strong>Total Debit:</strong>
                                         {% if manual_balance.close_balance and manual_balance.balance_amount != manual_balance.close_balance %}
-                                            <small class="d-block text-white-50">(includes ghost transaction)</small>
+                                    <small class="d-block text-muted">(includes ghost transaction)</small>
                                         {% endif %}
                                     </p>
                                     <h4 class="text-danger">
@@ -66,7 +255,7 @@
                                     <p class="card-text mb-1">
                                         <strong>Total Kredit:</strong>
                                         {% if manual_balance.close_balance and manual_balance.balance_amount != manual_balance.close_balance %}
-                                            <small class="d-block text-white-50">(includes ghost transaction)</small>
+                                    <small class="d-block text-muted">(includes ghost transaction)</small>
                                         {% endif %}
                                     </p>
                                     <h4 class="text-success">
@@ -89,7 +278,7 @@
             </div>
 
             <!-- Transactions Table -->
-            <div class="card">
+    <div class="card transactions-card">
                 <div class="card-header">
                     <h5 class="mb-0">
                         <i class="fas fa-list me-2"></i>Transactions ({{ transactions|length }} entries)
@@ -215,13 +404,57 @@
                         <p class="text-muted">This balance period has no transactions recorded.</p>
                     </div>
                     {% endif %}
-                </div>
-            </div>
         </div>
     </div>
 </div>
 
 <style>
+.summary-card {
+    border: none;
+    border-radius: 20px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s ease;
+    overflow: hidden;
+}
+
+.summary-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 15px 40px rgba(0, 0, 0, 0.15);
+}
+
+.wallet-card {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+}
+
+.summary-stats-card {
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.transactions-card {
+    border: none;
+    border-radius: 20px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.transactions-card .card-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    border-radius: 20px 20px 0 0;
+    padding: 1.5rem;
+}
+
+.transactions-card .card-header h5 {
+    margin: 0;
+    font-weight: 600;
+}
+
 .badge.bg-outline-secondary {
     background-color: transparent !important;
     color: #6c757d !important;
@@ -229,12 +462,7 @@
 }
 
 .table-hover tbody tr:hover {
-    background-color: rgba(0,0,0,.075);
-}
-
-.card {
-    border: none;
-    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    background-color: rgba(102, 126, 234, 0.05);
 }
 
 .table-responsive {
@@ -259,5 +487,79 @@
     background-color: #ffc107 !important;
     color: #000 !important;
 }
+
+/* Mobile Responsiveness */
+@media (max-width: 767.98px) {
+    .summary-card {
+        margin-bottom: 1rem;
+    }
+    
+    .transactions-card .card-header {
+        padding: 1rem;
+    }
+    
+    .table-responsive {
+        font-size: 0.8rem;
+    }
+    
+    .table th,
+    .table td {
+        padding: 0.5rem 0.25rem;
+    }
+    
+    .badge {
+        font-size: 0.7rem;
+        padding: 0.25rem 0.5rem;
+    }
+}
+
+@media (max-width: 575.98px) {
+    .transactions-card .card-header {
+        padding: 0.75rem;
+    }
+    
+    .table-responsive {
+        font-size: 0.75rem;
+    }
+    
+    .table th,
+    .table td {
+        padding: 0.4rem 0.2rem;
+    }
+    
+    .badge {
+        font-size: 0.65rem;
+        padding: 0.2rem 0.4rem;
+    }
+}
 </style>
+
+<script>
+// Prevent zoom and pan gestures on mobile
+document.addEventListener('DOMContentLoaded', function() {
+    if (window.innerWidth <= 991.98) {
+        // Prevent zoom
+        document.addEventListener('gesturestart', function(e) {
+            e.preventDefault();
+        });
+        
+        // Prevent double tap zoom
+        let lastTouchEnd = 0;
+        document.addEventListener('touchend', function(event) {
+            const now = (new Date()).getTime();
+            if (now - lastTouchEnd <= 300) {
+                event.preventDefault();
+            }
+            lastTouchEnd = now;
+        }, false);
+        
+        // Prevent pinch zoom
+        document.addEventListener('touchmove', function(e) {
+            if (e.scale !== 1) {
+                e.preventDefault();
+            }
+        }, { passive: false });
+    }
+});
+</script>
 {% endblock %}
