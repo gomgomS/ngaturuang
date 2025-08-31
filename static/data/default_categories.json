@@ -20,6 +20,16 @@
     "is_system": true
   },
   {
+    "id": "withdraw_cash",
+    "name": "Tarik Tunai",
+    "type": "expense",
+    "description": "Kategori untuk transaksi penarikan tunai",
+    "icon": "fas fa-money-bill-wave",
+    "color": "#dc3545",
+    "is_default": false,
+    "is_system": true
+  },  
+  {
     "id": "expense_general",
     "name": "General Expense",
     "type": "expense",

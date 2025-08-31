@@ -1,67 +1,109 @@
-{% extends 'layout.html' %}
-
-{% block content %}
-<div class="container">
-    <div class="row justify-content-center">
-        <div class="col-md-6 col-lg-4">
-            <div class="card shadow-lg border-0">
-                <div class="card-body p-5">
-                    <div class="text-center mb-4">
-                        <i class="fas fa-coins fa-3x text-primary mb-3"></i>
-                        <h2 class="h4 mb-2">Money Management AI</h2>
-                        <p class="text-muted">Kelola keuangan personal & bisnis dalam satu tempat</p>
-                    </div>
-                    
-                    <form id="authForm">
-                        <div class="mb-3">
-                            <label for="auth-username" class="form-label">Username</label>
-                            <input type="text" 
-                                   class="form-control" 
-                                   id="auth-username" 
-                                   placeholder="Enter username" 
-                                   required>
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Money Management AI - Login</title>
+    
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="/static/css/style.css">
+    
+    <!-- reCAPTCHA -->
+    <script src="https://www.google.com/recaptcha/api.js" async defer></script>
+</head>
+<body class="bg-light">
+    <!-- Main Content -->
+    <main class="container-fluid py-4">
+        <div class="container">
+            <div class="row justify-content-center">
+                <div class="col-md-6 col-lg-4">
+                    <div class="card shadow-lg border-0">
+                        <div class="card-body p-5">
+                            <div class="text-center mb-4">
+                                <i class="fas fa-coins fa-3x text-primary mb-3"></i>
+                                <h2 class="h4 mb-2">Money Management AI</h2>
+                                <p class="text-muted">Kelola keuangan personal & bisnis dalam satu tempat</p>
+                            </div>
+                            
+                            <form id="authForm">
+                                <div class="mb-3">
+                                    <label for="auth-username" class="form-label">Username</label>
+                                    <input type="text" 
+                                           class="form-control" 
+                                           id="auth-username" 
+                                           placeholder="Enter username" 
+                                           required>
+                                    <div class="form-text">Username must be at least 3 characters long</div>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="auth-password" class="form-label">Password</label>
+                                    <input type="password" 
+                                           class="form-control" 
+                                           id="auth-password" 
+                                           placeholder="Enter password" 
+                                           required>
+                                    <div class="form-text">Password must be at least 6 characters with uppercase, lowercase, number, and special character</div>
+                                </div>
+                                
+                                <div class="mb-4">
+                                    <label for="auth-confirm-password" class="form-label">Confirm Password</label>
+                                    <input type="password" 
+                                           class="form-control" 
+                                           id="auth-confirm-password" 
+                                           placeholder="Confirm your password" 
+                                           required>
+                                    <div class="form-text">Please confirm your password</div>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <div class="d-grid">
+                                        <div class="g-recaptcha" data-sitekey="6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI"></div>
+                                    </div>
+                                </div>
+                                
+                                <div class="d-grid gap-2 mb-3">
+                                    <button type="button" 
+                                            id="btn-login" 
+                                            class="btn btn-primary btn-lg">
+                                        <i class="fas fa-sign-in-alt me-2"></i>Login
+                                    </button>
+                                    <button type="button" 
+                                            id="btn-register" 
+                                            class="btn btn-outline-secondary">
+                                        <i class="fas fa-user-plus me-2"></i>Register
+                                    </button>
+                                </div>
+                                
+                                <div id="auth-msg" class="alert d-none" role="alert"></div>
+                            </form>
+                            
+                            <div class="text-center mt-4">
+                                <small class="text-muted">
+                                    <i class="fas fa-info-circle me-1"></i>
+                                    Demo mode - no real authentication required
+                                </small>
+                            </div>
                         </div>
-                        
-                        <div class="mb-4">
-                            <label for="auth-password" class="form-label">Password</label>
-                            <input type="password" 
-                                   class="form-control" 
-                                   id="auth-password" 
-                                   placeholder="Enter password" 
-                                   required>
-                        </div>
-                        
-                        <div class="d-grid gap-2 mb-3">
-                            <button type="button" 
-                                    id="btn-login" 
-                                    class="btn btn-primary btn-lg">
-                                <i class="fas fa-sign-in-alt me-2"></i>Login
-                            </button>
-                            <button type="button" 
-                                    id="btn-register" 
-                                    class="btn btn-outline-secondary">
-                                <i class="fas fa-user-plus me-2"></i>Register
-                            </button>
-                        </div>
-                        
-                        <div id="auth-msg" class="alert d-none" role="alert"></div>
-                    </form>
-                    
-                    <div class="text-center mt-4">
-                        <small class="text-muted">
-                            <i class="fas fa-info-circle me-1"></i>
-                            Demo mode - no real authentication required
-                        </small>
                     </div>
                 </div>
             </div>
         </div>
-    </div>
-</div>
-{% endblock %}
+    </main>
 
-{% block scripts %}
-<script src="/static/js/auth.js"></script>
-{% endblock %}
+    <!-- Bootstrap 5 JS Bundle -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- Custom JS -->
+    <script src="/static/js/app.js"></script>
+    <script src="/static/js/auth.js"></script>
+</body>
+</html>
 
 

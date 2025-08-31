@@ -1,0 +1,502 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Login - Uangly</title>
+    
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+        }
+        
+        .login-container {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border-radius: 25px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+            overflow: hidden;
+            width: 100%;
+            max-width: 450px;
+            position: relative;
+        }
+        
+        .login-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 2.5rem 2rem 2rem;
+            text-align: center;
+            position: relative;
+        }
+        
+        .login-header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grain" width="100" height="100" patternUnits="userSpaceOnUse"><circle cx="25" cy="25" r="1" fill="white" opacity="0.1"/><circle cx="75" cy="75" r="1" fill="white" opacity="0.1"/><circle cx="50" cy="10" r="0.5" fill="white" opacity="0.1"/><circle cx="10" cy="60" r="0.5" fill="white" opacity="0.1"/><circle cx="90" cy="40" r="0.5" fill="white" opacity="0.1"/></pattern></defs><rect width="100" height="100" fill="url(%23grain)"/></svg>');
+            opacity: 0.3;
+        }
+        
+        .brand-logo {
+            position: relative;
+            z-index: 1;
+        }
+        
+        .brand-logo i {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            color: #ffd700;
+        }
+        
+        .brand-logo h1 {
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+        
+        .brand-logo p {
+            font-size: 1rem;
+            opacity: 0.9;
+            margin: 0;
+        }
+        
+        .login-form {
+            padding: 2.5rem 2rem;
+        }
+        
+        .form-floating {
+            margin-bottom: 1.5rem;
+        }
+        
+        .form-control {
+            border: 2px solid #e9ecef;
+            border-radius: 15px;
+            padding: 1rem 1.25rem;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+            background: rgba(255, 255, 255, 0.8);
+        }
+        
+        .form-control:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+            background: white;
+        }
+        
+        .form-floating label {
+            padding: 1rem 1.25rem;
+            color: #6c757d;
+        }
+        
+        .form-floating > .form-control:focus ~ label,
+        .form-floating > .form-control:not(:placeholder-shown) ~ label {
+            transform: scale(0.85) translateY(-1rem) translateX(0.15rem);
+            color: #667eea;
+        }
+        
+        .btn-login {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            border-radius: 15px;
+            padding: 1rem 2rem;
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: white;
+            width: 100%;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .btn-login::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+            transition: left 0.5s;
+        }
+        
+        .btn-login:hover::before {
+            left: 100%;
+        }
+        
+        .btn-login:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn-login:active {
+            transform: translateY(0);
+        }
+        
+        .login-footer {
+            text-align: center;
+            padding: 1.5rem 2rem 2rem;
+            border-top: 1px solid #e9ecef;
+        }
+        
+        .login-footer p {
+            margin-bottom: 1rem;
+            color: #6c757d;
+        }
+        
+        .btn-register {
+            background: transparent;
+            border: 2px solid #667eea;
+            color: #667eea;
+            border-radius: 15px;
+            padding: 0.75rem 2rem;
+            font-weight: 600;
+            text-decoration: none;
+            display: inline-block;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-register:hover {
+            background: #667eea;
+            color: white;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.3);
+            text-decoration: none;
+        }
+        
+        .message-area {
+            margin-bottom: 1.5rem;
+        }
+        
+        .alert {
+            border-radius: 15px;
+            border: none;
+            padding: 1rem 1.25rem;
+        }
+        
+        .alert-success {
+            background: rgba(40, 167, 69, 0.1);
+            color: #155724;
+            border-left: 4px solid #28a745;
+        }
+        
+        .alert-danger {
+            background: rgba(220, 53, 69, 0.1);
+            color: #721c24;
+            border-left: 4px solid #dc3545;
+        }
+        
+        .alert-info {
+            background: rgba(23, 162, 184, 0.1);
+            color: #0c5460;
+            border-left: 4px solid #17a2b8;
+        }
+        
+        .password-toggle {
+            position: absolute;
+            right: 1rem;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            color: #6c757d;
+            cursor: pointer;
+            z-index: 10;
+        }
+        
+        .password-toggle:hover {
+            color: #667eea;
+        }
+        
+        .form-floating {
+            position: relative;
+        }
+        
+        .password-field {
+            position: relative;
+        }
+        
+        /* Mobile Responsiveness */
+        @media (max-width: 575.98px) {
+            body {
+                padding: 0.5rem;
+            }
+            
+            .login-container {
+                border-radius: 20px;
+                margin: 0.5rem;
+            }
+            
+            .login-header {
+                padding: 2rem 1.5rem 1.5rem;
+            }
+            
+            .brand-logo h1 {
+                font-size: 1.75rem;
+            }
+            
+            .brand-logo i {
+                font-size: 2.5rem;
+            }
+            
+            .login-form {
+                padding: 2rem 1.5rem;
+            }
+            
+            .login-footer {
+                padding: 1rem 1.5rem 1.5rem;
+            }
+        }
+        
+        /* Animation */
+        .login-container {
+            animation: slideInUp 0.6s ease-out;
+        }
+        
+        @keyframes slideInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        /* Loading state */
+        .btn-login.loading {
+            pointer-events: none;
+            opacity: 0.7;
+        }
+        
+        .btn-login.loading::after {
+            content: '';
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            top: 50%;
+            left: 50%;
+            margin-left: -10px;
+            margin-top: -10px;
+            border: 2px solid transparent;
+            border-top: 2px solid white;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <!-- Header -->
+        <div class="login-header">
+            <div class="brand-logo">
+                <i class="fas fa-coins"></i>
+                <h1>Uangly</h1>
+                <p>Welcome back! Sign in to your account</p>
+            </div>
+        </div>
+        
+        <!-- Login Form -->
+        <div class="login-form">
+            <!-- Message Area -->
+            <div class="message-area" id="messageArea" style="display: none;">
+                <div class="alert" id="messageAlert" role="alert">
+                    <span id="messageText"></span>
+                </div>
+            </div>
+            
+            <form id="loginForm">
+                <div class="form-floating">
+                    <input type="text" class="form-control" id="username" name="username" placeholder="Username" required>
+                    <label for="username">
+                        <i class="fas fa-user me-2"></i>Username
+                    </label>
+                </div>
+                
+                <div class="form-floating password-field">
+                    <input type="password" class="form-control" id="password" name="password" placeholder="Password" required>
+                    <label for="password">
+                        <i class="fas fa-lock me-2"></i>Password
+                    </label>
+                    <button type="button" class="password-toggle" onclick="togglePassword()">
+                        <i class="fas fa-eye" id="passwordIcon"></i>
+                    </button>
+                </div>
+                
+                <button type="submit" class="btn btn-login" id="loginBtn">
+                    <i class="fas fa-sign-in-alt me-2"></i>Sign In
+                </button>
+            </form>
+        </div>
+        
+        <!-- Footer -->
+        <div class="login-footer">
+            <p>Don't have an account?</p>
+            <a href="/register" class="btn-register">
+                <i class="fas fa-user-plus me-2"></i>Create Account
+            </a>
+        </div>
+    </div>
+
+    <!-- Bootstrap 5 JS Bundle -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- Login Script -->
+    <script>
+        // Toggle password visibility
+        function togglePassword() {
+            const passwordInput = document.getElementById('password');
+            const passwordIcon = document.getElementById('passwordIcon');
+            
+            if (passwordInput.type === 'password') {
+                passwordInput.type = 'text';
+                passwordIcon.className = 'fas fa-eye-slash';
+            } else {
+                passwordInput.type = 'password';
+                passwordIcon.className = 'fas fa-eye';
+            }
+        }
+        
+        // Handle form submission
+        document.getElementById('loginForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const loginBtn = document.getElementById('loginBtn');
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value;
+            
+            // Validation
+            if (!username || !password) {
+                showMessage('Please fill in all fields', 'danger');
+                return;
+            }
+            
+            if (username.length < 3) {
+                showMessage('Username must be at least 3 characters', 'danger');
+                return;
+            }
+            
+            // Set loading state
+            loginBtn.classList.add('loading');
+            loginBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Signing In...';
+            
+            try {
+                const response = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ username, password })
+                });
+                
+                const data = await response.json();
+                
+                // Debug logging
+                console.log('Login response:', response);
+                console.log('Login data:', data);
+                
+                if (response.ok && data.success) {
+                    showMessage('Login successful! Redirecting...', 'success');
+                    setTimeout(() => {
+                        window.location.href = '/dashboard';
+                    }, 1000);
+                } else if (response.ok && data.user_id) {
+                    // Alternative success check - if user_id exists
+                    showMessage('Login successful! Redirecting...', 'success');
+                    setTimeout(() => {
+                        window.location.href = '/dashboard';
+                    }, 1000);
+                } else if (response.ok && data.message && data.message.includes('success')) {
+                    // Check if message contains success
+                    showMessage('Login successful! Redirecting...', 'success');
+                    setTimeout(() => {
+                        window.location.href = '/dashboard';
+                    }, 1000);
+                } else {
+                    showMessage(data.message || 'Login failed. Please check your credentials.', 'danger');
+                }
+            } catch (error) {
+                console.error('Login error:', error);
+                showMessage('Network error. Please try again.', 'danger');
+            } finally {
+                // Reset loading state
+                loginBtn.classList.remove('loading');
+                loginBtn.innerHTML = '<i class="fas fa-sign-in-alt me-2"></i>Sign In';
+            }
+            
+            // Fallback redirect check - if we get here and no error, try to redirect
+            if (response && response.ok) {
+                setTimeout(() => {
+                    if (window.location.pathname !== '/dashboard') {
+                        window.location.href = '/dashboard';
+                    }
+                }, 1500);
+                
+                // Force redirect after 3 seconds as ultimate fallback
+                setTimeout(() => {
+                    if (window.location.pathname !== '/dashboard') {
+                        console.log('Force redirecting to dashboard...');
+                        window.location.href = '/dashboard';
+                    }
+                }, 3000);
+            }
+        });
+        
+        // Show message function
+        function showMessage(message, type) {
+            const messageArea = document.getElementById('messageArea');
+            const messageAlert = document.getElementById('messageAlert');
+            const messageText = document.getElementById('messageText');
+            
+            messageText.textContent = message;
+            messageAlert.className = `alert alert-${type}`;
+            messageArea.style.display = 'block';
+            
+            // Auto-hide after 5 seconds
+            setTimeout(() => {
+                messageArea.style.display = 'none';
+            }, 5000);
+        }
+        
+        // Demo mode for testing
+        function enableDemoMode() {
+            document.getElementById('username').value = 'demo_user';
+            document.getElementById('password').value = 'demo123';
+        }
+        
+        // Add demo mode button for development
+        if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+            const demoBtn = document.createElement('button');
+            demoBtn.type = 'button';
+            demoBtn.className = 'btn btn-outline-secondary btn-sm position-absolute';
+            demoBtn.style.cssText = 'top: 1rem; right: 1rem; z-index: 1000;';
+            demoBtn.innerHTML = '<i class="fas fa-magic me-1"></i>Demo';
+            demoBtn.onclick = enableDemoMode;
+            document.body.appendChild(demoBtn);
+        }
+    </script>
+</body>
+</html>

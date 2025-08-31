@@ -1,5 +1,5 @@
 import os
-from flask import Flask, render_template, session, request, jsonify
+from flask import Flask, render_template, session, request, jsonify, redirect
 from mm.repositories.transactions import TransactionRepository
 from mm.repositories.scopes import ScopeRepository
 from mm.repositories.wallets import WalletRepository
@@ -53,20 +53,33 @@ def datetime_filter(timestamp):
 
 # Web Routes
 @app.route("/")
-def auth():
-    return render_template("auth.html")
+def landing():
+    return render_template("landing.html")
+
+@app.route("/login")
+def login():
+    return render_template("login.html")
+
+@app.route("/register")
+def register():
+    return render_template("register.html")
 
 @app.route("/dashboard")
 def dashboard():
     try:
-        user_id = session.get("user_id", "demo_user")
+        user_id = session.get("user_id")
+        username = session.get("username")
+        
+        # Redirect to login if not authenticated
+        if not user_id or not username:
+            return redirect("/login")
         
         # Get repositories
         tx_repo = TransactionRepository()
         scope_repo = ScopeRepository()
         wallet_repo = WalletRepository()
         
-        # Get data
+        # Get data based on user_id from database
         transactions = tx_repo.get_user_transactions_simple(user_id, limit=10)
         scopes = scope_repo.list_by_user(user_id)
         wallets = wallet_repo.list_by_user(user_id)
@@ -109,7 +122,8 @@ def dashboard():
                              total_transfer=total_transfer,
                              total_admin_fees=total_admin_fees,
                              balance=balance,
-                             total_transactions=total_transactions)
+                             total_transactions=total_transactions,
+                             username=username)
     except Exception as e:
         print(f"Error in dashboard: {e}")
         return render_template("dashboard.html", 
@@ -720,7 +734,7 @@ def balance():
                             remaining_ghost_amount = ghost_amount_abs
                             
                             # NEW: Look for confirmed ghost transactions AFTER this point
-                            # Use transaction_order if available, otherwise fallback to timestamp
+                            # Use transaction_order if avaable, otherwise fallback to timestamp
                             confirmed_for_this_ghost = 0
                             
                             # Ensure transactions is a valid list before iterating
@@ -1589,6 +1603,115 @@ def get_current_user():
     """Get current user info"""
     user_id = session.get("user_id", "demo_user")
     return jsonify({"user_id": user_id, "username": "demo_user"})
+
+@app.route("/api/auth/check-username", methods=["POST"])
+def api_check_username():
+    """Check username availability endpoint"""
+    try:
+        data = request.get_json()
+        username = data.get("username")
+        
+        if not username:
+            return jsonify({"available": False, "message": "Username is required"}), 400
+        
+        # Check if username already exists
+        user_repo = UserRepository()
+        existing_user = user_repo.find_by_username(username)
+        available = existing_user is None
+        
+        return jsonify({"available": available, "message": "Username is available" if available else "Username is already taken"})
+        
+    except Exception as e:
+        print(f"Error in api_check_username: {e}")
+        return jsonify({"available": False, "message": "Error checking username"}), 500
+
+@app.route("/api/auth/register", methods=["POST"])
+def api_register():
+    """User registration endpoint"""
+    try:
+        data = request.get_json()
+        username = data.get("username")
+        password = data.get("password")
+        
+        # Basic validation
+        if not username or not password:
+            return jsonify({"error": "Username and password are required"}), 400
+        
+        if len(username) < 3:
+            return jsonify({"error": "Username must be at least 3 characters long"}), 400
+        
+        if len(password) < 6:
+            return jsonify({"error": "Password must be at least 6 characters long"}), 400
+        
+        # Check if username already exists
+        user_repo = UserRepository()
+        existing_user = user_repo.find_by_username(username)
+        if existing_user:
+            return jsonify({"error": "Username already exists"}), 400
+        
+        # Create new user
+        new_user = {
+            "username": username,
+            "password": password,  # In production, hash the password
+            "created_at": datetime.now().timestamp(),
+            "updated_at": datetime.now().timestamp()
+        }
+        
+        # Save user to database
+        user_id = user_repo.insert_one(new_user)
+        
+        if not user_id:
+            return jsonify({"error": "Failed to create user"}), 500
+        
+        # Set user session
+        session["user_id"] = str(user_id)
+        session["username"] = username
+        
+        return jsonify({"success": True, "message": "Registration successful", "user_id": str(user_id)}), 200
+        
+    except Exception as e:
+        print(f"Error in api_register: {e}")
+        return jsonify({"error": "Registration failed"}), 500
+
+@app.route("/api/auth/login", methods=["POST"])
+def api_login():
+    """User login endpoint"""
+    try:
+        data = request.get_json()
+        username = data.get("username")
+        password = data.get("password")
+        
+        # Basic validation
+        if not username or not password:
+            return jsonify({"error": "Username and password are required"}), 400
+        
+        # Verify user credentials from database
+        user_repo = UserRepository()
+        user = user_repo.find_by_username(username)
+        
+        if not user:
+            return jsonify({"error": "Invalid username or password"}), 401
+        
+        # Check password (in production, verify hashed password)
+        if user.get("password") != password:
+            return jsonify({"error": "Invalid username or password"}), 401
+        
+        # Set user session
+        session["user_id"] = str(user["_id"])
+        session["username"] = username
+        
+        return jsonify({"success": True, "message": "Login successful", "user_id": str(user["_id"])}), 200
+        
+    except Exception as e:
+        print(f"Error in api_login: {e}")
+        return jsonify({"error": "Login failed"}), 500
+
+@app.route("/logout")
+def logout():
+    """User logout endpoint"""
+    # Clear session
+    session.clear()
+    return redirect("/")
 
 @app.route("/balance-history/<manual_balance_id>")
 def balance_history(manual_balance_id):

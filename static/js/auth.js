@@ -45,10 +45,11 @@ async function handleRegister() {
     
     const username = document.getElementById('auth-username').value.trim();
     const password = document.getElementById('auth-password').value;
+    const confirmPassword = document.getElementById('auth-confirm-password').value;
     
     // Validation
-    if (!username || !password) {
-        showAuthMessage('Please fill in both username and password', 'warning');
+    if (!username || !password || !confirmPassword) {
+        showAuthMessage('Please fill in all fields', 'warning');
         return;
     }
     
@@ -57,8 +58,58 @@ async function handleRegister() {
         return;
     }
     
+    if (username.length > 20) {
+        showAuthMessage('Username must be less than 20 characters', 'warning');
+        return;
+    }
+    
+    // Username format validation (alphanumeric and underscore only)
+    if (!/^[a-zA-Z0-9_]+$/.test(username)) {
+        showAuthMessage('Username can only contain letters, numbers, and underscores', 'warning');
+        return;
+    }
+    
     if (password.length < 6) {
         showAuthMessage('Password must be at least 6 characters long', 'warning');
+        return;
+    }
+    
+    if (password.length > 50) {
+        showAuthMessage('Password must be less than 50 characters', 'warning');
+        return;
+    }
+    
+    // Password strength validation
+    if (!/(?=.*[a-z])/.test(password)) {
+        showAuthMessage('Password must contain at least one lowercase letter', 'warning');
+        return;
+    }
+    
+    if (!/(?=.*[A-Z])/.test(password)) {
+        showAuthMessage('Password must contain at least one uppercase letter', 'warning');
+        return;
+    }
+    
+    if (!/(?=.*\d)/.test(password)) {
+        showAuthMessage('Password must contain at least one number', 'warning');
+        return;
+    }
+    
+    if (!/(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?])/.test(password)) {
+        showAuthMessage('Password must contain at least one special character', 'warning');
+        return;
+    }
+    
+    // Password confirmation validation
+    if (password !== confirmPassword) {
+        showAuthMessage('Passwords do not match', 'warning');
+        return;
+    }
+    
+    // reCAPTCHA validation
+    const recaptchaResponse = grecaptcha.getResponse();
+    if (!recaptchaResponse) {
+        showAuthMessage('Please complete the reCAPTCHA verification', 'warning');
         return;
     }
     
@@ -70,21 +121,33 @@ async function handleRegister() {
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ username, password })
+            body: JSON.stringify({ 
+                username, 
+                password,
+                recaptcha_response: recaptchaResponse
+            })
         });
         
         if (response.ok) {
             showAuthMessage('Registration successful! Redirecting to dashboard...', 'success');
+            // Reset reCAPTCHA
+            grecaptcha.reset();
+            // Clear form
+            document.getElementById('authForm').reset();
             setTimeout(() => {
                 window.location.href = '/dashboard';
             }, 1500);
         } else {
             const error = await response.json().catch(() => ({ error: 'Registration failed' }));
             showAuthMessage(error.error || 'Registration failed. Please try again.', 'danger');
+            // Reset reCAPTCHA on error
+            grecaptcha.reset();
         }
     } catch (error) {
         console.error('Registration error:', error);
         showAuthMessage('Network error. Please check your connection and try again.', 'danger');
+        // Reset reCAPTCHA on error
+        grecaptcha.reset();
     } finally {
         setProcessingState(false);
     }
