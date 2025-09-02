@@ -344,6 +344,8 @@
             position: fixed;
             width: 100%;
             height: 100%;
+            /* Android scroll fix */
+            touch-action: pan-y;
         }
         
         .dashboard-container {
@@ -351,6 +353,10 @@
             overscroll-behavior: contain;
             overflow-y: auto;
             scroll-behavior: smooth;
+            /* Android-specific improvements */
+            touch-action: pan-y;
+            -webkit-transform: translateZ(0);
+            transform: translateZ(0);
         }
         
         .dashboard-header {
@@ -379,6 +385,10 @@
         -webkit-overflow-scrolling: touch;
         overscroll-behavior: contain;
         scroll-behavior: smooth;
+        /* Android-specific scroll improvements */
+        touch-action: pan-y;
+        -webkit-overflow-scrolling: touch;
+        overflow-scrolling: touch;
     }
     
     /* Enhanced mobile scrolling */
@@ -667,9 +677,9 @@ document.addEventListener('DOMContentLoaded', function() {
             lastTouchEnd = now;
         }, false);
         
-        // Prevent pinch zoom
+        // Prevent pinch zoom but allow scrolling
         document.addEventListener('touchmove', function(e) {
-            if (e.scale !== 1) {
+            if (e.touches.length > 1) {
                 e.preventDefault();
             }
         }, { passive: false });
