@@ -682,6 +682,42 @@
                         </div>
                     </div>
 
+    <!-- Top Tags Section -->
+    <div class="row g-4 mt-4">
+        <div class="col-12">
+            <div class="card content-card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-tags me-2"></i>
+                        Top Tags
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if top_tags %}
+                        <div class="row g-3">
+                            {% for tag, count in top_tags %}
+                            <div class="col-6 col-md-4 col-lg-2">
+                                <div class="tag-item">
+                                    <div class="tag-badge">
+                                        <span class="tag-name">{{ tag.title() }}</span>
+                                        <span class="tag-count">{{ count }}</span>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="text-center py-4">
+                            <i class="fas fa-tags fa-3x text-muted mb-3"></i>
+                            <p class="text-muted mb-0">No tags found</p>
+                            <small class="text-muted">Start adding tags to your transactions to see them here</small>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Quick Actions Section -->
     <div class="row g-3 mt-4">
         <div class="col-12">
@@ -759,6 +795,61 @@
     
     .quick-actions .btn {
         min-height: 80px;
+    }
+    
+    /* Tags Section Styles */
+    .tag-item {
+        text-align: center;
+    }
+    
+    .tag-badge {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 1rem;
+        border-radius: 15px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        min-height: 80px;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+    }
+    
+    .tag-badge:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
+    }
+    
+    .tag-name {
+        font-weight: 600;
+        font-size: 0.9rem;
+        margin-bottom: 0.25rem;
+        text-transform: capitalize;
+    }
+    
+    .tag-count {
+        font-size: 0.75rem;
+        opacity: 0.8;
+        background: rgba(255, 255, 255, 0.2);
+        padding: 0.25rem 0.5rem;
+        border-radius: 10px;
+        font-weight: 500;
+    }
+    
+    @media (max-width: 768px) {
+        .tag-badge {
+            min-height: 70px;
+            padding: 0.75rem;
+        }
+        
+        .tag-name {
+            font-size: 0.8rem;
+        }
+        
+        .tag-count {
+            font-size: 0.7rem;
+        }
     }
 }
 

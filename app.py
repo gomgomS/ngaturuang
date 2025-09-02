@@ -198,6 +198,24 @@ def dashboard():
         # Get current month name for display
         current_month_name = current_date.strftime('%B %Y')
         
+        # Process tags data - get all user transactions to count tags
+        all_transactions = tx_repo.get_user_transactions_simple(user_id, limit=1000)  # Get more transactions for better tag analysis
+        tag_counts = {}
+        
+        for tx in all_transactions:
+            tags = tx.get("tags", [])
+            if isinstance(tags, list) and tags:
+                for tag in tags:
+                    if tag and tag.strip():  # Skip empty tags
+                        tag = tag.strip().lower()
+                        tag_counts[tag] = tag_counts.get(tag, 0) + 1
+            elif isinstance(tags, str) and tags.strip():
+                tag = tags.strip().lower()
+                tag_counts[tag] = tag_counts.get(tag, 0) + 1
+        
+        # Get top 5 most used tags
+        top_tags = sorted(tag_counts.items(), key=lambda x: x[1], reverse=True)[:5]
+        
         return render_template("dashboard.html", 
                              transactions=transactions,
                              scopes=scopes,
@@ -208,7 +226,8 @@ def dashboard():
                              total_admin_fees=total_admin_fees,
                              balance=balance,
                              total_transactions=total_transactions,
-                             current_month_name=current_month_name)
+                             current_month_name=current_month_name,
+                             top_tags=top_tags)
     except Exception as e:
         print(f"Error in dashboard: {e}")
         # Get current month name for display even in error case
@@ -224,7 +243,8 @@ def dashboard():
                              total_admin_fees=0,
                              balance=0,
                              total_transactions=0,
-                             current_month_name=current_month_name)
+                             current_month_name=current_month_name,
+                             top_tags=[])
 
 @app.route("/api/dashboard-data")
 def api_dashboard_data():
