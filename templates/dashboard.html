@@ -60,6 +60,78 @@
         margin: 0;
     }
     
+    /* Month Filter Styles */
+    .month-filter-container {
+        position: relative;
+        z-index: 1;
+        margin-top: 1.5rem;
+    }
+    
+    /* Quick Access Styles */
+    .quick-access-container {
+        position: relative;
+        z-index: 1;
+        margin-top: 1rem;
+    }
+    
+    .quick-access-btn {
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        background: rgba(255, 255, 255, 0.1);
+        color: white;
+        padding: 0.5rem 1.5rem;
+        border-radius: 25px;
+        font-weight: 500;
+        transition: all 0.3s ease;
+        backdrop-filter: blur(10px);
+    }
+    
+    .quick-access-btn:hover {
+        background: rgba(255, 255, 255, 0.2);
+        border-color: rgba(255, 255, 255, 0.5);
+        color: white;
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+    }
+    
+    .month-filter {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        flex-wrap: wrap;
+    }
+    
+    .month-filter-label {
+        color: rgba(255, 255, 255, 0.9);
+        font-weight: 500;
+        font-size: 1rem;
+        margin: 0;
+        white-space: nowrap;
+    }
+    
+    .month-filter-select {
+        background: rgba(255, 255, 255, 0.15);
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        border-radius: 10px;
+        color: white;
+        font-weight: 500;
+        padding: 0.75rem 1rem;
+        min-width: 200px;
+        transition: all 0.3s ease;
+    }
+    
+    .month-filter-select:focus {
+        background: rgba(255, 255, 255, 0.2);
+        border-color: rgba(255, 255, 255, 0.5);
+        box-shadow: 0 0 0 0.2rem rgba(255, 255, 255, 0.25);
+        color: white;
+    }
+    
+    .month-filter-select option {
+        background: #2c3e50;
+        color: white;
+        padding: 0.5rem;
+    }
+    
     .stats-card {
         background: rgba(255, 255, 255, 0.9);
         border: none;
@@ -254,6 +326,17 @@
             font-size: 1rem;
         }
         
+        .month-filter {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 0.75rem;
+        }
+        
+        .month-filter-select {
+            min-width: 100%;
+            font-size: 0.9rem;
+        }
+        
         .stats-card .card-body {
             padding: 1rem;
         }
@@ -442,9 +525,28 @@
     <div class="dashboard-header">
         <div class="welcome-text">
             <h1>Welcome back, {{ username }}!</h1>
-            <p>Here's your financial overview</p>
-                </div>
+            <p>Here's your financial overview for <span id="currentMonthDisplay">{{ current_month_name }}</span></p>
+        </div>
+        
+        <!-- Month Filter -->
+        <div class="month-filter-container">
+            <div class="month-filter">
+                <label for="monthFilter" class="month-filter-label">
+                    <i class="fas fa-calendar-alt me-2"></i>Select Month:
+                </label>
+                <select id="monthFilter" class="form-select month-filter-select">
+                    <option value="">Loading months...</option>
+                </select>
             </div>
+        </div>
+        
+        <!-- Quick Access -->
+        <div class="quick-access-container">
+            <button type="button" class="btn btn-outline-light quick-access-btn" data-bs-toggle="modal" data-bs-target="#quickAccessModal">
+                <i class="fas fa-bolt me-2"></i>Quick Access
+            </button>
+        </div>
+    </div>
 
     <!-- Stats Cards Row -->
     <div class="row g-3 mb-4">
@@ -455,7 +557,7 @@
                         <i class="fas fa-wallet"></i>
                                 </div>
                     <h5 class="stats-label">Total Balance</h5>
-                    <h3 class="stats-value">{{ "%.2f"|format((total_balance|default(0))|float) }}</h3>
+                    <h3 class="stats-value">Rp {{ "{:,.0f}".format((total_balance|default(0))|float) }}</h3>
                                 </div>
                             </div>
                         </div>
@@ -467,7 +569,7 @@
                         <i class="fas fa-arrow-up"></i>
                                 </div>
                     <h5 class="stats-label">Income</h5>
-                    <h3 class="stats-value">{{ "%.2f"|format((total_income|default(0))|float) }}</h3>
+                    <h3 class="stats-value">Rp {{ "{:,.0f}".format((total_income|default(0))|float) }}</h3>
                                 </div>
                             </div>
                         </div>
@@ -479,7 +581,7 @@
                         <i class="fas fa-arrow-down"></i>
                                 </div>
                     <h5 class="stats-label">Expenses</h5>
-                    <h3 class="stats-value">{{ "%.2f"|format((total_expenses|default(0))|float) }}</h3>
+                    <h3 class="stats-value">Rp {{ "{:,.0f}".format((total_expenses|default(0))|float) }}</h3>
                                 </div>
                             </div>
                         </div>
@@ -530,6 +632,10 @@
                     </a>
                 </div>
                 <div class="card-body p-0">
+                    <!-- Debug: Show transaction count -->
+                    <div class="text-muted small p-2" style="display: none;">
+                        Debug: {{ transactions|length }} transactions found
+                    </div>
                     {% if transactions %}
                         <div class="list-group list-group-flush">
                             {% for tx in transactions[:5] %}
@@ -547,16 +653,19 @@
                 </div>
                                 <div>
                                             <div class="fw-medium text-truncate" style="max-width: 120px;">
-                                                {{ tx.description or 'No description' }}
+                                                {{ tx.note or tx.description or 'No description' }}
                                 </div>
-                                            <small class="text-muted">{{ tx.category or 'Uncategorized' }}</small>
+                                            {% if (tx.category_name and tx.category_name != 'Unknown') or (tx.category and tx.category != 'Unknown') %}
+                                            <small class="text-muted">{{ tx.category_name or tx.category or 'Uncategorized' }}</small>
+                                            {% endif %}
+                                            <small class="text-muted d-block">{{ tx.wallet_name or 'No Wallet' }}</small>
                                 </div>
                             </div>
                                     <div class="text-end">
                                         <div class="transaction-amount {% if tx.type == 'income' %}income{% elif tx.type == 'expense' %}expense{% else %}transfer{% endif %}">
-                                            {{ "%.2f"|format((tx.amount|default(0))|float) }}
+                                            Rp {{ "{:,.0f}".format((tx.amount|default(0))|float) }}
                         </div>
-                                        <small class="text-muted">{{ tx.date.strftime('%m/%d') if tx.date else 'N/A' }}</small>
+                                        <small class="text-muted">{{ tx.date if tx.date else 'N/A' }}</small>
                     </div>
                 </div>
             </div>
@@ -660,6 +769,11 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    // Initialize month filter with a small delay to ensure DOM is ready
+    setTimeout(() => {
+        initializeMonthFilter();
+    }, 100);
+    
     // Prevent zoom and pan gestures on mobile
     if (window.innerWidth <= 991.98) {
         // Prevent zoom
@@ -688,14 +802,14 @@ document.addEventListener('DOMContentLoaded', function() {
     // Chart data
     const ctx = document.getElementById('monthlyChart').getContext('2d');
     
-    // Sample data - replace with actual data from backend
+    // Initialize with current month data (will be updated when month filter loads)
     const monthlyData = {
-        labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
-        income: [1200, 1900, 1500, 2100, 1800, 2200],
-        expenses: [800, 1200, 1100, 1400, 1300, 1600]
+        labels: [],
+        income: [],
+        expenses: []
     };
     
-    new Chart(ctx, {
+    window.monthlyChart = new Chart(ctx, {
         type: 'line',
         data: {
             labels: monthlyData.labels,
@@ -747,7 +861,376 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 });
+
+// Month Filter Functions
+function initializeMonthFilter() {
+    const monthFilter = document.getElementById('monthFilter');
+    if (!monthFilter) {
+        console.error('Month filter element not found');
+        return;
+    }
+    
+    // Generate month options (current month and previous 11 months)
+    const months = generateMonthOptions();
+    
+    // Clear existing options
+    monthFilter.innerHTML = '';
+    
+    // Add month options
+    months.forEach((month, index) => {
+        const option = document.createElement('option');
+        option.value = month.value;
+        option.textContent = month.label;
+        
+        // Highlight current month (first in the list)
+        if (index === 0) {
+            option.textContent = `${month.label} (Current)`;
+            option.selected = true;
+        }
+        
+        monthFilter.appendChild(option);
+    });
+    
+    // Set current month as default
+    const currentMonth = new Date().toISOString().slice(0, 7); // YYYY-MM format
+    monthFilter.value = currentMonth;
+    
+    // Add change event listener
+    monthFilter.addEventListener('change', function() {
+        const selectedMonth = this.value;
+        if (selectedMonth && selectedMonth !== 'undefined') {
+            loadDashboardData(selectedMonth);
+        }
+    });
+    
+    // Load current month data to initialize the chart
+    loadDashboardData(currentMonth);
+}
+
+function generateMonthOptions() {
+    const months = [];
+    const currentDate = new Date();
+    
+    for (let i = 0; i < 12; i++) {
+        const date = new Date(currentDate.getFullYear(), currentDate.getMonth() - i, 1);
+        const year = date.getFullYear();
+        const month = date.getMonth() + 1;
+        const monthName = date.toLocaleDateString('en-US', { month: 'long' });
+        
+        months.push({
+            value: `${year}-${month.toString().padStart(2, '0')}`,
+            label: `${monthName} ${year}`
+        });
+    }
+    
+    return months;
+}
+
+async function loadDashboardData(month) {
+    try {
+        // Validate month parameter
+        if (!month || month === 'undefined' || month === '') {
+            console.error('Invalid month parameter:', month);
+            return;
+        }
+        
+        console.log(`Loading dashboard data for month: ${month}`);
+        
+        // Show loading state
+        showLoadingState();
+        
+        // Fetch data for the selected month
+        const response = await fetch(`/api/dashboard-data?month=${month}`);
+        if (!response.ok) {
+            throw new Error('Failed to fetch dashboard data');
+        }
+        
+        const data = await response.json();
+        
+        // Update dashboard with new data
+        updateDashboardData(data);
+        
+        // Update chart
+        updateChart(data.chartData);
+        
+        // Update month display
+        updateMonthDisplay(month);
+        
+        console.log('Dashboard data loaded successfully');
+        
+    } catch (error) {
+        console.error('Error loading dashboard data:', error);
+        showErrorState('Failed to load dashboard data');
+    }
+}
+
+function showLoadingState() {
+    // Add loading indicator to stats cards
+    const statsValues = document.querySelectorAll('.stats-value');
+    statsValues.forEach(element => {
+        element.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+    });
+}
+
+function updateDashboardData(data) {
+    // Update total balance
+    const totalBalanceElement = document.querySelector('.stats-value');
+    if (totalBalanceElement && data.total_balance !== undefined) {
+        totalBalanceElement.textContent = `Rp ${data.total_balance.toLocaleString('id-ID', {
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 0
+        })}`;
+    }
+    
+    // Update income
+    const incomeElement = document.querySelectorAll('.stats-value')[1];
+    if (incomeElement && data.total_income !== undefined) {
+        incomeElement.textContent = `Rp ${data.total_income.toLocaleString('id-ID', {
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 0
+        })}`;
+    }
+    
+    // Update expenses
+    const expensesElement = document.querySelectorAll('.stats-value')[2];
+    if (expensesElement && data.total_expenses !== undefined) {
+        expensesElement.textContent = `Rp ${data.total_expenses.toLocaleString('id-ID', {
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 0
+        })}`;
+    }
+    
+    // Update transaction count
+    const transactionCountElement = document.querySelectorAll('.stats-value')[3];
+    if (transactionCountElement && data.transaction_count !== undefined) {
+        transactionCountElement.textContent = data.transaction_count;
+    }
+    
+    // Update recent transactions
+    updateRecentTransactions(data.recent_transactions);
+}
+
+function updateRecentTransactions(transactions) {
+    const transactionsContainer = document.querySelector('.list-group');
+    if (!transactionsContainer) return;
+    
+    if (transactions && transactions.length > 0) {
+        transactionsContainer.innerHTML = '';
+        
+        transactions.slice(0, 5).forEach(tx => {
+            const transactionItem = createTransactionItem(tx);
+            transactionsContainer.appendChild(transactionItem);
+        });
+    } else {
+        transactionsContainer.innerHTML = `
+            <div class="text-center py-4">
+                <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
+                <p class="text-muted mb-0">No transactions for this month</p>
+            </div>
+        `;
+    }
+}
+
+function createTransactionItem(tx) {
+    const item = document.createElement('div');
+    item.className = 'transaction-item';
+    
+    const iconClass = tx.type === 'income' ? 'fas fa-arrow-up text-success' : 
+                     tx.type === 'expense' ? 'fas fa-arrow-down text-danger' : 
+                     'fas fa-exchange-alt text-info';
+    
+    const amountClass = tx.type === 'income' ? 'income' : 
+                       tx.type === 'expense' ? 'expense' : 
+                       'transfer';
+    
+    item.innerHTML = `
+        <div class="d-flex justify-content-between align-items-center">
+            <div class="d-flex align-items-center">
+                <div class="me-3">
+                    <i class="${iconClass}"></i>
+                </div>
+                <div>
+                    <div class="fw-medium text-truncate" style="max-width: 120px;">
+                        ${tx.note || tx.description || 'No description'}
+                    </div>
+                    ${(tx.category_name && tx.category_name !== 'Unknown') || (tx.category && tx.category !== 'Unknown') ? 
+                        `<small class="text-muted">${tx.category_name || tx.category || 'Uncategorized'}</small>` : ''}
+                    <small class="text-muted d-block">${tx.wallet_name || 'No Wallet'}</small>
+                </div>
+            </div>
+            <div class="text-end">
+                <div class="transaction-amount ${amountClass}">
+                    Rp ${tx.amount.toLocaleString('id-ID', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                </div>
+                <small class="text-muted">${tx.date ? new Date(tx.date).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit' }) : 'N/A'}</small>
+            </div>
+        </div>
+    `;
+    
+    return item;
+}
+
+function updateChart(chartData) {
+    if (window.monthlyChart && chartData) {
+        window.monthlyChart.data.labels = chartData.labels;
+        window.monthlyChart.data.datasets[0].data = chartData.income;
+        window.monthlyChart.data.datasets[1].data = chartData.expenses;
+        window.monthlyChart.update();
+    }
+}
+
+function updateMonthDisplay(month) {
+    try {
+        // Parse month (YYYY-MM format)
+        const [year, monthNum] = month.split('-');
+        const date = new Date(parseInt(year), parseInt(monthNum) - 1, 1);
+        const monthName = date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+        
+        // Update the month display in the header
+        const monthDisplay = document.getElementById('currentMonthDisplay');
+        if (monthDisplay) {
+            monthDisplay.textContent = monthName;
+        }
+    } catch (error) {
+        console.error('Error updating month display:', error);
+    }
+}
+
+function showErrorState(message) {
+    // Show error message
+    const errorDiv = document.createElement('div');
+    errorDiv.className = 'alert alert-danger alert-dismissible fade show';
+    errorDiv.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    const container = document.querySelector('.dashboard-container');
+    if (container) {
+        container.insertBefore(errorDiv, container.firstChild);
+        
+        // Auto-remove after 5 seconds
+        setTimeout(() => {
+            if (errorDiv.parentNode) {
+                errorDiv.remove();
+            }
+        }, 5000);
+    }
+    
+
+}
 </script>
+
+<!-- Quick Access Modal -->
+<div class="modal fade" id="quickAccessModal" tabindex="-1" aria-labelledby="quickAccessModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="quickAccessModalLabel">
+                    <i class="fas fa-bolt me-2"></i>Quick Access
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row g-3">
+                    <!-- Quick Actions -->
+                    <div class="col-12">
+                        <h6 class="text-muted mb-3">
+                            <i class="fas fa-rocket me-2"></i>Quick Actions
+                        </h6>
+                    </div>
+                    
+                    <div class="col-6 col-md-3">
+                        <a href="/transactions" class="btn btn-outline-primary w-100 quick-action-btn">
+                            <i class="fas fa-plus-circle mb-2"></i>
+                            <div>Add Transaction</div>
+                        </a>
+                    </div>
+                    
+                    <div class="col-6 col-md-3">
+                        <a href="/balance" class="btn btn-outline-success w-100 quick-action-btn">
+                            <i class="fas fa-wallet mb-2"></i>
+                            <div>Update Balance</div>
+                        </a>
+                    </div>
+                    
+                    <div class="col-6 col-md-3">
+                        <a href="/goals" class="btn btn-outline-warning w-100 quick-action-btn">
+                            <i class="fas fa-bullseye mb-2"></i>
+                            <div>Set Goals</div>
+                        </a>
+                    </div>
+                    
+                    <div class="col-6 col-md-3">
+                        <a href="/settings" class="btn btn-outline-info w-100 quick-action-btn">
+                            <i class="fas fa-cog mb-2"></i>
+                            <div>Settings</div>
+                        </a>
+                    </div>
+                    
+
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Access Modal Styles -->
+<style>
+.quick-action-btn {
+    height: 80px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    border-radius: 15px;
+    transition: all 0.3s ease;
+    text-decoration: none;
+    color: inherit;
+}
+
+.quick-action-btn:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+    color: inherit;
+    text-decoration: none;
+}
+
+.quick-action-btn i {
+    font-size: 1.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.quick-action-btn div {
+    font-size: 0.85rem;
+    font-weight: 500;
+}
+
+.modal-content {
+    border-radius: 20px;
+    border: none;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+}
+
+.modal-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-radius: 20px 20px 0 0;
+    border-bottom: none;
+}
+
+.modal-title {
+    font-weight: 600;
+}
+
+.btn-close {
+    filter: invert(1);
+}
+</style>
+
 {% endblock %}
 
 

@@ -54,6 +54,97 @@ class TransactionRepository(MongoRepository):
         except Exception as e:
             print(f"Error in get_user_transactions_simple: {e}")
             return []
+
+    def get_user_transactions_by_date_range(self, user_id: str, start_timestamp: int, end_timestamp: int, limit: int = 200) -> List[Dict[str, Any]]:
+        """Get user transactions within a specific date range"""
+        try:
+            query = {
+                "user_id": user_id,
+                "timestamp": {
+                    "$gte": start_timestamp,
+                    "$lt": end_timestamp
+                }
+            }
+            transactions = self.find_many(query, limit=limit, sort=[("timestamp", -1)])
+            
+            # Ensure we always return a list, never None
+            if transactions is None:
+                transactions = []
+            
+            # Format data for easy use
+            for tx in transactions:
+                # Ensure required fields exist
+                tx.setdefault("amount", 0)
+                tx.setdefault("type", "expense")
+                tx.setdefault("note", "")
+                tx.setdefault("scope_id", "")
+                tx.setdefault("wallet_id", "")
+                tx.setdefault("category_id", "")
+                tx.setdefault("fk_real_balance_id", "")
+                tx.setdefault("tags", [])
+                
+                # Format timestamp
+                if "timestamp" in tx:
+                    try:
+                        tx["formatted_time"] = datetime.fromtimestamp(tx["timestamp"]).strftime("%Y-%m-%d %H:%M")
+                        tx["date"] = datetime.fromtimestamp(tx["timestamp"]).strftime("%Y-%m-%d")
+                    except (ValueError, TypeError):
+                        tx["formatted_time"] = "Invalid Date"
+                        tx["date"] = "Invalid Date"
+                
+                # Get category name if category_id exists
+                if tx.get("category_id"):
+                    try:
+                        from mm.repositories.categories import CategoryRepository
+                        category_repo = CategoryRepository()
+                        category = category_repo.find_by_id(tx["category_id"])
+                        if category:
+                            tx["category_name"] = category.get("name", "Unknown")
+                        else:
+                            tx["category_name"] = "Unknown"
+                    except Exception:
+                        tx["category_name"] = "Unknown"
+                else:
+                    tx["category_name"] = "Uncategorized"
+                
+                # Get scope name if scope_id exists
+                if tx.get("scope_id"):
+                    try:
+                        from mm.repositories.scopes import ScopeRepository
+                        scope_repo = ScopeRepository()
+                        scope = scope_repo.find_by_id(tx["scope_id"])
+                        if scope:
+                            tx["scope_name"] = scope.get("name", "Unknown")
+                        else:
+                            tx["scope_name"] = "Unknown"
+                    except Exception:
+                        tx["scope_name"] = "Unknown"
+                else:
+                    tx["scope_name"] = "No Scope"
+                
+                # Get wallet name if wallet_id exists
+                if tx.get("wallet_id"):
+                    try:
+                        from mm.repositories.wallets import WalletRepository
+                        wallet_repo = WalletRepository()
+                        wallet = wallet_repo.find_by_id(tx["wallet_id"])
+                        if wallet:
+                            tx["wallet_name"] = wallet.get("name", "Unknown")
+                            print(f"🔍 [TX] Found wallet: {tx['wallet_name']} for wallet_id: {tx['wallet_id']}")
+                        else:
+                            tx["wallet_name"] = "Unknown"
+                            print(f"❌ [TX] Wallet not found for wallet_id: {tx['wallet_id']}")
+                    except Exception as e:
+                        tx["wallet_name"] = "Unknown"
+                        print(f"❌ [TX] Error getting wallet for wallet_id {tx['wallet_id']}: {e}")
+                else:
+                    tx["wallet_name"] = "No Wallet"
+                    print(f"⚠️ [TX] No wallet_id in transaction")
+            
+            return transactions
+        except Exception as e:
+            print(f"Error in get_user_transactions_by_date_range: {e}")
+            return []
     
     def get_transactions_by_scope(self, user_id: str, scope_id: str, limit: int = 200) -> List[Dict[str, Any]]:
         """Method untuk mendapatkan transaksi berdasarkan scope tertentu"""

@@ -133,12 +133,40 @@ def dashboard():
         scope_repo = ScopeRepository()
         wallet_repo = WalletRepository()
         
-        # Get data based on user_id from database
-        transactions = tx_repo.get_user_transactions_simple(user_id, limit=10)
+        # Get current month data by default
+        current_date = datetime.now()
+        year = current_date.year
+        month = current_date.month
+        
+        # Create start and end of current month timestamps
+        start_date = datetime(year, month, 1)
+        if month == 12:
+            end_date = datetime(year + 1, 1, 1)
+        else:
+            end_date = datetime(year, month + 1, 1)
+        
+        start_timestamp = int(start_date.timestamp())
+        end_timestamp = int(end_date.timestamp())
+        
+        # Get data for current month only
+        transactions = tx_repo.get_user_transactions_by_date_range(user_id, start_timestamp, end_timestamp, limit=10)
+        
+        # If no transactions in current month, get recent transactions from all time
+        if not transactions:
+            print(f"🔍 [DASHBOARD] No transactions in current month, getting recent transactions from all time")
+            transactions = tx_repo.get_user_transactions_simple(user_id, limit=10)
+        
         scopes = scope_repo.list_by_user(user_id)
         wallets = wallet_repo.list_by_user(user_id)
         
-        # Calculate totals (including all transactions for accurate display)
+        # Debug: Print transaction data
+        print(f"🔍 [DASHBOARD] Found {len(transactions)} transactions")
+        if transactions:
+            print(f"🔍 [DASHBOARD] First transaction: {transactions[0]}")
+        else:
+            print(f"🔍 [DASHBOARD] No transactions found at all")
+        
+        # Calculate totals for current month only
         try:
             total_income = sum(float(tx.get("amount", 0)) for tx in transactions if tx.get("type") == "income")
         except (ValueError, TypeError):
@@ -167,6 +195,9 @@ def dashboard():
         scopes = scopes or []
         wallets = wallets or []
         
+        # Get current month name for display
+        current_month_name = current_date.strftime('%B %Y')
+        
         return render_template("dashboard.html", 
                              transactions=transactions,
                              scopes=scopes,
@@ -176,9 +207,13 @@ def dashboard():
                              total_transfer=total_transfer,
                              total_admin_fees=total_admin_fees,
                              balance=balance,
-                             total_transactions=total_transactions)
+                             total_transactions=total_transactions,
+                             current_month_name=current_month_name)
     except Exception as e:
         print(f"Error in dashboard: {e}")
+        # Get current month name for display even in error case
+        current_month_name = datetime.now().strftime('%B %Y')
+        
         return render_template("dashboard.html", 
                              transactions=[],
                              scopes=[],
@@ -188,7 +223,132 @@ def dashboard():
                              total_transfer=0,
                              total_admin_fees=0,
                              balance=0,
-                             total_transactions=0)
+                             total_transactions=0,
+                             current_month_name=current_month_name)
+
+@app.route("/api/dashboard-data")
+def api_dashboard_data():
+    """API endpoint to get dashboard data for a specific month"""
+    try:
+        user_id = session.get("user_id")
+        if not user_id:
+            return jsonify({"error": "Not authenticated"}), 401
+        
+        # Get month parameter (format: YYYY-MM)
+        month = request.args.get('month')
+        if not month or month == 'undefined':
+            return jsonify({"error": "Month parameter required"}), 400
+        
+        # Parse month to get start and end timestamps
+        try:
+            year, month_num = month.split('-')
+            year = int(year)
+            month_num = int(month_num)
+            
+            # Create start and end of month timestamps
+            start_date = datetime(year, month_num, 1)
+            if month_num == 12:
+                end_date = datetime(year + 1, 1, 1)
+            else:
+                end_date = datetime(year, month_num + 1, 1)
+            
+            start_timestamp = int(start_date.timestamp())
+            end_timestamp = int(end_date.timestamp())
+            
+        except ValueError:
+            return jsonify({"error": "Invalid month format"}), 400
+        
+        # Get repositories
+        tx_repo = TransactionRepository()
+        wallet_repo = WalletRepository()
+        
+        # Get transactions for the specified month
+        transactions = tx_repo.get_user_transactions_by_date_range(user_id, start_timestamp, end_timestamp)
+        
+        # Calculate totals for the month
+        total_income = sum(float(tx.get("amount", 0)) for tx in transactions if tx.get("type") == "income")
+        total_expenses = sum(float(tx.get("amount", 0)) for tx in transactions if tx.get("type") == "expense")
+        total_transfer = sum(float(tx.get("amount", 0)) for tx in transactions if tx.get("type") == "transfer")
+        transaction_count = len(transactions)
+        
+        # Get current total balance (not filtered by month)
+        wallets = wallet_repo.list_by_user(user_id)
+        total_balance = sum(float(wallet.get("actual_balance", 0)) for wallet in wallets)
+        
+        # Get recent transactions (limit to 5)
+        recent_transactions = transactions[:5]
+        
+        # Generate chart data (daily breakdown for the month)
+        chart_data = generate_monthly_chart_data(transactions, year, month_num)
+        
+        return jsonify({
+            "total_balance": total_balance,
+            "total_income": total_income,
+            "total_expenses": total_expenses,
+            "total_transfer": total_transfer,
+            "transaction_count": transaction_count,
+            "recent_transactions": recent_transactions,
+            "chartData": chart_data
+        })
+        
+    except Exception as e:
+        print(f"Error in api_dashboard_data: {e}")
+        return jsonify({"error": "Internal server error"}), 500
+
+def generate_monthly_chart_data(transactions, year, month_num):
+    """Generate chart data for a specific month"""
+    try:
+        # Get number of days in the month
+        if month_num == 12:
+            next_month = datetime(year + 1, 1, 1)
+        else:
+            next_month = datetime(year, month_num + 1, 1)
+        
+        days_in_month = (next_month - datetime(year, month_num, 1)).days
+        
+        # Initialize daily data
+        daily_income = [0] * days_in_month
+        daily_expenses = [0] * days_in_month
+        labels = []
+        
+        # Generate labels for each day
+        for day in range(1, days_in_month + 1):
+            labels.append(f"{day}")
+        
+        # Process transactions
+        for tx in transactions:
+            try:
+                # Convert timestamp to date
+                tx_date = datetime.fromtimestamp(tx.get("timestamp", 0))
+                day_index = tx_date.day - 1  # 0-based index
+                
+                if 0 <= day_index < days_in_month:
+                    amount = float(tx.get("amount", 0))
+                    tx_type = tx.get("type", "")
+                    
+                    if tx_type == "income":
+                        daily_income[day_index] += amount
+                    elif tx_type == "expense":
+                        daily_expenses[day_index] += amount
+                        
+            except (ValueError, TypeError) as e:
+                print(f"Error processing transaction for chart: {e}")
+                continue
+        
+        return {
+            "labels": labels,
+            "income": daily_income,
+            "expenses": daily_expenses
+        }
+        
+    except Exception as e:
+        print(f"Error generating chart data: {e}")
+        # Return empty data structure
+        return {
+            "labels": [],
+            "income": [],
+            "expenses": []
+        }
 
 @app.route("/transactions")
 def transactions():
