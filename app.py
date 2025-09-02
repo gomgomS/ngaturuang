@@ -1,5 +1,5 @@
 import os
-from flask import Flask, render_template, session, request, jsonify, redirect
+from flask import Flask, render_template, session, request, jsonify, redirect, url_for
 from mm.repositories.transactions import TransactionRepository
 from mm.repositories.scopes import ScopeRepository
 from mm.repositories.wallets import WalletRepository
@@ -22,29 +22,59 @@ except Exception as e:
     print(f"⚠️ Warning: Could not create database indexes: {e}")
     print("Application will continue without indexes...")
 
-# Context processor to add total balance to all templates
+# Context processor to add total balance and username to all templates
 @app.context_processor
-def inject_total_balance():
-    """Inject total balance from all user wallets into all templates"""
+def inject_global_data():
+    """Inject total balance and username from session into all templates"""
     try:
         user_id = session.get("user_id")
+        username = session.get("username")
+        
+        print(f"🔍 [CONTEXT] user_id from session: {user_id}")
+        print(f"🔍 [CONTEXT] username from session: {username}")
+        
         if user_id:
             wallet_repo = WalletRepository()
             wallets = wallet_repo.list_by_user(user_id)
+            
+            print(f"🔍 [CONTEXT] Found {len(wallets)} wallets for user {user_id}")
             
             # Calculate total balance from all wallets
             total_balance = 0
             for wallet in wallets:
                 actual_balance = wallet.get("actual_balance", 0)
+                wallet_name = wallet.get("name", "Unknown")
+                print(f"🔍 [CONTEXT] Wallet {wallet_name}: actual_balance = {actual_balance}")
                 if actual_balance:
                     total_balance += float(actual_balance)
             
-            return {"total_balance": total_balance}
+            print(f"🔍 [CONTEXT] Total balance calculated: {total_balance}")
+            
+            return {
+                "total_balance": total_balance,
+                "username": username or "User"
+            }
         else:
-            return {"total_balance": 0}
+            print(f"🔍 [CONTEXT] No user_id in session, returning default values")
+            return {
+                "total_balance": 0,
+                "username": "User"
+            }
     except Exception as e:
-        print(f"Error calculating total balance: {e}")
-        return {"total_balance": 0}
+        print(f"❌ [CONTEXT] Error calculating global data: {e}")
+        import traceback
+        print(f"❌ [CONTEXT] Error traceback: {traceback.format_exc()}")
+        return {
+            "total_balance": 0,
+            "username": "User"
+        }
+
+# Helper function to check authentication
+def require_login():
+    """Check if user is logged in, redirect to login if not"""
+    if not session.get("user_id"):
+        return redirect("/login")
+    return None
 
 # Custom Jinja filters
 @app.template_filter('currency')
@@ -146,8 +176,7 @@ def dashboard():
                              total_transfer=total_transfer,
                              total_admin_fees=total_admin_fees,
                              balance=balance,
-                             total_transactions=total_transactions,
-                             username=username)
+                             total_transactions=total_transactions)
     except Exception as e:
         print(f"Error in dashboard: {e}")
         return render_template("dashboard.html", 
@@ -163,8 +192,13 @@ def dashboard():
 
 @app.route("/transactions")
 def transactions():
+    # Check authentication
+    auth_check = require_login()
+    if auth_check:
+        return auth_check
+    
     try:
-        user_id = session.get("user_id", "demo_user")
+        user_id = session.get("user_id")
         
         # Get repositories
         tx_repo = TransactionRepository()
@@ -293,6 +327,11 @@ def transactions():
 
 @app.route("/goals")
 def goals():
+    # Check authentication
+    auth_check = require_login()
+    if auth_check:
+        return auth_check
+    
     return render_template("goals.html")
 
 @app.route("/test-data")
@@ -342,8 +381,13 @@ def test_data():
 
 @app.route("/balance")
 def balance():
+    # Check authentication
+    auth_check = require_login()
+    if auth_check:
+        return auth_check
+    
     try:
-        user_id = session.get("user_id", "demo_user")
+        user_id = session.get("user_id")
         
         # Get repositories
         wallet_repo = WalletRepository()
@@ -1054,8 +1098,13 @@ def balance():
 
 @app.route("/settings")
 def settings():
+    # Check authentication
+    auth_check = require_login()
+    if auth_check:
+        return auth_check
+    
     try:
-        user_id = session.get("user_id", "demo_user")
+        user_id = session.get("user_id")
         
         # Get repositories
         scope_repo = ScopeRepository()
@@ -1740,8 +1789,13 @@ def logout():
 @app.route("/balance-history/<manual_balance_id>")
 def balance_history(manual_balance_id):
     """Halaman balance history dengan pembukuan debit/kredit"""
+    # Check authentication
+    auth_check = require_login()
+    if auth_check:
+        return auth_check
+    
     try:
-        user_id = session.get("user_id", "demo_user")
+        user_id = session.get("user_id")
         
         # Get repositories
         tx_repo = TransactionRepository()

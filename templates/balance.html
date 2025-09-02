@@ -74,6 +74,8 @@
             bottom: 0;
             overflow-y: auto;
             -webkit-overflow-scrolling: touch;
+            scroll-behavior: smooth;
+            overscroll-behavior: contain;
         }
         
         .balance-header {
@@ -115,11 +117,19 @@
             position: fixed;
             width: 100%;
             height: 100%;
+            /* Android scroll fix */
+            touch-action: pan-y;
         }
         
         .balance-container {
             -webkit-overflow-scrolling: touch;
             overscroll-behavior: contain;
+            overflow-y: auto;
+            scroll-behavior: smooth;
+            /* Android-specific improvements */
+            touch-action: pan-y;
+            -webkit-transform: translateZ(0);
+            transform: translateZ(0);
         }
         
         .balance-header {
@@ -148,6 +158,37 @@
         -webkit-overflow-scrolling: touch;
         overscroll-behavior: contain;
         scroll-behavior: smooth;
+        /* Android-specific scroll improvements */
+        touch-action: pan-y;
+        -webkit-overflow-scrolling: touch;
+        overflow-scrolling: touch;
+    }
+    
+    /* Enhanced mobile scrolling */
+    @media (max-width: 991.98px) {
+        .balance-container {
+            scrollbar-width: thin;
+            scrollbar-color: rgba(102, 126, 234, 0.6) rgba(255, 255, 255, 0.1);
+        }
+        
+        .balance-container::-webkit-scrollbar {
+            width: 8px;
+        }
+        
+        .balance-container::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+        }
+        
+        .balance-container::-webkit-scrollbar-thumb {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 4px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .balance-container::-webkit-scrollbar-thumb:hover {
+            background: linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%);
+        }
     }
     
     /* Prevent text selection on mobile */
@@ -231,9 +272,10 @@
                                         </label>
                                         <div class="input-group">
                                             <span class="input-group-text">IDR</span>
-                                            <input type="number" class="form-control" id="transferAmount" 
-                                                   step="1000" min="1000" required placeholder="0">
+                                            <input type="text" class="form-control" id="transferAmount" 
+                                                   required placeholder="1.000.000">
                                         </div>
+                                        <small class="form-text text-muted">Format: 1.000.000 (gunakan titik sebagai separator ribuan)</small>
                                     </div>
                                     <div class="col-12 col-md-6 col-lg-2">
                                         <label for="adminFee" class="form-label">
@@ -241,9 +283,10 @@
                                         </label>
                                         <div class="input-group">
                                             <span class="input-group-text">IDR</span>
-                                            <input type="number" class="form-control" id="adminFee" 
-                                                   step="1000" min="0" value="0" placeholder="0">
+                                            <input type="text" class="form-control" id="adminFee" 
+                                                   value="0" placeholder="0">
                                         </div>
+                                        <small class="form-text text-muted">Format: 1.000.000 (gunakan titik sebagai separator ribuan)</small>
                                     </div>
                                     <div class="col-12 col-md-6 col-lg-2">
                                         <label class="form-label">&nbsp;</label>
@@ -516,7 +559,7 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title" id="editBalanceModalLabel">
-                    <i class="fas fa-plus-circle me-2"></i>Input Balance Terbaru
+                    <i class="fas fa-plus-circle me-2"></i>Update your latest balance
                 </h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
@@ -527,18 +570,19 @@
                         <input type="text" class="form-control" id="walletName" readonly>
                     </div>
                                          <div class="mb-3">
-                        <label for="balanceAmount" class="form-label">Balance Amount</label>
+                        <label for="balanceAmount" class="form-label">Latest Balance</label>
                          <div class="input-group">
                              <span class="input-group-text">IDR</span>
-                            <input type="number" class="form-control" id="balanceAmount" step="0.01" required>
+                            <input type="text" class="form-control" id="balanceAmount" required placeholder="1.000.000">
                          </div>
                          <div class="form-text">
-                            Masukkan balance terbaru dari saving space ini (contoh: dari bank statement, cash count, dll)
+                            Enter the latest balance for this saving space (e.g., from a bank statement, cash count, etc.)
+                            <br><small class="text-muted">Format: 1.000.000 (gunakan titik sebagai separator ribuan)</small>
                          </div>
                      </div>
                      <div class="mb-3">
-                        <label for="balanceNote" class="form-label">Catatan (Opsional)</label>
-                        <textarea class="form-control" id="balanceNote" rows="3" placeholder="Contoh: Bank statement update, Cash count, dll"></textarea>
+                        <label for="balanceNote" class="form-label">Note (Optional)</label>
+                        <textarea class="form-control" id="balanceNote" rows="3" placeholder="Update the latest data from your saving space."></textarea>
                      </div>
                 </form>
             </div>
@@ -566,6 +610,8 @@
     backdrop-filter: blur(20px);
     border: 1px solid rgba(255, 255, 255, 0.2);
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+    min-height: auto;
+    overflow: visible;
 }
 
 .sticky-savingspaces {
@@ -1548,7 +1594,8 @@
 // Edit Balance Function
 function editBalance(walletId, walletName, currentBalance) {
     document.getElementById('walletName').value = walletName;
-    document.getElementById('balanceAmount').value = currentBalance;
+    // Leave balance amount empty for user to enter new value
+    document.getElementById('balanceAmount').value = '';
     document.getElementById('balanceNote').value = '';
     
     // Store wallet ID for save function
@@ -1557,13 +1604,14 @@ function editBalance(walletId, walletName, currentBalance) {
     // Show modal
     const modal = new bootstrap.Modal(document.getElementById('editBalanceModal'));
     modal.show();
- }
+}
 
 // Save Balance Function
 async function saveBalance() {
     try {
         const walletId = document.getElementById('editBalanceForm').dataset.walletId;
-        const amount = parseFloat(document.getElementById('balanceAmount').value);
+        // Parse amount from formatted string (e.g., "1.000.000" -> 1000000)
+        const amount = parseFormattedAmount(document.getElementById('balanceAmount').value);
         const note = document.getElementById('balanceNote').value.trim();
         
         if (!amount || amount < 0) {
@@ -1842,7 +1890,87 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Add global error handler for dropdowns
     setupGlobalDropdownErrorHandler();
+    
+    // Set up balance amount input formatting
+    setupBalanceAmountFormatting();
+    
+    // Set up transfer form amount formatting
+    setupTransferAmountFormatting();
 });
+
+// Format amount input with thousand separators
+function formatAmountInput(input) {
+    let value = input.value.replace(/[^\d]/g, ''); // Remove non-digits
+    
+    if (value === '') return;
+    
+    // Convert to number and format with thousand separators
+    const number = parseInt(value);
+    const formatted = number.toLocaleString('id-ID');
+    
+    input.value = formatted;
+}
+
+// Parse amount from formatted string (e.g., "1.000.000" -> 1000000)
+function parseFormattedAmount(amountString) {
+    if (!amountString) return 0;
+    return parseInt(amountString.replace(/\./g, '')) || 0;
+}
+
+// Setup balance amount input formatting
+function setupBalanceAmountFormatting() {
+    const balanceAmountInput = document.getElementById('balanceAmount');
+    if (balanceAmountInput) {
+        // Format on input
+        balanceAmountInput.addEventListener('input', function(e) {
+            formatAmountInput(e.target);
+        });
+        
+        // Format on blur
+        balanceAmountInput.addEventListener('blur', function(e) {
+            const value = e.target.value;
+            if (value && !isNaN(parseFormattedAmount(value))) {
+                e.target.value = parseFormattedAmount(value).toLocaleString('id-ID');
+            }
+        });
+    }
+}
+
+// Setup transfer form amount formatting
+function setupTransferAmountFormatting() {
+    const transferAmountInput = document.getElementById('transferAmount');
+    const adminFeeInput = document.getElementById('adminFee');
+    
+    if (transferAmountInput) {
+        // Format on input
+        transferAmountInput.addEventListener('input', function(e) {
+            formatAmountInput(e.target);
+        });
+        
+        // Format on blur
+        transferAmountInput.addEventListener('blur', function(e) {
+            const value = e.target.value;
+            if (value && !isNaN(parseFormattedAmount(value))) {
+                e.target.value = parseFormattedAmount(value).toLocaleString('id-ID');
+            }
+        });
+    }
+    
+    if (adminFeeInput) {
+        // Format on input
+        adminFeeInput.addEventListener('input', function(e) {
+            formatAmountInput(e.target);
+        });
+        
+        // Format on blur
+        adminFeeInput.addEventListener('blur', function(e) {
+            const value = e.target.value;
+            if (value && !isNaN(parseFormattedAmount(value))) {
+                e.target.value = parseFormattedAmount(value).toLocaleString('id-ID');
+            }
+        });
+    }
+}
 
 // Setup event listeners for balance dropdowns
 function setupBalanceDropdownListeners() {
@@ -2186,8 +2314,9 @@ function processTransfer(event) {
     try {
         const fromWalletId = document.getElementById('fromWallet').value;
         const toWalletId = document.getElementById('toWallet').value;
-        const amount = parseFloat(document.getElementById('transferAmount').value);
-        const adminFee = parseFloat(document.getElementById('adminFee').value) || 0;
+        // Parse formatted amounts (e.g., "1.000.000" -> 1000000)
+        const amount = parseFormattedAmount(document.getElementById('transferAmount').value);
+        const adminFee = parseFormattedAmount(document.getElementById('adminFee').value) || 0;
         
         // Validation
         if (!fromWalletId || !toWalletId) {

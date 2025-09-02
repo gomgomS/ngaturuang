@@ -599,16 +599,47 @@
                 </form>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-secondary" id="prevBtn" onclick="previousStep()" style="display: none;">
-                    <i class="fas fa-arrow-left me-1"></i>Previous
-                </button>
-                <button type="button" class="btn btn-primary" id="nextBtn" onclick="nextStep()">
-                    Next<i class="fas fa-arrow-right ms-1"></i>
-                </button>
-                <button type="button" class="btn btn-success" id="submitBtn" onclick="submitTransaction()" style="display: none;">
-                    <i class="fas fa-check me-1"></i>Submit Transaction
-                </button>
+                <!-- Selection Summary -->
+                <div id="selectionSummary" class="alert alert-info mb-3 w-100" style="display: none;">
+                    <h6 class="mb-2"><i class="fas fa-info-circle me-2"></i>Selected Options:</h6>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div id="summaryScope" class="mb-1" style="display: none;">
+                                <strong>Scope:</strong> <span id="summaryScopeValue">-</span>
+                            </div>
+                            <div id="summaryWallet" class="mb-1" style="display: none;">
+                                <strong>Saving Space:</strong> <span id="summaryWalletValue">-</span>
+                            </div>
+                            <div id="summaryType" class="mb-1" style="display: none;">
+                                <strong>Type:</strong> <span id="summaryTypeValue">-</span>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div id="summaryCategory" class="mb-1" style="display: none;">
+                                <strong>Category:</strong> <span id="summaryCategoryValue">-</span>
+                            </div>
+                            <div id="summaryTags" class="mb-1" style="display: none;">
+                                <strong>Tags:</strong> <span id="summaryTagsValue">-</span>
+                            </div>
+                            <div id="summaryAmount" class="mb-1" style="display: none;">
+                                <strong>Amount:</strong> <span id="summaryAmountValue">-</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="d-flex gap-2">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-secondary" id="prevBtn" onclick="previousStep()" style="display: none;">
+                        <i class="fas fa-arrow-left me-1"></i>Previous
+                    </button>
+                    <button type="button" class="btn btn-primary" id="nextBtn" onclick="nextStep()">
+                        Next<i class="fas fa-arrow-right ms-1"></i>
+                    </button>
+                    <button type="button" class="btn btn-success" id="submitBtn" onclick="submitTransaction()" style="display: none;">
+                        <i class="fas fa-check me-1"></i>Submit Transaction
+                    </button>
+                </div>
             </div>
         </div>
     </div>
@@ -756,11 +787,37 @@ function setupWalletSelectionListener() {
     const addWalletField = document.getElementById('add_wallet_id');
     if (addWalletField) {
         addWalletField.addEventListener('change', function() {
+            // Update selection summary
+            updateSelectionSummary();
             // Update balance info if we're on step 5
             if (currentStep === 5) {
                 updateBalanceInfo();
                 validateAmountInRealTime();
             }
+        });
+    }
+    
+    // Setup scope selection listener
+    const addScopeField = document.getElementById('add_scope_id');
+    if (addScopeField) {
+        addScopeField.addEventListener('change', function() {
+            updateSelectionSummary();
+        });
+    }
+    
+    // Setup category selection listener
+    const addCategoryField = document.getElementById('add_category_id');
+    if (addCategoryField) {
+        addCategoryField.addEventListener('change', function() {
+            updateSelectionSummary();
+        });
+    }
+    
+    // Setup tags input listener
+    const addTagsField = document.getElementById('add_tags');
+    if (addTagsField) {
+        addTagsField.addEventListener('input', function() {
+            updateSelectionSummary();
         });
     }
     
@@ -1055,6 +1112,9 @@ function showStep(stepNumber) {
         modalTitle.textContent = stepTitles[stepNumber - 1];
     }
     
+    // Update selection summary
+    updateSelectionSummary();
+    
     // Special handling for step 5: show balance info and validate amount
     if (stepNumber === 5) {
         updateBalanceInfo();
@@ -1159,6 +1219,7 @@ function validateCurrentStep() {
 
 function selectTransactionType(type) {
     document.getElementById('add_type').value = type;
+    updateSelectionSummary();
     nextStep();
 }
 
@@ -1198,6 +1259,9 @@ function validateAmountInRealTime() {
     balanceInfo.style.display = 'none';
     balanceWarning.style.display = 'none';
     
+    // Update selection summary when amount changes
+    updateSelectionSummary();
+    
     // Only validate for expense transactions
     if (transactionType === 'expense' && amount) {
         const walletId = document.getElementById('add_wallet_id').value;
@@ -1225,6 +1289,105 @@ function validateAmountInRealTime() {
     } else if (transactionType === 'expense') {
         // Show blue info for expense transactions without amount
         balanceInfo.style.display = 'block';
+    }
+}
+
+// Update selection summary display
+function updateSelectionSummary() {
+    const summaryDiv = document.getElementById('selectionSummary');
+    const scopeDiv = document.getElementById('summaryScope');
+    const walletDiv = document.getElementById('summaryWallet');
+    const typeDiv = document.getElementById('summaryType');
+    const categoryDiv = document.getElementById('summaryCategory');
+    const tagsDiv = document.getElementById('summaryTags');
+    const amountDiv = document.getElementById('summaryAmount');
+    
+    const scopeValue = document.getElementById('summaryScopeValue');
+    const walletValue = document.getElementById('summaryWalletValue');
+    const typeValue = document.getElementById('summaryTypeValue');
+    const categoryValue = document.getElementById('summaryCategoryValue');
+    const tagsValue = document.getElementById('summaryTagsValue');
+    const amountValue = document.getElementById('summaryAmountValue');
+    
+    let hasAnySelection = false;
+    
+    // Update scope
+    const selectedScopeId = document.getElementById('add_scope_id').value;
+    if (selectedScopeId) {
+        const selectedScopeOption = document.querySelector(`#add_scope_id option[value="${selectedScopeId}"]`);
+        if (selectedScopeOption) {
+            scopeValue.textContent = selectedScopeOption.textContent;
+            scopeDiv.style.display = 'block';
+            hasAnySelection = true;
+        }
+    } else {
+        scopeDiv.style.display = 'none';
+    }
+    
+    // Update wallet
+    const selectedWalletId = document.getElementById('add_wallet_id').value;
+    if (selectedWalletId) {
+        const selectedWalletOption = document.querySelector(`#add_wallet_id option[value="${selectedWalletId}"]`);
+        if (selectedWalletOption) {
+            // Extract just the wallet name and type from the option text
+            const walletText = selectedWalletOption.textContent;
+            const walletName = walletText.split(' - Balance:')[0]; // Remove balance info
+            walletValue.textContent = walletName;
+            walletDiv.style.display = 'block';
+            hasAnySelection = true;
+        }
+    } else {
+        walletDiv.style.display = 'none';
+    }
+    
+    // Update type
+    const selectedType = document.getElementById('add_type').value;
+    if (selectedType) {
+        typeValue.textContent = selectedType.charAt(0).toUpperCase() + selectedType.slice(1);
+        typeDiv.style.display = 'block';
+        hasAnySelection = true;
+    } else {
+        typeDiv.style.display = 'none';
+    }
+    
+    // Update category
+    const selectedCategoryId = document.getElementById('add_category_id').value;
+    if (selectedCategoryId) {
+        const selectedCategoryOption = document.querySelector(`#add_category_id option[value="${selectedCategoryId}"]`);
+        if (selectedCategoryOption) {
+            categoryValue.textContent = selectedCategoryOption.textContent;
+            categoryDiv.style.display = 'block';
+            hasAnySelection = true;
+        }
+    } else {
+        categoryDiv.style.display = 'none';
+    }
+    
+    // Update tags
+    const tags = document.getElementById('add_tags').value;
+    if (tags && tags.trim()) {
+        tagsValue.textContent = tags.trim();
+        tagsDiv.style.display = 'block';
+        hasAnySelection = true;
+    } else {
+        tagsDiv.style.display = 'none';
+    }
+    
+    // Update amount
+    const amount = document.getElementById('add_amount').value;
+    if (amount) {
+        amountValue.textContent = `IDR ${amount}`;
+        amountDiv.style.display = 'block';
+        hasAnySelection = true;
+    } else {
+        amountDiv.style.display = 'none';
+    }
+    
+    // Show/hide summary based on whether there are any selections
+    if (hasAnySelection) {
+        summaryDiv.style.display = 'block';
+    } else {
+        summaryDiv.style.display = 'none';
     }
 }
 
