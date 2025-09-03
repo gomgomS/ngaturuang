@@ -480,7 +480,19 @@
                         </div>
                     </div>
                     
-                    <div class="col-md-4 col-sm-6 mb-3">
+                    <div class="col-md-3 col-sm-6 mb-3">
+                        <div class="card h-100 action-card content-card" onclick="showTransfer()">
+                            <div class="card-body text-center p-4">
+                                <div class="action-icon mb-3">
+                                    <i class="fas fa-exchange-alt fa-3x text-info"></i>
+                                </div>
+                                <h5 class="card-title">Transfer</h5>
+                                <p class="card-text text-muted">Transfer money between your wallets</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-3 col-sm-6 mb-3">
                         <div class="card h-100 action-card content-card" onclick="showModifiedBalance()">
                             <div class="card-body text-center p-4">
                                 <div class="action-icon mb-3">
@@ -596,7 +608,7 @@
                                     </td>
                                     <td>{{ tx.note or '-' }}</td>
                                     <td>
-                                        {% if tx.type == 'transfer' %}
+                                        {% if tx.is_transfer or tx.type == 'transfer' %}
                                             <div class="small">
                                                 <div><strong>From:</strong> 
                                                     {% set from_wallet = wallets|selectattr('_id', 'equalto', tx.from_wallet_id)|first %}
@@ -609,6 +621,18 @@
                                                 {% if tx.admin_fee %}
                                                 <div class="text-danger"><strong>Fee:</strong> {{ tx.admin_fee|currency_decimal }}</div>
                                                 {% endif %}
+                                            </div>
+                                        {% elif tx.is_transfer_fee %}
+                                            <div class="small">
+                                                <div class="text-danger"><strong>Transfer Fee</strong></div>
+                                                <div><strong>From:</strong> 
+                                                    {% set from_wallet = wallets|selectattr('_id', 'equalto', tx.from_wallet_id)|first %}
+                                                    {{ from_wallet.name if from_wallet else 'N/A' }}
+                                                </div>
+                                                <div><strong>To:</strong> 
+                                                    {% set to_wallet = wallets|selectattr('_id', 'equalto', tx.to_wallet_id)|first %}
+                                                    {{ to_wallet.name if to_wallet else 'N/A' }}
+                                                </div>
                                             </div>
                                         {% elif tx.type == 'expense' and tx.note and 'Transfer fee' in tx.note %}
                                             <div class="small">
@@ -681,7 +705,7 @@
                                 </div>
                                 {% endif %}
                                 
-                                {% if tx.type == 'transfer' %}
+                                {% if tx.is_transfer or tx.type == 'transfer' %}
                                 <div class="transfer-details mb-2 p-2 bg-light rounded">
                                     <div class="small">
                                         <div><strong>From:</strong> 
@@ -695,6 +719,20 @@
                                         {% if tx.admin_fee %}
                                         <div class="text-danger"><strong>Fee:</strong> Rp {{ tx.admin_fee|currency }}</div>
                                         {% endif %}
+                                    </div>
+                                </div>
+                                {% elif tx.is_transfer_fee %}
+                                <div class="transfer-details mb-2 p-2 bg-light rounded">
+                                    <div class="small">
+                                        <div class="text-danger"><strong>Transfer Fee</strong></div>
+                                        <div><strong>From:</strong> 
+                                            {% set from_wallet = wallets|selectattr('_id', 'equalto', tx.from_wallet_id)|first %}
+                                            {{ from_wallet.name if from_wallet else 'N/A' }}
+                                        </div>
+                                        <div><strong>To:</strong> 
+                                            {% set to_wallet = wallets|selectattr('_id', 'equalto', tx.to_wallet_id)|first %}
+                                            {{ to_wallet.name if to_wallet else 'N/A' }}
+                                        </div>
                                     </div>
                                 </div>
                                 {% endif %}
@@ -1930,6 +1968,34 @@ document.addEventListener('DOMContentLoaded', function() {
             updateBalanceDifference();
         });
     }
+    
+    // Setup transfer form listeners
+    const transferFromWallet = document.getElementById('transfer_from_wallet');
+    const transferToWallet = document.getElementById('transfer_to_wallet');
+    const transferAmount = document.getElementById('transfer_amount');
+    const transferFee = document.getElementById('transfer_fee');
+    
+    console.log('Transfer elements found:');
+    console.log('transferAmount:', transferAmount);
+    console.log('transferFee:', transferFee);
+    
+    if (transferFromWallet) {
+        transferFromWallet.addEventListener('change', function() {
+            updateFromWalletBalance();
+        });
+    }
+    if (transferAmount) {
+        transferAmount.addEventListener('input', function(e) {
+            console.log('Transfer amount input event triggered');
+            formatAmountInput(e.target);
+        });
+    }
+    if (transferFee) {
+        transferFee.addEventListener('input', function(e) {
+            console.log('Transfer fee input event triggered');
+            formatAmountInput(e.target);
+        });
+    }
 });
 
 function updateBalanceDifference() {
@@ -1972,6 +2038,129 @@ function updateBalanceDifference() {
         differenceInfo.style.display = 'none';
     }
 }
+
+// Transfer Functions
+function showTransfer() {
+    console.log('showTransfer called');
+    // Reset form
+    document.getElementById('transfer_from_wallet').value = '';
+    document.getElementById('transfer_to_wallet').value = '';
+    document.getElementById('transfer_amount').value = '';
+    document.getElementById('transfer_fee').value = '';
+    document.getElementById('fromWalletBalanceDisplay').style.display = 'none';
+    
+    console.log('Form reset, displays hidden');
+    
+    // Show modal
+    const modal = new bootstrap.Modal(document.getElementById('transferModal'));
+    modal.show();
+    console.log('Transfer modal shown');
+}
+
+function submitTransfer() {
+    const fromWalletId = document.getElementById('transfer_from_wallet').value;
+    const toWalletId = document.getElementById('transfer_to_wallet').value;
+    const amount = document.getElementById('transfer_amount').value;
+    const fee = document.getElementById('transfer_fee').value;
+    
+    if (!fromWalletId) {
+        alert('Please select source wallet');
+        return;
+    }
+    
+    if (!toWalletId) {
+        alert('Please select destination wallet');
+        return;
+    }
+    
+    if (fromWalletId === toWalletId) {
+        alert('Source and destination wallets cannot be the same');
+        return;
+    }
+    
+    if (!amount) {
+        alert('Please enter transfer amount');
+        return;
+    }
+    
+    // Parse amounts
+    const transferAmount = parseFormattedAmount(amount);
+    const adminFee = fee ? parseFormattedAmount(fee) : 0;
+    const totalDeducted = transferAmount + adminFee;
+    
+    // Check if source wallet has sufficient balance
+    const fromWalletOption = document.querySelector(`#transfer_from_wallet option[value="${fromWalletId}"]`);
+    const fromWalletBalance = parseFloat(fromWalletOption.getAttribute('data-balance')) || 0;
+    
+    if (totalDeducted > fromWalletBalance) {
+        alert(`Insufficient balance. Available: IDR ${fromWalletBalance.toLocaleString('id-ID')}, Required: IDR ${totalDeducted.toLocaleString('id-ID')}`);
+        return;
+    }
+    
+    // Prepare data
+    const data = {
+        from_wallet_id: fromWalletId,
+        to_wallet_id: toWalletId,
+        amount: transferAmount,
+        admin_fee: adminFee
+    };
+    
+    // Submit to API
+    fetch('/api/transactions/transfer', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.message) {
+            alert('Transfer completed successfully!');
+            bootstrap.Modal.getInstance(document.getElementById('transferModal')).hide();
+            location.reload();
+        } else {
+            alert('Failed to complete transfer: ' + (data.error || 'Unknown error'));
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Failed to complete transfer');
+    });
+}
+
+function updateFromWalletBalance() {
+    console.log('updateFromWalletBalance called');
+    const fromWalletId = document.getElementById('transfer_from_wallet').value;
+    const display = document.getElementById('fromWalletBalanceDisplay');
+    const balanceSpan = document.getElementById('fromWalletBalance');
+    
+    console.log('From wallet ID:', fromWalletId);
+    console.log('Display element:', display);
+    console.log('Balance span element:', balanceSpan);
+    
+    if (fromWalletId) {
+        const selectedOption = document.querySelector(`#transfer_from_wallet option[value="${fromWalletId}"]`);
+        if (selectedOption) {
+            const balance = selectedOption.getAttribute('data-balance');
+            console.log('Wallet balance:', balance);
+            if (balance && balance !== '0') {
+                const formattedBalance = parseFloat(balance).toLocaleString('id-ID');
+                balanceSpan.textContent = `IDR ${formattedBalance}`;
+                display.style.display = 'block';
+                console.log('Balance display set to block with:', formattedBalance);
+            } else {
+                display.style.display = 'none';
+                console.log('Balance display set to none (no balance)');
+            }
+        }
+    } else {
+        display.style.display = 'none';
+        console.log('Balance display set to none (no wallet selected)');
+    }
+}
+
+
 </script>
 
 <!-- Modified Balance Modal -->
@@ -2041,6 +2230,99 @@ function updateBalanceDifference() {
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
                 <button type="button" class="btn btn-warning" onclick="submitModifiedBalance()">
                     <i class="fas fa-balance-scale me-1"></i>Update Balance
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Transfer Modal -->
+<div class="modal fade" id="transferModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-exchange-alt me-2"></i>Transfer Money
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="text-center mb-4">
+                    <i class="fas fa-exchange-alt fa-3x text-info mb-3"></i>
+                    <h4>Transfer Between Wallets</h4>
+                    <p class="text-muted">Move money from one wallet to another with optional admin fee.</p>
+                </div>
+                
+                <form id="transferForm">
+                    <div class="row justify-content-center">
+                        <div class="col-md-5 col-sm-6 mb-4">
+                            <label for="transfer_from_wallet" class="form-label">From Wallet</label>
+                            <select class="form-select form-select-lg" id="transfer_from_wallet" name="from_wallet_id" required>
+                                <option value="">Select Source Wallet</option>
+                                {% for wallet in wallets %}
+                                {% if wallet.actual_balance and wallet.actual_balance > 0 %}
+                                <option value="{{ wallet._id }}" data-balance="{{ wallet.actual_balance or 0 }}">
+                                    {{ wallet.name }} ({{ wallet.type or 'bank' }})
+                                </option>
+                                {% else %}
+                                <option value="{{ wallet._id }}" disabled data-balance="0">
+                                    {{ wallet.name }} ({{ wallet.type or 'bank' }}) - Insufficient funds
+                                </option>
+                                {% endif %}
+                                {% endfor %}
+                            </select>
+                            <!-- Current Balance Display -->
+                            <div class="mt-2" id="fromWalletBalanceDisplay" style="display: none;">
+                                <div class="alert alert-light mb-0">
+                                    <i class="fas fa-wallet me-2"></i>
+                                    <strong>Current Balance:</strong> <span id="fromWalletBalance">IDR 0</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-5 col-sm-6 mb-4">
+                            <label for="transfer_to_wallet" class="form-label">To Wallet</label>
+                            <select class="form-select form-select-lg" id="transfer_to_wallet" name="to_wallet_id" required>
+                                <option value="">Select Destination Wallet</option>
+                                {% for wallet in wallets %}
+                                <option value="{{ wallet._id }}">
+                                    {{ wallet.name }} ({{ wallet.type or 'bank' }})
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="row justify-content-center">
+                        <div class="col-md-10 mb-4">
+                            <label for="transfer_amount" class="form-label">Transfer Amount</label>
+                            <div class="input-group input-group-lg">
+                                <span class="input-group-text">IDR</span>
+                                <input type="text" class="form-control form-control-lg text-center" id="transfer_amount" name="amount" required placeholder="1.000.000">
+                            </div>
+                            <small class="form-text text-muted">Format: 1.000.000 (gunakan titik sebagai separator ribuan)</small>
+                        </div>
+                    </div>
+                    
+                    <div class="row justify-content-center">
+                        <div class="col-md-10 mb-4">
+                            <label for="transfer_fee" class="form-label">Admin Fee (Optional)</label>
+                            <div class="input-group input-group-lg">
+                                <span class="input-group-text">IDR</span>
+                                <input type="text" class="form-control form-control-lg text-center" id="transfer_fee" name="admin_fee" placeholder="0">
+                            </div>
+                            <small class="form-text text-muted">Optional admin fee for the transfer</small>
+                        </div>
+                    </div>
+                    
+
+
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-info" onclick="submitTransfer()">
+                    <i class="fas fa-exchange-alt me-1"></i>Transfer Money
                 </button>
             </div>
         </div>

@@ -12,7 +12,7 @@ class TransactionRepository(MongoRepository):
     def list_by_user(self, user_id: str, limit: int = 200) -> List[Dict[str, Any]]:
         """Query sederhana untuk mendapatkan transaksi user"""
         try:
-            transactions = self.find_many({"user_id": user_id}, limit=limit, sort=[("timestamp", -1)])
+            transactions = self.find_many({"user_id": user_id}, limit=limit, sort=[("created_at", -1)])
             # Ensure we always return a list, never None
             if transactions is None:
                 transactions = []
@@ -25,7 +25,7 @@ class TransactionRepository(MongoRepository):
         """Method sederhana untuk mendapatkan transaksi user"""
         try:
             query = {"user_id": user_id}
-            transactions = self.find_many(query, limit=limit, sort=[("timestamp", -1)])
+            transactions = self.find_many(query, limit=limit, sort=[("created_at", -1)])
             
             # Ensure we always return a list, never None
             if transactions is None:
@@ -65,7 +65,7 @@ class TransactionRepository(MongoRepository):
                     "$lt": end_timestamp
                 }
             }
-            transactions = self.find_many(query, limit=limit, sort=[("timestamp", -1)])
+            transactions = self.find_many(query, limit=limit, sort=[("created_at", -1)])
             
             # Ensure we always return a list, never None
             if transactions is None:
@@ -150,7 +150,7 @@ class TransactionRepository(MongoRepository):
         """Method untuk mendapatkan transaksi berdasarkan scope tertentu"""
         try:
             query = {"user_id": user_id, "scope_id": scope_id}
-            transactions = self.find_many(query, limit=limit, sort=[("timestamp", -1)])
+            transactions = self.find_many(query, limit=limit, sort=[("created_at", -1)])
             
             # Ensure we always return a list, never None
             if transactions is None:
@@ -325,7 +325,7 @@ class TransactionRepository(MongoRepository):
                 "fk_manual_balance_id": manual_balance_id
             }
             
-            transactions = self.find_many(query, sort=[("timestamp", -1)], limit=limit)
+            transactions = self.find_many(query, sort=[("created_at", -1)], limit=limit)
             
             # Set default values untuk backward compatibility
             for tx in transactions:
@@ -346,7 +346,7 @@ class TransactionRepository(MongoRepository):
                 "timestamp": {"$gt": balance_timestamp}
             }
             
-            return self.find_many(query, sort=[("timestamp", 1)], limit=limit)
+            return self.find_many(query, sort=[("created_at", 1)], limit=limit)
             
         except Exception as e:
             print(f"❌ [TRANSACTIONS] Error getting transactions after manual balance: {e}")
@@ -414,7 +414,7 @@ class TransactionRepository(MongoRepository):
             
             print(f"🔍 [REPO] Final query: {query}")
             
-            transactions = self.find_many(query, limit=limit, sort=[("timestamp", -1)])
+            transactions = self.find_many(query, limit=limit, sort=[("created_at", -1)])
             
             print(f"🔍 [REPO] find_many result type: {type(transactions)}")
             print(f"🔍 [REPO] find_many result: {transactions}")

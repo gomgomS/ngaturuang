@@ -18,6 +18,16 @@
     "color": "#ffc107",
     "is_default": true,
     "is_system": true
+  },
+  {
+    "id": "transfer_fee",
+    "name": "Transfer Fee",
+    "type": "expense",
+    "description": "Default category for transfer fees",
+    "icon": "fas fa-exchange-alt",
+    "color": "#dc3545",
+    "is_default": true,
+    "is_system": true
   },  
   {
     "id": "income_general",

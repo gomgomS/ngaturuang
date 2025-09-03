@@ -1432,6 +1432,172 @@ def delete_transaction(transaction_id):
         print(f"Error in delete_transaction: {e}")
         return jsonify({"error": str(e)}), 500
 
+@app.route("/api/transactions/transfer", methods=["POST"])
+def create_transfer_transaction():
+    """Create a transfer transaction between wallets"""
+    try:
+        user_id = session.get("user_id", "demo_user")
+        body = request.get_json(force=True) or {}
+        
+        # Validate required fields
+        required_fields = ['from_wallet_id', 'to_wallet_id', 'amount']
+        for field in required_fields:
+            if field not in body:
+                return jsonify({"error": f"Missing required field: {field}"}), 400
+        
+        from_wallet_id = body['from_wallet_id']
+        to_wallet_id = body['to_wallet_id']
+        amount = float(body['amount'])
+        admin_fee = float(body.get('admin_fee', 0))
+        note = body.get('note', '')
+        
+        # Validate wallets are different
+        if from_wallet_id == to_wallet_id:
+            return jsonify({"error": "Source and destination wallets cannot be the same"}), 400
+        
+        # Validate amount
+        if amount <= 0:
+            return jsonify({"error": "Transfer amount must be greater than 0"}), 400
+        
+        if admin_fee < 0:
+            return jsonify({"error": "Admin fee cannot be negative"}), 400
+        
+        # Validate wallet ownership
+        wallet_repo = WalletRepository()
+        from_wallet = wallet_repo.get_wallet_by_id(from_wallet_id, user_id)
+        to_wallet = wallet_repo.get_wallet_by_id(to_wallet_id, user_id)
+        
+        print(f"🔍 [TRANSFER] From wallet data: {from_wallet}")
+        print(f"🔍 [TRANSFER] To wallet data: {to_wallet}")
+        
+        if not from_wallet:
+            return jsonify({"error": "Source wallet not found or access denied"}), 404
+        
+        if not to_wallet:
+            return jsonify({"error": "Destination wallet not found or access denied"}), 404
+        
+        # Check sufficient balance
+        current_balance = float(from_wallet.get("actual_balance", 0))
+        total_deducted = amount + admin_fee
+        
+        if total_deducted > current_balance:
+            return jsonify({"error": f"Insufficient balance. Available: {current_balance}, Required: {total_deducted}"}), 400
+        
+        # Create transfer transaction data
+        import time
+        current_time = int(time.time())
+        
+        # Main transfer transaction (income to destination wallet)
+        transfer_data = {
+            "user_id": user_id,
+            "wallet_id": to_wallet_id,
+            "type": "income",
+            "amount": amount,
+            "note": note or f"Transfer from {from_wallet.get('name', 'Unknown')}",
+            "timestamp": current_time,
+            "created_at": current_time,
+            "category_id": "transfer",  # You may want to add this category
+            "scope_id": None,
+            "tags": ["transfer"],
+            "is_transfer": True,
+            "from_wallet_id": from_wallet_id,
+            "to_wallet_id": to_wallet_id,
+            "transfer_amount": amount,
+            "admin_fee": admin_fee
+        }
+        
+        # Create expense transaction for source wallet (if amount > 0)
+        expense_data = {
+            "user_id": user_id,
+            "wallet_id": from_wallet_id,
+            "type": "expense",
+            "amount": amount,
+            "note": note or f"Transfer to {to_wallet.get('name', 'Unknown')}",
+            "timestamp": current_time,
+            "created_at": current_time,
+            "category_id": "transfer",
+            "scope_id": None,
+            "tags": ["transfer"],
+            "is_transfer": True,
+            "from_wallet_id": from_wallet_id,
+            "to_wallet_id": to_wallet_id,
+            "transfer_amount": amount,
+            "admin_fee": admin_fee
+        }
+        
+        # Create admin fee transaction (if fee > 0)
+        fee_data = None
+        if admin_fee > 0:
+            fee_data = {
+                "user_id": user_id,
+                "wallet_id": from_wallet_id,
+                "type": "expense",
+                "amount": admin_fee,
+                "note": f"Transfer fee for transfer to {to_wallet.get('name', 'Unknown')}",
+                "timestamp": current_time,
+                "created_at": current_time,
+                "category_id": "transfer_fee",  # You may want to add this category
+                "scope_id": None,
+                "tags": ["transfer", "fee"],
+                "is_transfer_fee": True,
+                "from_wallet_id": from_wallet_id,
+                "to_wallet_id": to_wallet_id,
+                "transfer_amount": amount,
+                "admin_fee": admin_fee
+            }
+        
+        # Create transactions
+        transaction_repo = TransactionRepository()
+        
+        # Insert main transfer transaction (income to destination)
+        transfer_id = transaction_repo.insert_one(transfer_data)
+        if not transfer_id:
+            return jsonify({"error": "Failed to create transfer transaction"}), 500
+        
+        # Insert expense transaction (expense from source)
+        expense_id = transaction_repo.insert_one(expense_data)
+        if not expense_id:
+            return jsonify({"error": "Failed to create expense transaction"}), 500
+        
+        # Insert fee transaction if applicable
+        fee_id = None
+        if fee_data:
+            fee_id = transaction_repo.insert_one(fee_data)
+            if not fee_id:
+                return jsonify({"error": "Failed to create fee transaction"}), 500
+        
+        # Update wallet balances
+        # Update destination wallet (add amount)
+        new_to_balance = float(to_wallet.get("actual_balance", 0)) + amount
+        print(f"🔄 [TRANSFER] Updating destination wallet {to_wallet_id} to balance {new_to_balance}")
+        success_to = wallet_repo.update_wallet_balance(to_wallet_id, user_id, new_to_balance)
+        print(f"🔄 [TRANSFER] Destination wallet update result: {success_to}")
+        
+        # Update source wallet (subtract amount + fee)
+        new_from_balance = current_balance - total_deducted
+        print(f"🔄 [TRANSFER] Updating source wallet {from_wallet_id} to balance {new_from_balance}")
+        success_from = wallet_repo.update_wallet_balance(from_wallet_id, user_id, new_from_balance)
+        print(f"🔄 [TRANSFER] Source wallet update result: {success_from}")
+        
+        if not success_to or not success_from:
+            print(f"❌ [TRANSFER] Wallet balance update failed - success_to: {success_to}, success_from: {success_from}")
+            return jsonify({"error": "Transfer created but failed to update wallet balances"}), 500
+        
+        return jsonify({
+            "message": "Transfer completed successfully",
+            "transfer_id": transfer_id,
+            "expense_id": expense_id,
+            "fee_id": fee_id,
+            "amount": amount,
+            "admin_fee": admin_fee,
+            "from_wallet": from_wallet.get("name"),
+            "to_wallet": to_wallet.get("name")
+        }), 201
+        
+    except Exception as e:
+        print(f"Error in create_transfer_transaction: {e}")
+        return jsonify({"error": str(e)}), 500
+
 @app.route("/api/transactions/modified-balance", methods=["POST"])
 def create_modified_balance_transaction():
     """Create a transaction for balance adjustment"""
