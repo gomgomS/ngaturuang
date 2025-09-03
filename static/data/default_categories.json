@@ -10,6 +10,16 @@
     "is_system": true
   },
   {
+    "id": "balance_adjustment",
+    "name": "Balance Adjustment",
+    "type": "adjustment",
+    "description": "Default category for balance adjustments",
+    "icon": "fas fa-balance-scale",
+    "color": "#ffc107",
+    "is_default": true,
+    "is_system": true
+  },  
+  {
     "id": "income_general",
     "name": "General Income",
     "type": "income",

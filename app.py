@@ -93,6 +93,15 @@ def currency_decimal_filter(value):
     except (ValueError, TypeError):
         return "0.00"
 
+@app.template_filter('timestamp_to_date')
+def timestamp_to_date_filter(timestamp):
+    """Convert timestamp to readable date"""
+    try:
+        from datetime import datetime
+        return datetime.fromtimestamp(timestamp).strftime('%d %b %Y')
+    except (ValueError, TypeError):
+        return "N/A"
+
 @app.template_filter('datetime')
 def datetime_filter(timestamp):
     """Format timestamp to readable datetime"""
@@ -431,6 +440,11 @@ def transactions():
         wallets = wallet_repo.list_by_user(user_id)
         categories = category_repo.list_by_user_with_defaults(user_id)  # Include default categories
         
+        # Debug: Print scope data
+        print("🔍 [TRANSACTIONS] Scopes found:", len(scopes))
+        for scope in scopes:
+            print("  - Scope:", scope.get('name', 'No name'), "ID:", scope.get('_id', 'No ID'))
+        
         # Get selected items for display
         selected_scope = None
         selected_category = None
@@ -513,6 +527,26 @@ def goals():
         return auth_check
     
     return render_template("goals.html")
+
+@app.route("/accounts")
+def accounts():
+    # Check authentication
+    auth_check = require_login()
+    if auth_check:
+        return auth_check
+    
+    user_id = session.get("user_id", "demo_user")
+    
+    # Get wallet repository
+    wallet_repo = WalletRepository()
+    
+    # Get all wallets for the user
+    wallets = wallet_repo.list_by_user(user_id)
+    
+    # Ensure wallets list is passed
+    wallets = wallets or []
+    
+    return render_template("accounts.html", wallets=wallets)
 
 @app.route("/test-data")
 def test_data():
@@ -1396,6 +1430,85 @@ def delete_transaction(transaction_id):
         return jsonify({"message": "Transaction deleted successfully"})
     except Exception as e:
         print(f"Error in delete_transaction: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/api/transactions/modified-balance", methods=["POST"])
+def create_modified_balance_transaction():
+    """Create a transaction for balance adjustment"""
+    try:
+        user_id = session.get("user_id", "demo_user")
+        body = request.get_json(force=True) or {}
+        
+        # Validate required fields
+        required_fields = ['wallet_id', 'new_balance', 'current_balance', 'difference']
+        for field in required_fields:
+            if field not in body:
+                return jsonify({"error": f"Missing required field: {field}"}), 400
+        
+        wallet_id = body['wallet_id']
+        new_balance = float(body['new_balance'])
+        current_balance = float(body['current_balance'])
+        difference = float(body['difference'])
+        
+        # Determine transaction type based on difference
+        if difference > 0:
+            transaction_type = 'income'  # Balance increased
+        else:
+            transaction_type = 'expense'  # Balance decreased
+        
+        note = body.get('note', 'Balance adjustment')
+        
+        # Validate wallet ownership
+        wallet_repo = WalletRepository()
+        wallet = wallet_repo.get_wallet_by_id(wallet_id, user_id)
+        if not wallet:
+            return jsonify({"error": "Wallet not found or access denied"}), 404
+        
+        # Validate difference matches calculation
+        expected_difference = new_balance - current_balance
+        if abs(difference - expected_difference) > 0.01:  # Allow small floating point differences
+            return jsonify({"error": "Difference calculation mismatch"}), 400
+        
+        # Create transaction data
+        import time
+        transaction_data = {
+            "user_id": user_id,
+            "wallet_id": wallet_id,
+            "type": transaction_type,
+            "amount": abs(difference),  # Always positive amount
+            "note": note,
+            "timestamp": int(time.time()),
+            "created_at": int(time.time()),
+            "category_id": "balance_adjustment",  # Use the default balance adjustment category
+            "scope_id": None,  # No scope for balance adjustments
+            "tags": [],  # Empty tags as requested
+            "is_balance_adjustment": True  # Flag to identify balance adjustment transactions
+        }
+        
+        # Create transaction
+        transaction_repo = TransactionRepository()
+        transaction_id = transaction_repo.insert_one(transaction_data)
+        
+        if not transaction_id:
+            return jsonify({"error": "Failed to create transaction"}), 500
+        
+        # Update wallet balance
+        success = wallet_repo.update_wallet_balance(wallet_id, user_id, new_balance)
+        
+        if not success:
+            # If wallet update fails, we should ideally rollback the transaction
+            # For now, just return an error
+            return jsonify({"error": "Transaction created but failed to update wallet balance"}), 500
+        
+        return jsonify({
+            "message": "Balance updated successfully",
+            "transaction_id": transaction_id,
+            "new_balance": new_balance,
+            "difference": difference
+        }), 201
+        
+    except Exception as e:
+        print(f"Error in create_modified_balance_transaction: {e}")
         return jsonify({"error": str(e)}), 500
 
 @app.route("/api/scopes/", methods=["GET"])
