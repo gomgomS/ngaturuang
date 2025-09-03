@@ -132,6 +132,33 @@
         padding: 0.5rem;
     }
     
+    /* Filter Row Styles */
+    .month-filter-container .row {
+        margin-top: 1rem;
+    }
+    
+    .month-filter-container .col-md-3 {
+        margin-bottom: 0;
+    }
+    
+    .month-filter-container label {
+        margin-bottom: 0.5rem;
+        font-size: 0.9rem;
+    }
+    
+    #currentButton {
+        height: 48px;
+        font-weight: 600;
+        transition: all 0.3s ease;
+    }
+    
+    #currentButton:hover {
+        background: rgba(255, 255, 255, 0.2);
+        border-color: rgba(255, 255, 255, 0.5);
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+    }
+    
     .stats-card {
         background: rgba(255, 255, 255, 0.9);
         border: none;
@@ -326,14 +353,21 @@
             font-size: 1rem;
         }
         
-        .month-filter {
+        .month-filter-container .row {
             flex-direction: column;
-            align-items: flex-start;
-            gap: 0.75rem;
+        }
+        
+        .month-filter-container .col-md-3 {
+            margin-bottom: 1rem;
         }
         
         .month-filter-select {
             min-width: 100%;
+            font-size: 0.9rem;
+        }
+        
+        #currentButton {
+            height: 44px;
             font-size: 0.9rem;
         }
         
@@ -525,18 +559,41 @@
     <div class="dashboard-header">
         <div class="welcome-text">
             <h1>Welcome back, {{ username }}!</h1>
-            <p>Here's your financial overview for <span id="currentMonthDisplay">{{ current_month_name }}</span></p>
+            <p>Here's your financial overview for <span id="currentDateDisplay">Loading...</span></p>
         </div>
         
-        <!-- Month Filter -->
+        <!-- Year, Month, Day Filter and Current Button -->
         <div class="month-filter-container">
-            <div class="month-filter">
-                <label for="monthFilter" class="month-filter-label">
-                    <i class="fas fa-calendar-alt me-2"></i>Select Month:
-                </label>
-                <select id="monthFilter" class="form-select month-filter-select">
-                    <option value="">Loading months...</option>
-                </select>
+            <div class="row g-3 align-items-end">
+                <div class="col-md-3">
+                    <label for="yearFilter" class="month-filter-label">
+                        <i class="fas fa-calendar me-2"></i>Year:
+                    </label>
+                    <select id="yearFilter" class="form-select month-filter-select">
+                        <option value="">Loading years...</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label for="monthFilter" class="month-filter-label">
+                        <i class="fas fa-calendar-alt me-2"></i>Month:
+                    </label>
+                    <select id="monthFilter" class="form-select month-filter-select">
+                        <option value="">Loading months...</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label for="dayFilter" class="month-filter-label">
+                        <i class="fas fa-calendar-day me-2"></i>Day:
+                    </label>
+                    <select id="dayFilter" class="form-select month-filter-select">
+                        <option value="">All days</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <button type="button" class="btn btn-outline-light quick-access-btn w-100" id="currentButton">
+                        <i class="fas fa-home me-2"></i>Current
+                    </button>
+                </div>
             </div>
         </div>
         
@@ -607,7 +664,7 @@
                 <div class="card-header">
                     <h5 class="mb-0">
                         <i class="fas fa-chart-line me-2"></i>
-                        Monthly Overview
+                        <span id="chartTitle">Monthly Overview</span>
                     </h5>
                 </div>
                         <div class="card-body">
@@ -860,9 +917,12 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Initialize month filter with a small delay to ensure DOM is ready
+    // Initialize year, month and day filters with a small delay to ensure DOM is ready
     setTimeout(() => {
+        initializeYearFilter();
         initializeMonthFilter();
+        initializeDayFilter();
+        initializeCurrentButton();
     }, 100);
     
     // Prevent zoom and pan gestures on mobile
@@ -953,6 +1013,143 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 });
 
+// Year Filter Functions
+function initializeYearFilter() {
+    const yearFilter = document.getElementById('yearFilter');
+    if (!yearFilter) {
+        console.error('Year filter element not found');
+        return;
+    }
+    
+    // Generate year options (current year and previous 5 years)
+    const years = generateYearOptions();
+    
+    // Clear existing options
+    yearFilter.innerHTML = '';
+    
+    // Add year options
+    years.forEach((year, index) => {
+        const option = document.createElement('option');
+        option.value = year.value;
+        option.textContent = year.label;
+        
+        // Highlight current year (first in the list)
+        if (index === 0) {
+            option.selected = true;
+        }
+        
+        yearFilter.appendChild(option);
+    });
+    
+    // Set current year as default
+    const currentYear = new Date().getFullYear().toString();
+    yearFilter.value = currentYear;
+    
+    // Add change event listener
+    yearFilter.addEventListener('change', function() {
+        const selectedYear = this.value;
+        if (selectedYear && selectedYear !== 'undefined') {
+            // Reset month and day filters when year changes
+            resetMonthFilter();
+            resetDayFilter();
+            // populateMonthFilter will handle setting up the month filter
+            populateMonthFilter(selectedYear);
+        }
+    });
+    
+    // Load current year data to initialize
+    loadDashboardData(currentYear);
+    
+    // Set default to today's date
+    setDefaultToToday();
+}
+
+function generateYearOptions() {
+    const years = [];
+    const currentYear = new Date().getFullYear();
+    
+    for (let i = 0; i < 6; i++) {
+        const year = currentYear - i;
+        years.push({
+            value: year.toString(),
+            label: i === 0 ? `${year} (Current Year)` : year.toString()
+        });
+    }
+    
+    return years;
+}
+
+function resetMonthFilter() {
+    const monthFilter = document.getElementById('monthFilter');
+    if (monthFilter) {
+        monthFilter.innerHTML = '<option value="">Loading months...</option>';
+        monthFilter.value = '';
+    }
+}
+
+function setDefaultToToday() {
+    try {
+        const today = new Date();
+        const currentYear = today.getFullYear().toString();
+        const currentMonth = (today.getMonth() + 1).toString().padStart(2, '0');
+        const currentDay = today.getDate().toString().padStart(2, '0');
+        
+        // Set year filter
+        const yearFilter = document.getElementById('yearFilter');
+        if (yearFilter) {
+            yearFilter.value = currentYear;
+        }
+        
+        // Populate month filter for current year
+        populateMonthFilter(currentYear);
+        
+        // Set month filter to current month
+        const monthFilter = document.getElementById('monthFilter');
+        if (monthFilter) {
+            const currentMonthValue = `${currentYear}-${currentMonth}`;
+            monthFilter.value = currentMonthValue;
+        }
+        
+        // Populate day filter for current month
+        populateDayFilter(currentYear, currentMonth);
+        
+        // Set day filter to today
+        const dayFilter = document.getElementById('dayFilter');
+        if (dayFilter) {
+            dayFilter.value = currentDay;
+        }
+        
+        // Load data for today
+        loadDashboardData(currentYear, `${currentYear}-${currentMonth}`, currentDay);
+        
+        // Update display to show today's date
+        updateCurrentDateDisplay(currentYear, `${currentYear}-${currentMonth}`, currentDay);
+        
+    } catch (error) {
+        console.error('Error setting default to today:', error);
+    }
+}
+
+function initializeCurrentButton() {
+    const currentButton = document.getElementById('currentButton');
+    if (!currentButton) {
+        console.error('Current button element not found');
+        return;
+    }
+    
+    // Add click event listener
+    currentButton.addEventListener('click', function() {
+        // Reset all filters to current date
+        setDefaultToToday();
+        
+        // Add visual feedback
+        this.style.transform = 'scale(0.95)';
+        setTimeout(() => {
+            this.style.transform = 'scale(1)';
+        }, 150);
+    });
+}
+
 // Month Filter Functions
 function initializeMonthFilter() {
     const monthFilter = document.getElementById('monthFilter');
@@ -989,13 +1186,14 @@ function initializeMonthFilter() {
     // Add change event listener
     monthFilter.addEventListener('change', function() {
         const selectedMonth = this.value;
-        if (selectedMonth && selectedMonth !== 'undefined') {
-            loadDashboardData(selectedMonth);
+        const selectedYear = document.getElementById('yearFilter').value;
+        if (selectedMonth && selectedMonth !== 'undefined' && selectedYear && selectedYear !== 'undefined') {
+            // Reset day filter when month changes
+            resetDayFilter();
+            // populateDayFilter will handle auto-selecting today if it's the current month
+            populateDayFilter(selectedYear, selectedMonth.split('-')[1]);
         }
     });
-    
-    // Load current month data to initialize the chart
-    loadDashboardData(currentMonth);
 }
 
 function generateMonthOptions() {
@@ -1017,21 +1215,174 @@ function generateMonthOptions() {
     return months;
 }
 
-async function loadDashboardData(month) {
+function populateMonthFilter(year) {
+    const monthFilter = document.getElementById('monthFilter');
+    if (!monthFilter) return;
+    
     try {
-        // Validate month parameter
-        if (!month || month === 'undefined' || month === '') {
-            console.error('Invalid month parameter:', month);
+        const today = new Date();
+        const currentYear = today.getFullYear();
+        const currentMonth = today.getMonth() + 1; // 1-based month
+        
+        // Clear existing options
+        monthFilter.innerHTML = '<option value="">All months</option>';
+        
+        // Add month options for the selected year
+        for (let month = 1; month <= 12; month++) {
+            const date = new Date(parseInt(year), month - 1, 1);
+            const monthName = date.toLocaleDateString('en-US', { month: 'long' });
+            
+            const option = document.createElement('option');
+            option.value = `${year}-${month.toString().padStart(2, '0')}`;
+            option.textContent = monthName;
+            monthFilter.appendChild(option);
+        }
+        
+        // Auto-select current month if we're in the current year
+        if (parseInt(year) === currentYear) {
+            const currentMonthValue = `${year}-${currentMonth.toString().padStart(2, '0')}`;
+            monthFilter.value = currentMonthValue;
+            
+            // Also populate day filter and auto-select today
+            populateDayFilter(year, currentMonth.toString().padStart(2, '0'));
+        }
+        
+    } catch (error) {
+        console.error('Error populating month filter:', error);
+    }
+}
+
+// Day Filter Functions
+function initializeDayFilter() {
+    const dayFilter = document.getElementById('dayFilter');
+    if (!dayFilter) {
+        console.error('Day filter element not found');
+        return;
+    }
+    
+    // Add change event listener
+    dayFilter.addEventListener('change', function() {
+        const selectedDay = this.value;
+        const selectedMonth = document.getElementById('monthFilter').value;
+        const selectedYear = document.getElementById('yearFilter').value;
+        
+        if (selectedDay && selectedDay !== '' && selectedMonth && selectedMonth !== 'undefined' && selectedYear && selectedYear !== 'undefined') {
+            loadDashboardData(selectedYear, selectedMonth, selectedDay);
+        }
+    });
+}
+
+function resetDayFilter() {
+    const dayFilter = document.getElementById('dayFilter');
+    if (dayFilter) {
+        dayFilter.innerHTML = '<option value="">All days</option>';
+        dayFilter.value = '';
+    }
+}
+
+function populateDayFilter(year, month) {
+    const dayFilter = document.getElementById('dayFilter');
+    if (!dayFilter) return;
+    
+    try {
+        // Parse year and month
+        const selectedMonth = new Date(parseInt(year), parseInt(month) - 1, 1);
+        const today = new Date();
+        const currentYear = today.getFullYear();
+        const currentMonth = today.getMonth();
+        const currentDay = today.getDate();
+        
+        // Check if selected month is the current month
+        const isCurrentMonth = (selectedMonth.getFullYear() === currentYear && 
+                               selectedMonth.getMonth() === currentMonth);
+        
+        // Clear existing options
+        dayFilter.innerHTML = '<option value="">All days</option>';
+        
+        // Generate relative date options for the last 30 days
+        for (let i = 0; i < 30; i++) {
+            const date = new Date(today);
+            date.setDate(today.getDate() - i);
+            
+            // Only include dates from the selected month
+            if (date.getFullYear() === selectedMonth.getFullYear() && 
+                date.getMonth() === selectedMonth.getMonth()) {
+                
+                const option = document.createElement('option');
+                const dayStr = date.getDate().toString().padStart(2, '0');
+                option.value = dayStr;
+                
+                // Generate relative date text
+                let relativeText = '';
+                if (i === 0) {
+                    relativeText = 'Today';
+                } else if (i === 1) {
+                    relativeText = 'Yesterday';
+                } else {
+                    relativeText = `${i} days ago`;
+                }
+                
+                // Format date (e.g., "3 Aug")
+                const monthName = date.toLocaleDateString('en-US', { month: 'short' });
+                const dayNum = date.getDate();
+                
+                option.textContent = `${relativeText} - ${dayNum} ${monthName}`;
+                dayFilter.appendChild(option);
+            }
+        }
+        
+        // Auto-select "Today" if we're in the current month and today exists in the options
+        if (isCurrentMonth) {
+            const todayOption = dayFilter.querySelector(`option[value="${currentDay.toString().padStart(2, '0')}"]`);
+            if (todayOption) {
+                dayFilter.value = currentDay.toString().padStart(2, '0');
+                
+                // Automatically load data for today
+                const selectedYear = document.getElementById('yearFilter').value;
+                const selectedMonth = document.getElementById('monthFilter').value;
+                if (selectedYear && selectedMonth) {
+                    loadDashboardData(selectedYear, selectedMonth, currentDay.toString().padStart(2, '0'));
+                }
+            }
+        }
+        
+    } catch (error) {
+        console.error('Error populating day filter:', error);
+    }
+}
+
+async function loadDashboardData(year, month = null, day = null) {
+    try {
+        // Validate year parameter
+        if (!year || year === 'undefined' || year === '') {
+            console.error('Invalid year parameter:', year);
             return;
         }
         
-        console.log(`Loading dashboard data for month: ${month}`);
+        console.log(`Loading dashboard data for year: ${year}${month ? `, month: ${month}` : ''}${day ? `, day: ${day}` : ''}`);
         
         // Show loading state
         showLoadingState();
         
-        // Fetch data for the selected month
-        const response = await fetch(`/api/dashboard-data?month=${month}`);
+        // Populate month filter when year changes
+        if (!month) {
+            populateMonthFilter(year);
+        }
+        
+        // Populate day filter when month changes
+        if (month && !day) {
+            populateDayFilter(year, month);
+        }
+        
+        // Fetch data for the selected year, month and day
+        let url = `/api/dashboard-data?year=${year}`;
+        if (month) {
+            url += `&month=${month}`;
+        }
+        if (day) {
+            url += `&day=${day}`;
+        }
+        const response = await fetch(url);
         if (!response.ok) {
             throw new Error('Failed to fetch dashboard data');
         }
@@ -1044,8 +1395,11 @@ async function loadDashboardData(month) {
         // Update chart
         updateChart(data.chartData);
         
-        // Update month display
-        updateMonthDisplay(month);
+        // Update current date display
+        updateCurrentDateDisplay(year, month, day);
+        
+        // Update chart title
+        updateChartTitle(year, month, day);
         
         console.log('Dashboard data loaded successfully');
         
@@ -1170,20 +1524,91 @@ function updateChart(chartData) {
     }
 }
 
-function updateMonthDisplay(month) {
+function updateCurrentDateDisplay(year, month, day) {
     try {
-        // Parse month (YYYY-MM format)
-        const [year, monthNum] = month.split('-');
-        const date = new Date(parseInt(year), parseInt(monthNum) - 1, 1);
-        const monthName = date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-        
-        // Update the month display in the header
-        const monthDisplay = document.getElementById('currentMonthDisplay');
-        if (monthDisplay) {
-            monthDisplay.textContent = monthName;
+        const dateDisplay = document.getElementById('currentDateDisplay');
+        if (dateDisplay) {
+            if (day && day !== '' && month && month !== '') {
+                // Show specific date (e.g., "3 Sept 2025")
+                try {
+                    const [yearStr, monthNum] = month.split('-');
+                    const date = new Date(parseInt(yearStr), parseInt(monthNum) - 1, parseInt(day));
+                    
+                    // Format date (e.g., "3 Sept 2025")
+                    const dayNum = date.getDate();
+                    const monthName = date.toLocaleDateString('en-US', { month: 'short' });
+                    const yearNum = date.getFullYear();
+                    
+                    dateDisplay.textContent = `${dayNum} ${monthName} ${yearNum}`;
+                } catch (error) {
+                    console.error('Error formatting date display:', error);
+                    dateDisplay.textContent = 'Today';
+                }
+            } else if (month && month !== '') {
+                // Show month and year (e.g., "September 2025")
+                try {
+                    const [yearStr, monthNum] = month.split('-');
+                    const date = new Date(parseInt(yearStr), parseInt(monthNum) - 1, 1);
+                    const monthName = date.toLocaleDateString('en-US', { month: 'long' });
+                    const yearNum = date.getFullYear();
+                    
+                    dateDisplay.textContent = `${monthName} ${yearNum}`;
+                } catch (error) {
+                    console.error('Error formatting month display:', error);
+                    dateDisplay.textContent = 'This Month';
+                }
+            } else if (year && year !== '') {
+                // Show year only (e.g., "2025")
+                dateDisplay.textContent = year;
+            } else {
+                dateDisplay.textContent = 'Today';
+            }
         }
     } catch (error) {
-        console.error('Error updating month display:', error);
+        console.error('Error updating current date display:', error);
+    }
+}
+
+function updateChartTitle(year, month, day) {
+    try {
+        const chartTitle = document.getElementById('chartTitle');
+        if (chartTitle) {
+            if (day && day !== '' && month && month !== '') {
+                // Daily view with hourly breakdown
+                try {
+                    const [yearStr, monthNum] = month.split('-');
+                    const date = new Date(parseInt(yearStr), parseInt(monthNum) - 1, parseInt(day));
+                    
+                    // Format date (e.g., "3 Aug")
+                    const monthName = date.toLocaleDateString('en-US', { month: 'short' });
+                    const dayNum = date.getDate();
+                    
+                    chartTitle.textContent = `Daily Overview - ${dayNum} ${monthName} (Hourly Breakdown)`;
+                } catch (error) {
+                    console.error('Error formatting chart title:', error);
+                    chartTitle.textContent = 'Daily Overview (Hourly Breakdown)';
+                }
+            } else if (month && month !== '') {
+                // Monthly view with daily breakdown
+                try {
+                    const [yearStr, monthNum] = month.split('-');
+                    const date = new Date(parseInt(yearStr), parseInt(monthNum) - 1, 1);
+                    const monthName = date.toLocaleDateString('en-US', { month: 'long' });
+                    
+                    chartTitle.textContent = `Monthly Overview - ${monthName}`;
+                } catch (error) {
+                    console.error('Error formatting chart title:', error);
+                    chartTitle.textContent = 'Monthly Overview';
+                }
+            } else if (year && year !== '') {
+                // Yearly view
+                chartTitle.textContent = `Yearly Overview - ${year}`;
+            } else {
+                chartTitle.textContent = 'Overview';
+            }
+        }
+    } catch (error) {
+        console.error('Error updating chart title:', error);
     }
 }
 

@@ -263,23 +263,41 @@ def api_dashboard_data():
         if not user_id:
             return jsonify({"error": "Not authenticated"}), 401
         
-        # Get month parameter (format: YYYY-MM)
-        month = request.args.get('month')
-        if not month or month == 'undefined':
-            return jsonify({"error": "Month parameter required"}), 400
+        # Get year parameter (format: YYYY)
+        year = request.args.get('year')
+        if not year or year == 'undefined':
+            return jsonify({"error": "Year parameter required"}), 400
         
-        # Parse month to get start and end timestamps
+        # Get month parameter (optional, format: YYYY-MM)
+        month = request.args.get('month')
+        
+        # Get day parameter (optional, format: DD)
+        day = request.args.get('day')
+        
+        # Parse parameters to get start and end timestamps
         try:
-            year, month_num = month.split('-')
             year = int(year)
-            month_num = int(month_num)
             
-            # Create start and end of month timestamps
-            start_date = datetime(year, month_num, 1)
-            if month_num == 12:
-                end_date = datetime(year + 1, 1, 1)
+            if day and month:
+                # Filter by specific day
+                month_parts = month.split('-')
+                month_num = int(month_parts[1])
+                day_num = int(day)
+                start_date = datetime(year, month_num, day_num)
+                end_date = datetime(year, month_num, day_num + 1)
+            elif month:
+                # Filter by entire month
+                month_parts = month.split('-')
+                month_num = int(month_parts[1])
+                start_date = datetime(year, month_num, 1)
+                if month_num == 12:
+                    end_date = datetime(year + 1, 1, 1)
+                else:
+                    end_date = datetime(year, month_num + 1, 1)
             else:
-                end_date = datetime(year, month_num + 1, 1)
+                # Filter by entire year
+                start_date = datetime(year, 1, 1)
+                end_date = datetime(year + 1, 1, 1)
             
             start_timestamp = int(start_date.timestamp())
             end_timestamp = int(end_date.timestamp())
@@ -300,15 +318,27 @@ def api_dashboard_data():
         total_transfer = sum(float(tx.get("amount", 0)) for tx in transactions if tx.get("type") == "transfer")
         transaction_count = len(transactions)
         
-        # Get current total balance (not filtered by month)
-        wallets = wallet_repo.list_by_user(user_id)
-        total_balance = sum(float(wallet.get("actual_balance", 0)) for wallet in wallets)
+        # Calculate total balance based on latest transaction balance_after for each wallet up to selected date
+        total_balance = calculate_balance_from_transactions(user_id, end_timestamp)
         
         # Get recent transactions (limit to 5)
         recent_transactions = transactions[:5]
         
-        # Generate chart data (daily breakdown for the month)
-        chart_data = generate_monthly_chart_data(transactions, year, month_num)
+        # Generate chart data based on filter type
+        if day and month:
+            # For day view, show hourly breakdown
+            month_parts = month.split('-')
+            month_num = int(month_parts[1])
+            day_num = int(day)
+            chart_data = generate_daily_chart_data(transactions, year, month_num, day_num)
+        elif month:
+            # For month view, show daily breakdown
+            month_parts = month.split('-')
+            month_num = int(month_parts[1])
+            chart_data = generate_monthly_chart_data(transactions, year, month_num)
+        else:
+            # For year view, show monthly breakdown
+            chart_data = generate_yearly_chart_data(transactions, year)
         
         return jsonify({
             "total_balance": total_balance,
@@ -322,6 +352,62 @@ def api_dashboard_data():
         
     except Exception as e:
         print(f"Error in api_dashboard_data: {e}")
+        return jsonify({"error": "Internal server error"}), 500
+
+@app.route("/api/balance-analysis")
+def api_balance_analysis():
+    """API endpoint to analyze balance discrepancies between wallets and transactions"""
+    try:
+        user_id = session.get("user_id")
+        if not user_id:
+            return jsonify({"error": "Not authenticated"}), 401
+        
+        # Get repositories
+        wallet_repo = WalletRepository()
+        
+        # Get all wallets for the user
+        wallets = wallet_repo.list_by_user(user_id)
+        
+        # Analyze each wallet
+        discrepancies = []
+        total_discrepancy_amount = 0
+        
+        for wallet in wallets:
+            wallet_id = wallet.get("_id")
+            wallet_name = wallet.get("name", "Unknown Wallet")
+            actual_balance = float(wallet.get("actual_balance", 0))
+            
+            # Calculate balance from transactions for this wallet
+            calculated_balance = calculate_wallet_balance_from_transactions(user_id, wallet_id)
+            
+            # Calculate discrepancy
+            discrepancy_amount = actual_balance - calculated_balance
+            
+            # Only include if there's a significant discrepancy (more than 1 Rupiah)
+            if abs(discrepancy_amount) > 1:
+                discrepancies.append({
+                    "wallet_id": str(wallet_id),
+                    "wallet_name": wallet_name,
+                    "actual_balance": actual_balance,
+                    "calculated_balance": calculated_balance,
+                    "discrepancy_amount": discrepancy_amount
+                })
+                total_discrepancy_amount += discrepancy_amount
+        
+        # Prepare summary
+        summary = {
+            "total_wallets": len(wallets),
+            "discrepancies_found": len(discrepancies),
+            "total_discrepancy_amount": total_discrepancy_amount
+        }
+        
+        return jsonify({
+            "summary": summary,
+            "discrepancies": discrepancies
+        })
+        
+    except Exception as e:
+        print(f"Error in api_balance_analysis: {e}")
         return jsonify({"error": "Internal server error"}), 500
 
 def generate_monthly_chart_data(transactions, year, month_num):
@@ -378,6 +464,188 @@ def generate_monthly_chart_data(transactions, year, month_num):
             "income": [],
             "expenses": []
         }
+
+def generate_daily_chart_data(transactions, year, month_num, day_num):
+    """Generate chart data for a specific day (hourly breakdown)"""
+    try:
+        # Initialize hourly data (24 hours)
+        hourly_income = [0] * 24
+        hourly_expenses = [0] * 24
+        labels = []
+        
+        # Generate labels for each hour
+        for hour in range(24):
+            labels.append(f"{hour:02d}:00")
+        
+        # Process transactions
+        for tx in transactions:
+            try:
+                # Convert timestamp to datetime
+                tx_date = datetime.fromtimestamp(tx.get("timestamp", 0))
+                hour_index = tx_date.hour
+                
+                if 0 <= hour_index < 24:
+                    amount = float(tx.get("amount", 0))
+                    tx_type = tx.get("type", "")
+                    
+                    if tx_type == "income":
+                        hourly_income[hour_index] += amount
+                    elif tx_type == "expense":
+                        hourly_expenses[hour_index] += amount
+                        
+            except (ValueError, TypeError) as e:
+                print(f"Error processing transaction for daily chart: {e}")
+                continue
+        
+        return {
+            "labels": labels,
+            "income": hourly_income,
+            "expenses": hourly_expenses
+        }
+        
+    except Exception as e:
+        print(f"Error generating daily chart data: {e}")
+        # Return empty data structure
+        return {
+            "labels": [],
+            "income": [],
+            "expenses": []
+        }
+
+def generate_yearly_chart_data(transactions, year):
+    """Generate chart data for a specific year (monthly breakdown)"""
+    try:
+        # Initialize monthly data (12 months)
+        monthly_income = [0] * 12
+        monthly_expenses = [0] * 12
+        labels = []
+        
+        # Generate labels for each month
+        for month in range(1, 13):
+            date = datetime(year, month, 1)
+            month_name = date.strftime('%b')  # Short month name
+            labels.append(month_name)
+        
+        # Process transactions
+        for tx in transactions:
+            try:
+                # Convert timestamp to datetime
+                tx_date = datetime.fromtimestamp(tx.get("timestamp", 0))
+                month_index = tx_date.month - 1  # 0-based index
+                
+                if 0 <= month_index < 12:
+                    amount = float(tx.get("amount", 0))
+                    tx_type = tx.get("type", "")
+                    
+                    if tx_type == "income":
+                        monthly_income[month_index] += amount
+                    elif tx_type == "expense":
+                        monthly_expenses[month_index] += amount
+                        
+            except (ValueError, TypeError) as e:
+                print(f"Error processing transaction for yearly chart: {e}")
+                continue
+        
+        return {
+            "labels": labels,
+            "income": monthly_income,
+            "expenses": monthly_expenses
+        }
+        
+    except Exception as e:
+        print(f"Error generating yearly chart data: {e}")
+        # Return empty data structure
+        return {
+            "labels": [],
+            "income": [],
+            "expenses": []
+        }
+
+def calculate_balance_from_transactions(user_id, end_timestamp):
+    """Calculate total balance based on latest transaction balance_after for each wallet up to selected date"""
+    try:
+        from config import get_collection
+        
+        # Get all transactions for the user up to the end timestamp
+        coll = get_collection("transactions")
+        
+        # Find the latest transaction for each wallet up to the end timestamp
+        pipeline = [
+            {
+                "$match": {
+                    "user_id": user_id,
+                    "timestamp": {"$lte": end_timestamp}
+                }
+            },
+            {
+                "$sort": {"wallet_id": 1, "timestamp": -1, "sequence_number": -1}
+            },
+            {
+                "$group": {
+                    "_id": "$wallet_id",
+                    "latest_transaction": {"$first": "$$ROOT"}
+                }
+            }
+        ]
+        
+        latest_transactions = list(coll.aggregate(pipeline))
+        
+        # Sum up the balance_after from the latest transaction of each wallet
+        total_balance = 0
+        for wallet_data in latest_transactions:
+            latest_tx = wallet_data.get("latest_transaction", {})
+            balance_after = latest_tx.get("balance_after", 0)
+            if balance_after is not None:
+                total_balance += float(balance_after)
+        
+        return total_balance
+        
+    except Exception as e:
+        print(f"Error calculating balance from transactions: {e}")
+        # Fallback to current wallet balance if there's an error
+        try:
+            wallet_repo = WalletRepository()
+            wallets = wallet_repo.list_by_user(user_id)
+            return sum(float(wallet.get("actual_balance", 0)) for wallet in wallets)
+        except:
+            return 0
+
+def calculate_wallet_balance_from_transactions(user_id, wallet_id):
+    """Calculate balance for a specific wallet based on its latest transaction"""
+    try:
+        from config import get_collection
+        
+        # Get all transactions for the specific wallet
+        coll = get_collection("transactions")
+        
+        # Find the latest transaction for this wallet
+        pipeline = [
+            {
+                "$match": {
+                    "user_id": user_id,
+                    "wallet_id": wallet_id
+                }
+            },
+            {
+                "$sort": {"timestamp": -1, "sequence_number": -1}
+            },
+            {
+                "$limit": 1
+            }
+        ]
+        
+        latest_transaction = list(coll.aggregate(pipeline))
+        
+        if latest_transaction:
+            balance_after = latest_transaction[0].get("balance_after", 0)
+            return float(balance_after) if balance_after is not None else 0
+        else:
+            # No transactions found for this wallet, return 0
+            return 0
+        
+    except Exception as e:
+        print(f"Error calculating wallet balance from transactions: {e}")
+        return 0
 
 @app.route("/transactions")
 def transactions():
@@ -1310,6 +1578,37 @@ def balance():
                              wallets=[],
                              balance_data=[])
 
+@app.route("/analysis")
+def analysis():
+    # Check authentication
+    auth_check = require_login()
+    if auth_check:
+        return auth_check
+    
+    try:
+        user_id = session.get("user_id")
+        
+        # Get repositories
+        wallet_repo = WalletRepository()
+        
+        # Get user data
+        wallets = wallet_repo.list_by_user(user_id)
+        
+        # Calculate total balance
+        total_balance = sum(float(wallet.get("actual_balance", 0)) for wallet in wallets)
+        
+        return render_template("analysis.html", 
+                             username=session.get("username"),
+                             wallets=wallets,
+                             total_balance=total_balance)
+    
+    except Exception as e:
+        print(f"Error in analysis: {e}")
+        return render_template("analysis.html", 
+                             username=session.get("username"),
+                             wallets=[],
+                             total_balance=0)
+
 @app.route("/settings")
 def settings():
     # Check authentication
@@ -1476,18 +1775,34 @@ def create_transfer_transaction():
         if not to_wallet:
             return jsonify({"error": "Destination wallet not found or access denied"}), 404
         
-        # Check sufficient balance
+        # Check sufficient balance with detailed information
         current_balance = float(from_wallet.get("actual_balance", 0))
         total_deducted = amount + admin_fee
         
         if total_deducted > current_balance:
-            return jsonify({"error": f"Insufficient balance. Available: {current_balance}, Required: {total_deducted}"}), 400
+            error_details = {
+                "error": "Insufficient balance for transfer",
+                "details": {
+                    "from_wallet": from_wallet.get("name", "Unknown"),
+                    "to_wallet": to_wallet.get("name", "Unknown"),
+                    "current_balance": current_balance,
+                    "transfer_amount": amount,
+                    "admin_fee": admin_fee,
+                    "total_required": total_deducted,
+                    "shortfall": total_deducted - current_balance
+                },
+                "message": f"Saldo tidak mencukupi untuk transfer. Saldo tersedia: Rp {current_balance:,.0f}, Total yang dibutuhkan: Rp {total_deducted:,.0f} (Transfer: Rp {amount:,.0f} + Admin Fee: Rp {admin_fee:,.0f})"
+            }
+            return jsonify(error_details), 400
         
         # Create transfer transaction data
         import time
         current_time = int(time.time())
         
         # Main transfer transaction (income to destination wallet)
+        to_wallet_balance_before = float(to_wallet.get("actual_balance", 0))
+        to_wallet_balance_after = to_wallet_balance_before + amount
+        
         transfer_data = {
             "user_id": user_id,
             "wallet_id": to_wallet_id,
@@ -1503,10 +1818,15 @@ def create_transfer_transaction():
             "from_wallet_id": from_wallet_id,
             "to_wallet_id": to_wallet_id,
             "transfer_amount": amount,
-            "admin_fee": admin_fee
+            "admin_fee": admin_fee,
+            "balance_before": to_wallet_balance_before,
+            "balance_after": to_wallet_balance_after
         }
         
         # Create expense transaction for source wallet (if amount > 0)
+        from_wallet_balance_before = current_balance
+        from_wallet_balance_after = current_balance - amount
+        
         expense_data = {
             "user_id": user_id,
             "wallet_id": from_wallet_id,
@@ -1522,12 +1842,17 @@ def create_transfer_transaction():
             "from_wallet_id": from_wallet_id,
             "to_wallet_id": to_wallet_id,
             "transfer_amount": amount,
-            "admin_fee": admin_fee
+            "admin_fee": admin_fee,
+            "balance_before": from_wallet_balance_before,
+            "balance_after": from_wallet_balance_after
         }
         
         # Create admin fee transaction (if fee > 0)
         fee_data = None
         if admin_fee > 0:
+            fee_balance_before = from_wallet_balance_after  # After the main transfer
+            fee_balance_after = fee_balance_before - admin_fee
+            
             fee_data = {
                 "user_id": user_id,
                 "wallet_id": from_wallet_id,
@@ -1543,11 +1868,20 @@ def create_transfer_transaction():
                 "from_wallet_id": from_wallet_id,
                 "to_wallet_id": to_wallet_id,
                 "transfer_amount": amount,
-                "admin_fee": admin_fee
+                "admin_fee": admin_fee,
+                "balance_before": fee_balance_before,
+                "balance_after": fee_balance_after
             }
         
         # Create transactions
         transaction_repo = TransactionRepository()
+        
+        # For transfers, we need to handle balance updates manually to avoid double updates
+        # First, disable automatic balance updates by setting a flag
+        transfer_data["skip_balance_update"] = True
+        expense_data["skip_balance_update"] = True
+        if fee_data:
+            fee_data["skip_balance_update"] = True
         
         # Insert main transfer transaction (income to destination)
         transfer_id = transaction_repo.insert_one(transfer_data)
@@ -1566,7 +1900,7 @@ def create_transfer_transaction():
             if not fee_id:
                 return jsonify({"error": "Failed to create fee transaction"}), 500
         
-        # Update wallet balances
+        # Now manually update wallet balances for the complete transfer
         # Update destination wallet (add amount)
         new_to_balance = float(to_wallet.get("actual_balance", 0)) + amount
         print(f"🔄 [TRANSFER] Updating destination wallet {to_wallet_id} to balance {new_to_balance}")
@@ -1648,7 +1982,9 @@ def create_modified_balance_transaction():
             "category_id": "balance_adjustment",  # Use the default balance adjustment category
             "scope_id": None,  # No scope for balance adjustments
             "tags": [],  # Empty tags as requested
-            "is_balance_adjustment": True  # Flag to identify balance adjustment transactions
+            "is_balance_adjustment": True,  # Flag to identify balance adjustment transactions
+            "balance_before": current_balance,
+            "balance_after": new_balance
         }
         
         # Create transaction

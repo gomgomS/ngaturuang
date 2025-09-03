@@ -1,0 +1,446 @@
+{% extends "layout.html" %}
+
+{% block head %}
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+{% endblock %}
+
+{% block content %}
+<style>
+    body {
+        font-family: 'Inter', sans-serif;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: 100vh;
+    }
+    
+    .analysis-container {
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(20px);
+        border-radius: 25px;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+        margin: 2rem;
+        padding: 2rem;
+        min-height: calc(100vh - 4rem);
+    }
+    
+    .analysis-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 2rem;
+        border-radius: 20px;
+        margin-bottom: 2rem;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .analysis-header::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grain" width="100" height="100" patternUnits="userSpaceOnUse"><circle cx="25" cy="25" r="1" fill="white" opacity="0.1"/><circle cx="75" cy="75" r="1" fill="white" opacity="0.1"/><circle cx="50" cy="10" r="0.5" fill="white" opacity="0.1"/><circle cx="10" cy="60" r="0.5" fill="white" opacity="0.1"/><circle cx="90" cy="40" r="0.5" fill="white" opacity="0.1"/></pattern></defs><rect width="100" height="100" fill="url(%23grain)"/></svg>');
+        opacity: 0.3;
+    }
+    
+    .analysis-title {
+        position: relative;
+        z-index: 1;
+    }
+    
+    .analysis-title h1 {
+        font-size: 2.5rem;
+        font-weight: 700;
+        margin-bottom: 0.5rem;
+    }
+    
+    .analysis-title p {
+        font-size: 1.1rem;
+        opacity: 0.9;
+        margin: 0;
+    }
+    
+    .analysis-card {
+        background: rgba(255, 255, 255, 0.9);
+        border: none;
+        border-radius: 20px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        margin-bottom: 2rem;
+        transition: all 0.3s ease;
+    }
+    
+    .analysis-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 15px 40px rgba(0, 0, 0, 0.15);
+    }
+    
+    .analysis-card .card-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border: none;
+        border-radius: 20px 20px 0 0;
+        padding: 1.5rem;
+    }
+    
+    .analysis-card .card-header h5 {
+        margin: 0;
+        font-weight: 600;
+    }
+    
+    .discrepancy-item {
+        padding: 1rem;
+        border-bottom: 1px solid #e9ecef;
+        transition: background-color 0.2s ease;
+    }
+    
+    .discrepancy-item:hover {
+        background-color: rgba(102, 126, 234, 0.05);
+    }
+    
+    .discrepancy-item:last-child {
+        border-bottom: none;
+    }
+    
+    .discrepancy-amount {
+        font-weight: 600;
+        font-size: 1.1rem;
+    }
+    
+    .discrepancy-amount.positive {
+        color: #28a745;
+    }
+    
+    .discrepancy-amount.negative {
+        color: #dc3545;
+    }
+    
+    .discrepancy-amount.neutral {
+        color: #6c757d;
+    }
+    
+    .btn-refresh {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border: none;
+        border-radius: 15px;
+        padding: 0.75rem 1.5rem;
+        font-weight: 600;
+        color: white;
+        transition: all 0.3s ease;
+    }
+    
+    .btn-refresh:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 20px rgba(102, 126, 234, 0.3);
+        color: white;
+    }
+    
+    .summary-stats {
+        background: rgba(255, 255, 255, 0.9);
+        border-radius: 20px;
+        padding: 1.5rem;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        margin-bottom: 2rem;
+    }
+    
+    .stat-item {
+        text-align: center;
+        padding: 1rem;
+    }
+    
+    .stat-value {
+        font-size: 2rem;
+        font-weight: 700;
+        color: #667eea;
+        margin-bottom: 0.5rem;
+    }
+    
+    .stat-label {
+        color: #6c757d;
+        font-weight: 500;
+        font-size: 0.9rem;
+    }
+    
+    .loading-spinner {
+        display: none;
+        text-align: center;
+        padding: 2rem;
+    }
+    
+    .loading-spinner.show {
+        display: block;
+    }
+    
+    .no-discrepancies {
+        text-align: center;
+        padding: 3rem;
+        color: #6c757d;
+    }
+    
+    .no-discrepancies i {
+        font-size: 4rem;
+        margin-bottom: 1rem;
+        color: #28a745;
+    }
+    
+    /* Mobile Responsiveness */
+    @media (max-width: 767.98px) {
+        .analysis-container {
+            margin: 0;
+            padding: 1rem;
+            border-radius: 0;
+            min-height: 100vh;
+        }
+        
+        .analysis-header {
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+        
+        .analysis-title h1 {
+            font-size: 2rem;
+        }
+        
+        .analysis-title p {
+            font-size: 1rem;
+        }
+        
+        .analysis-card .card-header {
+            padding: 1rem;
+        }
+        
+        .stat-value {
+            font-size: 1.5rem;
+        }
+    }
+</style>
+
+<div class="analysis-container">
+    <!-- Header -->
+    <div class="analysis-header">
+        <div class="analysis-title">
+            <h1><i class="fas fa-chart-line me-3"></i>Balance Analysis</h1>
+            <p>Compare transaction data with wallet balances to identify discrepancies</p>
+        </div>
+    </div>
+
+    <!-- Summary Stats -->
+    <div class="summary-stats">
+        <div class="row g-3">
+            <div class="col-12 col-sm-6 col-lg-3">
+                <div class="stat-item">
+                    <div class="stat-value" id="totalWallets">-</div>
+                    <div class="stat-label">Total Wallets</div>
+                </div>
+            </div>
+            <div class="col-12 col-sm-6 col-lg-3">
+                <div class="stat-item">
+                    <div class="stat-value" id="discrepanciesFound">-</div>
+                    <div class="stat-label">Discrepancies Found</div>
+                </div>
+            </div>
+            <div class="col-12 col-sm-6 col-lg-3">
+                <div class="stat-item">
+                    <div class="stat-value" id="totalDiscrepancyAmount">-</div>
+                    <div class="stat-label">Total Discrepancy</div>
+                </div>
+            </div>
+            <div class="col-12 col-sm-6 col-lg-3">
+                <div class="stat-item">
+                    <div class="stat-value" id="lastUpdated">-</div>
+                    <div class="stat-label">Last Updated</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Analysis Controls -->
+    <div class="analysis-card">
+        <div class="card-header">
+            <h5 class="mb-0">
+                <i class="fas fa-cogs me-2"></i>Analysis Controls
+            </h5>
+        </div>
+        <div class="card-body">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h6 class="mb-1">Balance vs Transaction Analysis</h6>
+                    <small class="text-muted">Compare current wallet balances with calculated balances from transaction history</small>
+                </div>
+                <button type="button" class="btn btn-refresh" id="refreshAnalysis">
+                    <i class="fas fa-sync-alt me-2"></i>Refresh Analysis
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading Spinner -->
+    <div class="loading-spinner" id="loadingSpinner">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+        <p class="mt-3 text-muted">Analyzing balance discrepancies...</p>
+    </div>
+
+    <!-- Discrepancies Results -->
+    <div class="analysis-card" id="discrepanciesCard" style="display: none;">
+        <div class="card-header">
+            <h5 class="mb-0">
+                <i class="fas fa-exclamation-triangle me-2"></i>Balance Discrepancies
+            </h5>
+        </div>
+        <div class="card-body p-0" id="discrepanciesList">
+            <!-- Discrepancies will be populated here -->
+        </div>
+    </div>
+
+    <!-- No Discrepancies -->
+    <div class="no-discrepancies" id="noDiscrepancies" style="display: none;">
+        <i class="fas fa-check-circle"></i>
+        <h4>Perfect Balance!</h4>
+        <p>All wallet balances match their transaction history. No discrepancies found.</p>
+    </div>
+
+    <!-- Error Message -->
+    <div class="alert alert-danger" id="errorMessage" style="display: none;">
+        <i class="fas fa-exclamation-circle me-2"></i>
+        <span id="errorText">An error occurred while analyzing balances.</span>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize analysis
+    loadAnalysis();
+    
+    // Add refresh button event listener
+    document.getElementById('refreshAnalysis').addEventListener('click', function() {
+        loadAnalysis();
+    });
+});
+
+async function loadAnalysis() {
+    try {
+        // Show loading spinner
+        showLoading(true);
+        hideError();
+        hideResults();
+        
+        // Fetch analysis data
+        const response = await fetch('/api/balance-analysis');
+        if (!response.ok) {
+            throw new Error('Failed to fetch analysis data');
+        }
+        
+        const data = await response.json();
+        
+        // Update summary stats
+        updateSummaryStats(data.summary);
+        
+        // Show results
+        if (data.discrepancies && data.discrepancies.length > 0) {
+            showDiscrepancies(data.discrepancies);
+        } else {
+            showNoDiscrepancies();
+        }
+        
+        showLoading(false);
+        
+    } catch (error) {
+        console.error('Error loading analysis:', error);
+        showError('Failed to load balance analysis. Please try again.');
+        showLoading(false);
+    }
+}
+
+function updateSummaryStats(summary) {
+    document.getElementById('totalWallets').textContent = summary.total_wallets || 0;
+    document.getElementById('discrepanciesFound').textContent = summary.discrepancies_found || 0;
+    
+    const totalAmount = summary.total_discrepancy_amount || 0;
+    const amountClass = totalAmount > 0 ? 'text-success' : totalAmount < 0 ? 'text-danger' : 'text-muted';
+    document.getElementById('totalDiscrepancyAmount').innerHTML = `<span class="${amountClass}">Rp ${Math.abs(totalAmount).toLocaleString('id-ID')}</span>`;
+    
+    const now = new Date();
+    document.getElementById('lastUpdated').textContent = now.toLocaleTimeString('id-ID');
+}
+
+function showDiscrepancies(discrepancies) {
+    const container = document.getElementById('discrepanciesList');
+    container.innerHTML = '';
+    
+    discrepancies.forEach(discrepancy => {
+        const item = createDiscrepancyItem(discrepancy);
+        container.appendChild(item);
+    });
+    
+    document.getElementById('discrepanciesCard').style.display = 'block';
+    document.getElementById('noDiscrepancies').style.display = 'none';
+}
+
+function createDiscrepancyItem(discrepancy) {
+    const item = document.createElement('div');
+    item.className = 'discrepancy-item';
+    
+    const amount = discrepancy.discrepancy_amount || 0;
+    const amountClass = amount > 0 ? 'positive' : amount < 0 ? 'negative' : 'neutral';
+    const amountText = amount > 0 ? `+Rp ${amount.toLocaleString('id-ID')}` : 
+                      amount < 0 ? `-Rp ${Math.abs(amount).toLocaleString('id-ID')}` : 
+                      'Rp 0';
+    
+    item.innerHTML = `
+        <div class="d-flex justify-content-between align-items-center">
+            <div class="d-flex align-items-center">
+                <div class="me-3">
+                    <i class="fas fa-wallet text-primary"></i>
+                </div>
+                <div>
+                    <div class="fw-medium">${discrepancy.wallet_name || 'Unknown Wallet'}</div>
+                    <small class="text-muted">Wallet ID: ${discrepancy.wallet_id}</small>
+                </div>
+            </div>
+            <div class="text-end">
+                <div class="discrepancy-amount ${amountClass}">
+                    ${amountText}
+                </div>
+                <small class="text-muted">
+                    Actual: Rp ${(discrepancy.actual_balance || 0).toLocaleString('id-ID')}<br>
+                    Calculated: Rp ${(discrepancy.calculated_balance || 0).toLocaleString('id-ID')}
+                </small>
+            </div>
+        </div>
+    `;
+    
+    return item;
+}
+
+function showNoDiscrepancies() {
+    document.getElementById('discrepanciesCard').style.display = 'none';
+    document.getElementById('noDiscrepancies').style.display = 'block';
+}
+
+function showLoading(show) {
+    const spinner = document.getElementById('loadingSpinner');
+    if (show) {
+        spinner.classList.add('show');
+    } else {
+        spinner.classList.remove('show');
+    }
+}
+
+function showError(message) {
+    document.getElementById('errorText').textContent = message;
+    document.getElementById('errorMessage').style.display = 'block';
+}
+
+function hideError() {
+    document.getElementById('errorMessage').style.display = 'none';
+}
+
+function hideResults() {
+    document.getElementById('discrepanciesCard').style.display = 'none';
+    document.getElementById('noDiscrepancies').style.display = 'none';
+}
+</script>
+{% endblock %}

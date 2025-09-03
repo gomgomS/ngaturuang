@@ -1,60 +1,315 @@
 {% extends 'layout.html' %}
 
+{% block head %}
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+{% endblock %}
+
 {% block content %}
+<style>
+    body {
+        font-family: 'Inter', sans-serif;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: 100vh;
+    }
+    
+    .settings-container {
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(20px);
+        border-radius: 25px;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+        margin: 2rem;
+        padding: 2rem;
+        min-height: calc(100vh - 4rem);
+    }
+    
+    .settings-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 2rem;
+        border-radius: 20px;
+        margin-bottom: 2rem;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .settings-header::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grain" width="100" height="100" patternUnits="userSpaceOnUse"><circle cx="25" cy="25" r="1" fill="white" opacity="0.1"/><circle cx="75" cy="75" r="1" fill="white" opacity="0.1"/><circle cx="50" cy="10" r="0.5" fill="white" opacity="0.1"/><circle cx="10" cy="60" r="0.5" fill="white" opacity="0.1"/><circle cx="90" cy="40" r="0.5" fill="white" opacity="0.1"/></pattern></defs><rect width="100" height="100" fill="url(%23grain)"/></svg>');
+        opacity: 0.3;
+    }
+    
+    .welcome-text {
+        position: relative;
+        z-index: 1;
+    }
+    
+    .welcome-text h1 {
+        font-size: 2.5rem;
+        font-weight: 700;
+        margin-bottom: 0.5rem;
+    }
+    
+    .welcome-text p {
+        font-size: 1.1rem;
+        opacity: 0.9;
+        margin: 0;
+    }
+    
+    /* Tab Navigation */
+    .tab-navigation {
+        position: relative;
+        z-index: 1;
+        margin-top: 1.5rem;
+    }
+    
+    .nav-tabs {
+        border: none;
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 15px;
+        padding: 0.5rem;
+        backdrop-filter: blur(10px);
+    }
+    
+    .nav-tabs .nav-link {
+        border: none;
+        background: transparent;
+        color: rgba(255, 255, 255, 0.8);
+        border-radius: 10px;
+        padding: 0.75rem 1.5rem;
+        font-weight: 500;
+        transition: all 0.3s ease;
+        margin: 0 0.25rem;
+    }
+    
+    .nav-tabs .nav-link:hover {
+        background: rgba(255, 255, 255, 0.2);
+        color: white;
+        transform: translateY(-2px);
+    }
+    
+    .nav-tabs .nav-link.active {
+        background: rgba(255, 255, 255, 0.9);
+        color: #667eea;
+        font-weight: 600;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+    }
+    
+    /* Content Cards */
+    .content-card {
+        background: rgba(255, 255, 255, 0.9);
+        border: none;
+        border-radius: 20px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        margin-bottom: 2rem;
+    }
+    
+    .content-card .card-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border: none;
+        border-radius: 20px 20px 0 0;
+        padding: 1.5rem;
+    }
+    
+    .content-card .card-header h5 {
+        margin: 0;
+        font-weight: 600;
+    }
+    
+    .btn-action {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border: none;
+        border-radius: 15px;
+        padding: 0.75rem 1.5rem;
+        font-weight: 600;
+        color: white;
+        transition: all 0.3s ease;
+    }
+    
+    .btn-action:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 20px rgba(102, 126, 234, 0.3);
+        color: white;
+    }
+    
+    .list-item {
+        padding: 1rem;
+        border-bottom: 1px solid #e9ecef;
+        transition: background-color 0.2s ease;
+    }
+    
+    .list-item:hover {
+        background-color: rgba(102, 126, 234, 0.05);
+    }
+    
+    .list-item:last-child {
+        border-bottom: none;
+    }
+    
+    .action-buttons {
+        display: flex;
+        gap: 0.5rem;
+    }
+    
+    .btn-sm {
+        padding: 0.5rem 0.75rem;
+        font-size: 0.875rem;
+        border-radius: 10px;
+        font-weight: 500;
+    }
+    
+    /* Mobile Responsiveness */
+    @media (max-width: 767.98px) {
+        .settings-container {
+            margin: 0;
+            padding: 1rem;
+            border-radius: 0;
+            min-height: 100vh;
+        }
+        
+        .settings-header {
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+        
+        .welcome-text h1 {
+            font-size: 2rem;
+        }
+        
+        .welcome-text p {
+            font-size: 1rem;
+        }
+        
+        .nav-tabs .nav-link {
+            padding: 0.5rem 1rem;
+            font-size: 0.9rem;
+        }
+        
+        .content-card .card-header {
+            padding: 1rem;
+        }
+        
+        .btn-action {
+            padding: 0.5rem 1rem;
+            font-size: 0.9rem;
+        }
+    }
+    
+    @media (max-width: 575.98px) {
+        .settings-container {
+            padding: 0.75rem;
+        }
+        
+        .settings-header {
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+        
+        .welcome-text h1 {
+            font-size: 1.75rem;
+        }
+        
+        .nav-tabs .nav-link {
+            padding: 0.4rem 0.8rem;
+            font-size: 0.8rem;
+        }
+        
+        .content-card .card-header {
+            padding: 0.75rem;
+        }
+        
+        .btn-action {
+            padding: 0.5rem 0.75rem;
+            font-size: 0.8rem;
+        }
+    }
+    
+    /* Animation */
+    .settings-container {
+        animation: slideInUp 0.6s ease-out;
+    }
+    
+    @keyframes slideInUp {
+        from {
+            opacity: 0;
+            transform: translateY(30px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+</style>
+
 <div class="settings-container">
-    <!-- Header Section -->
-    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
-        <div>
-            <h1 class="h3 mb-1">
-                <i class="fas fa-cog text-primary me-2"></i>Settings
-            </h1>
-            <p class="text-muted mb-0">Manage your financial categories, saving spaces, and scopes</p>
+    <!-- Header -->
+    <div class="settings-header">
+        <div class="welcome-text">
+            <h1><i class="fas fa-cog me-2"></i>Settings</h1>
+            <p>Manage your financial categories, saving spaces, and scopes</p>
         </div>
-        <div class="d-flex gap-2 flex-wrap">
-            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#scopeModal">
-                <i class="fas fa-plus me-1"></i>
-                <span class="d-none d-sm-inline">Add Scope</span>
-                <span class="d-inline d-sm-none">Scope</span>
-            </button>
-            <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#savingSpaceModal">
-                <i class="fas fa-plus me-1"></i>
-                <span class="d-none d-sm-inline">Add Saving Space</span>
-                <span class="d-inline d-sm-none">Space</span>
-            </button>
-            <button class="btn btn-info" data-bs-toggle="modal" data-bs-target="#categoryModal">
-                <i class="fas fa-plus me-1"></i>
-                <span class="d-none d-sm-inline">Add Category</span>
-                <span class="d-inline d-sm-none">Category</span>
-            </button>
+        
+        <!-- Tab Navigation -->
+        <div class="tab-navigation">
+            <ul class="nav nav-tabs" id="settingsTabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="scopes-tab" data-bs-toggle="tab" data-bs-target="#scopes" type="button" role="tab">
+                        <i class="fas fa-folder me-2"></i>Scopes
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="wallets-tab" data-bs-toggle="tab" data-bs-target="#wallets" type="button" role="tab">
+                        <i class="fas fa-piggy-bank me-2"></i>Saving Spaces
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="categories-tab" data-bs-toggle="tab" data-bs-target="#categories" type="button" role="tab">
+                        <i class="fas fa-tags me-2"></i>Categories
+                    </button>
+                </li>
+            </ul>
         </div>
     </div>
 
-    <!-- Settings Cards Row -->
-    <div class="row g-4">
-        <!-- Scopes Management -->
-        <div class="col-12 col-lg-4">
-            <div class="card h-100 border-0 shadow-sm">
-                <div class="card-header bg-primary text-white border-0">
-                    <div class="d-flex align-items-center">
-                        <i class="fas fa-folder fa-lg me-2"></i>
-                        <h5 class="mb-0">Scopes Management</h5>
-                    </div>
+    <!-- Tab Content -->
+    <div class="tab-content" id="settingsTabContent">
+        <!-- Scopes Tab -->
+        <div class="tab-pane fade show active" id="scopes" role="tabpanel">
+            <div class="card content-card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="fas fa-folder me-2"></i>Scopes Management
+                    </h5>
+                    <button class="btn btn-action" data-bs-toggle="modal" data-bs-target="#scopeModal">
+                        <i class="fas fa-plus me-1"></i>Add Scope
+                    </button>
                 </div>
-                <div class="card-body">
+                <div class="card-body p-0">
                     {% if scopes %}
                         <div class="list-group list-group-flush">
                             {% for scope in scopes %}
-                            <div class="list-group-item border-0 px-0 py-2">
-                                <div class="d-flex justify-content-between align-items-start">
-                                    <div class="flex-grow-1 me-3">
+                            <div class="list-item">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div class="flex-grow-1">
                                         <h6 class="mb-1 fw-medium">{{ scope.name }}</h6>
                                         <small class="text-muted">{{ scope.description or 'No description' }}</small>
                                     </div>
-                                    <div class="btn-group btn-group-sm flex-shrink-0">
-                                        <button class="btn btn-outline-primary btn-sm" onclick="editScope('{{ scope._id }}', '{{ scope.name }}', '{{ scope.description or '' }}')" title="Edit Scope">
+                                    <div class="action-buttons">
+                                        <button class="btn btn-outline-primary btn-sm edit-scope-btn" 
+                                                data-scope-id="{{ scope._id }}" 
+                                                data-scope-name="{{ scope.name }}" 
+                                                data-scope-description="{{ scope.description or '' }}" 
+                                                title="Edit Scope">
                                             <i class="fas fa-edit"></i>
                                         </button>
-                                        <button class="btn btn-outline-danger btn-sm" onclick="deleteScope('{{ scope._id }}')" title="Delete Scope">
+                                        <button class="btn btn-outline-danger btn-sm delete-scope-btn" 
+                                                data-scope-id="{{ scope._id }}" 
+                                                title="Delete Scope">
                                             <i class="fas fa-trash"></i>
                                         </button>
                                     </div>
@@ -63,50 +318,60 @@
                             {% endfor %}
                         </div>
                     {% else %}
-                        <div class="text-center py-4">
-                            <div class="bg-light rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 80px; height: 80px;">
-                                <i class="fas fa-folder fa-2x text-muted"></i>
-                            </div>
+                        <div class="text-center py-5">
+                            <i class="fas fa-folder fa-3x text-muted mb-3"></i>
                             <h6 class="text-muted mb-2">No scopes created yet</h6>
-                            <p class="text-muted small mb-0">Create your first scope to organize your finances</p>
+                            <p class="text-muted mb-0">Create your first scope to organize your finances</p>
                         </div>
                     {% endif %}
                 </div>
             </div>
         </div>
 
-        <!-- Saving Spaces Management -->
-        <div class="col-12 col-lg-4">
-            <div class="card h-100 border-0 shadow-sm">
-                <div class="card-header bg-success text-white border-0">
-                    <div class="d-flex align-items-center">
-                        <i class="fas fa-piggy-bank fa-lg me-2"></i>
-                        <h5 class="mb-0">Saving Spaces</h5>
-                    </div>
+        <!-- Wallets Tab -->
+        <div class="tab-pane fade" id="wallets" role="tabpanel">
+            <div class="card content-card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="fas fa-piggy-bank me-2"></i>Saving Spaces
+                    </h5>
+                    <button class="btn btn-action" data-bs-toggle="modal" data-bs-target="#savingSpaceModal">
+                        <i class="fas fa-plus me-1"></i>Add Saving Space
+                    </button>
                 </div>
-                <div class="card-body">
+                <div class="card-body p-0">
                     {% if wallets %}
                         <div class="list-group list-group-flush">
                             {% for wallet in wallets %}
-                            <div class="list-group-item border-0 px-0 py-2">
-                                <div class="d-flex justify-content-between align-items-start">
-                                    <div class="flex-grow-1 me-3">
+                            <div class="list-item">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div class="flex-grow-1">
                                         <h6 class="mb-1 fw-medium">{{ wallet.name }}</h6>
                                         <div class="d-flex align-items-center gap-2 mb-1">
                                             <span class="badge bg-secondary">{{ wallet.type or 'bank' }}</span>
                                             {% if wallet.manual_balance %}
-                                            <span class="text-success fw-medium">{{ wallet.manual_balance|currency_decimal }}</span>
+                                            <span class="text-success fw-medium small">{{ wallet.manual_balance|currency_decimal }}</span>
                                             {% endif %}
                                         </div>
                                     </div>
-                                    <div class="btn-group btn-group-sm flex-shrink-0">
-                                        <button class="btn btn-outline-primary btn-sm" onclick="editSavingSpace('{{ wallet._id }}', '{{ wallet.name }}', '{{ wallet.type or 'bank' }}')" title="Edit">
+                                    <div class="action-buttons">
+                                        <button class="btn btn-outline-primary btn-sm edit-wallet-btn" 
+                                                data-wallet-id="{{ wallet._id }}" 
+                                                data-wallet-name="{{ wallet.name }}" 
+                                                data-wallet-type="{{ wallet.type or 'bank' }}" 
+                                                title="Edit">
                                             <i class="fas fa-edit"></i>
                                         </button>
-                                        <button class="btn btn-outline-info btn-sm" onclick="editBalance('{{ wallet._id }}', '{{ wallet.name }}', {{ wallet.manual_balance or 0 }})" title="Edit Balance">
+                                        <button class="btn btn-outline-info btn-sm edit-balance-btn" 
+                                                data-wallet-id="{{ wallet._id }}" 
+                                                data-wallet-name="{{ wallet.name }}" 
+                                                data-wallet-balance="{{ wallet.manual_balance or 0 }}" 
+                                                title="Edit Balance">
                                             <i class="fas fa-balance-scale"></i>
                                         </button>
-                                        <button class="btn btn-outline-danger btn-sm" onclick="deleteSavingSpace('{{ wallet._id }}')" title="Delete">
+                                        <button class="btn btn-outline-danger btn-sm delete-wallet-btn" 
+                                                data-wallet-id="{{ wallet._id }}" 
+                                                title="Delete">
                                             <i class="fas fa-trash"></i>
                                         </button>
                                     </div>
@@ -115,34 +380,34 @@
                             {% endfor %}
                         </div>
                     {% else %}
-                        <div class="text-center py-4">
-                            <div class="bg-light rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 80px; height: 80px;">
-                                <i class="fas fa-piggy-bank fa-2x text-muted"></i>
-                            </div>
+                        <div class="text-center py-5">
+                            <i class="fas fa-piggy-bank fa-3x text-muted mb-3"></i>
                             <h6 class="text-muted mb-2">No saving spaces created yet</h6>
-                            <p class="text-muted small mb-0">Create your first saving space to track your money</p>
+                            <p class="text-muted mb-0">Create your first saving space to track your money</p>
                         </div>
                     {% endif %}
                 </div>
             </div>
         </div>
 
-        <!-- Categories Management -->
-        <div class="col-12 col-lg-4">
-            <div class="card h-100 border-0 shadow-sm">
-                <div class="card-header bg-info text-white border-0">
-                    <div class="d-flex align-items-center">
-                        <i class="fas fa-tags fa-lg me-2"></i>
-                        <h5 class="mb-0">Categories</h5>
-                    </div>
+        <!-- Categories Tab -->
+        <div class="tab-pane fade" id="categories" role="tabpanel">
+            <div class="card content-card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="fas fa-tags me-2"></i>Categories
+                    </h5>
+                    <button class="btn btn-action" data-bs-toggle="modal" data-bs-target="#categoryModal">
+                        <i class="fas fa-plus me-1"></i>Add Category
+                    </button>
                 </div>
-                <div class="card-body">
+                <div class="card-body p-0">
                     {% if categories %}
                         <div class="list-group list-group-flush">
                             {% for category in categories %}
-                            <div class="list-group-item border-0 px-0 py-2">
-                                <div class="d-flex justify-content-between align-items-start">
-                                    <div class="flex-grow-1 me-3">
+                            <div class="list-item">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div class="flex-grow-1">
                                         <div class="d-flex align-items-center gap-2 mb-1">
                                             <h6 class="mb-0 fw-medium">{{ category.name }}</h6>
                                             {% if category.is_system %}
@@ -152,11 +417,19 @@
                                         <small class="text-muted">{{ category.description or 'No description' }}</small>
                                     </div>
                                     {% if not category.is_system %}
-                                    <div class="btn-group btn-group-sm flex-shrink-0">
-                                        <button class="btn btn-outline-primary btn-sm" onclick="editCategory('{{ category._id }}', '{{ category.name }}', '{{ category.description or '' }}', {{ 'true' if category.is_system else 'false' }})" title="Edit">
+                                    <div class="action-buttons">
+                                        <button class="btn btn-outline-primary btn-sm edit-category-btn" 
+                                                data-category-id="{{ category._id }}" 
+                                                data-category-name="{{ category.name }}" 
+                                                data-category-description="{{ category.description or '' }}" 
+                                                data-category-is-system="{{ 'true' if category.is_system else 'false' }}" 
+                                                title="Edit">
                                             <i class="fas fa-edit"></i>
                                         </button>
-                                        <button class="btn btn-outline-danger btn-sm" onclick="deleteCategory('{{ category._id }}', {{ 'true' if category.is_system else 'false' }})" title="Delete">
+                                        <button class="btn btn-outline-danger btn-sm delete-category-btn" 
+                                                data-category-id="{{ category._id }}" 
+                                                data-category-is-system="{{ 'true' if category.is_system else 'false' }}" 
+                                                title="Delete">
                                             <i class="fas fa-trash"></i>
                                         </button>
                                     </div>
@@ -166,65 +439,12 @@
                             {% endfor %}
                         </div>
                     {% else %}
-                        <div class="text-center py-4">
-                            <div class="bg-light rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 80px; height: 80px;">
-                                <i class="fas fa-tags fa-2x text-muted"></i>
-                            </div>
+                        <div class="text-center py-5">
+                            <i class="fas fa-tags fa-3x text-muted mb-3"></i>
                             <h6 class="text-muted mb-2">No categories created yet</h6>
-                            <p class="text-muted small mb-0">Create your first category to organize transactions</p>
+                            <p class="text-muted mb-0">Create your first category to organize transactions</p>
                         </div>
                     {% endif %}
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Quick Stats Row -->
-    <div class="row g-3 mt-4">
-        <div class="col-12 col-sm-6 col-lg-3">
-            <div class="card border-0 shadow-sm text-center">
-                <div class="card-body py-3">
-                    <div class="d-inline-flex align-items-center justify-content-center bg-primary bg-opacity-10 rounded-circle mb-2" style="width: 50px; height: 50px;">
-                        <i class="fas fa-folder fa-lg text-primary"></i>
-                    </div>
-                    <h4 class="mb-1 text-primary">{{ scopes|length if scopes else 0 }}</h4>
-                    <small class="text-muted">Total Scopes</small>
-                </div>
-            </div>
-        </div>
-        
-        <div class="col-12 col-sm-6 col-lg-3">
-            <div class="card border-0 shadow-sm text-center">
-                <div class="card-body py-3">
-                    <div class="d-inline-flex align-items-center justify-content-center bg-success bg-opacity-10 rounded-circle mb-2" style="width: 50px; height: 50px;">
-                        <i class="fas fa-piggy-bank fa-lg text-success"></i>
-                    </div>
-                    <h4 class="mb-1 text-success">{{ wallets|length if wallets else 0 }}</h4>
-                    <small class="text-muted">Saving Spaces</small>
-                </div>
-            </div>
-        </div>
-        
-        <div class="col-12 col-sm-6 col-lg-3">
-            <div class="card border-0 shadow-sm text-center">
-                <div class="card-body py-3">
-                    <div class="d-inline-flex align-items-center justify-content-center bg-info bg-opacity-10 rounded-circle mb-2" style="width: 50px; height: 50px;">
-                        <i class="fas fa-tags fa-lg text-info"></i>
-                    </div>
-                    <h4 class="mb-1 text-info">{{ categories|length if categories else 0 }}</h4>
-                    <small class="text-muted">Categories</small>
-                </div>
-            </div>
-        </div>
-        
-        <div class="col-12 col-sm-6 col-lg-3">
-            <div class="card border-0 shadow-sm text-center">
-                <div class="card-body py-3">
-                    <div class="d-inline-flex align-items-center justify-content-center bg-warning bg-opacity-10 rounded-circle mb-2" style="width: 50px; height: 50px;">
-                        <i class="fas fa-cog fa-lg text-warning"></i>
-                    </div>
-                    <h4 class="mb-1 text-warning">3</h4>
-                    <small class="text-muted">Settings Tabs</small>
                 </div>
             </div>
         </div>
@@ -233,32 +453,34 @@
 
 <!-- Scope Modal -->
 <div class="modal fade" id="scopeModal" tabindex="-1">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content border-0 shadow">
-            <div class="modal-header bg-primary text-white border-0">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content border-0 shadow" style="border-radius: 20px;">
+            <div class="modal-header border-0" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 20px 20px 0 0; color: white;">
                 <h5 class="modal-title" id="scopeModalTitle">
                     <i class="fas fa-folder me-2"></i>Add New Scope
                 </h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <div class="modal-body">
+            <div class="modal-body p-4">
                 <form id="scopeForm">
                     <input type="hidden" id="scope_id" name="_id">
-                    <div class="mb-3">
+                    <div class="mb-4">
                         <label for="scope_name" class="form-label fw-medium">Scope Name *</label>
-                        <input type="text" class="form-control form-control-lg" id="scope_name" name="name" required placeholder="Enter scope name">
+                        <input type="text" class="form-control form-control-lg" id="scope_name" name="name" required placeholder="Enter scope name" style="border-radius: 10px;">
                     </div>
-                    <div class="mb-3">
+                    <div class="mb-4">
                         <label for="scope_description" class="form-label fw-medium">Description</label>
-                        <textarea class="form-control" id="scope_description" name="description" rows="3" placeholder="Enter scope description (optional)"></textarea>
+                        <textarea class="form-control" id="scope_description" name="description" rows="4" placeholder="Enter scope description (optional)" style="border-radius: 10px;"></textarea>
                     </div>
                 </form>
             </div>
-            <div class="modal-footer border-0">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-primary" onclick="submitScope()">
-                    <i class="fas fa-save me-1"></i>Save Scope
-                </button>
+            <div class="modal-footer border-0 p-4">
+                <div class="d-flex gap-2 w-100">
+                    <button type="button" class="btn btn-secondary flex-fill" data-bs-dismiss="modal" style="border-radius: 10px;">Cancel</button>
+                    <button type="button" class="btn btn-action flex-fill" onclick="submitScope()">
+                        <i class="fas fa-save me-1"></i>Save Scope
+                    </button>
+                </div>
             </div>
         </div>
     </div>
@@ -266,24 +488,24 @@
 
 <!-- Saving Space Modal -->
 <div class="modal fade" id="savingSpaceModal" tabindex="-1">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content border-0 shadow">
-            <div class="modal-header bg-success text-white border-0">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content border-0 shadow" style="border-radius: 20px;">
+            <div class="modal-header border-0" style="background: linear-gradient(135deg, #28a745 0%, #20c997 100%); border-radius: 20px 20px 0 0; color: white;">
                 <h5 class="modal-title" id="savingSpaceModalTitle">
                     <i class="fas fa-piggy-bank me-2"></i>Add New Saving Space
                 </h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <div class="modal-body">
+            <div class="modal-body p-4">
                 <form id="savingSpaceForm">
                     <input type="hidden" id="wallet_id" name="_id">
-                    <div class="mb-3">
+                    <div class="mb-4">
                         <label for="wallet_name" class="form-label fw-medium">Saving Space Name *</label>
-                        <input type="text" class="form-control form-control-lg" id="wallet_name" name="name" required placeholder="Enter saving space name">
+                        <input type="text" class="form-control form-control-lg" id="wallet_name" name="name" required placeholder="Enter saving space name" style="border-radius: 10px;">
                     </div>
-                    <div class="mb-3">
+                    <div class="mb-4">
                         <label for="wallet_type" class="form-label fw-medium">Type *</label>
-                        <select class="form-select form-select-lg" id="wallet_type" name="type" required>
+                        <select class="form-select form-select-lg" id="wallet_type" name="type" required style="border-radius: 10px;">
                             <option value="">Select type...</option>
                             <option value="bank">Bank</option>
                             <option value="ewallet">E-Wallet</option>
@@ -301,11 +523,13 @@
                     </div>
                 </form>
             </div>
-            <div class="modal-footer border-0">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-success" onclick="submitSavingSpace()">
-                    <i class="fas fa-save me-1"></i>Save Saving Space
-                </button>
+            <div class="modal-footer border-0 p-4">
+                <div class="d-flex gap-2 w-100">
+                    <button type="button" class="btn btn-secondary flex-fill" data-bs-dismiss="modal" style="border-radius: 10px;">Cancel</button>
+                    <button type="button" class="btn btn-action flex-fill" onclick="submitSavingSpace()" style="background: linear-gradient(135deg, #28a745 0%, #20c997 100%);">
+                        <i class="fas fa-save me-1"></i>Save Saving Space
+                    </button>
+                </div>
             </div>
         </div>
     </div>
@@ -313,32 +537,34 @@
 
 <!-- Category Modal -->
 <div class="modal fade" id="categoryModal" tabindex="-1">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content border-0 shadow">
-            <div class="modal-header bg-info text-white border-0">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content border-0 shadow" style="border-radius: 20px;">
+            <div class="modal-header border-0" style="background: linear-gradient(135deg, #17a2b8 0%, #6f42c1 100%); border-radius: 20px 20px 0 0; color: white;">
                 <h5 class="modal-title" id="categoryModalTitle">
                     <i class="fas fa-tags me-2"></i>Add New Category
                 </h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <div class="modal-body">
+            <div class="modal-body p-4">
                 <form id="categoryForm">
                     <input type="hidden" id="category_id" name="_id">
-                    <div class="mb-3">
+                    <div class="mb-4">
                         <label for="category_name" class="form-label fw-medium">Category Name *</label>
-                        <input type="text" class="form-control form-control-lg" id="category_name" name="name" required placeholder="Enter category name">
+                        <input type="text" class="form-control form-control-lg" id="category_name" name="name" required placeholder="Enter category name" style="border-radius: 10px;">
                     </div>
-                    <div class="mb-3">
+                    <div class="mb-4">
                         <label for="category_description" class="form-label fw-medium">Description</label>
-                        <textarea class="form-control" id="category_description" name="description" rows="3" placeholder="Enter category description (optional)"></textarea>
+                        <textarea class="form-control" id="category_description" name="description" rows="4" placeholder="Enter category description (optional)" style="border-radius: 10px;"></textarea>
                     </div>
                 </form>
             </div>
-            <div class="modal-footer border-0">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-info" onclick="submitCategory()">
-                    <i class="fas fa-save me-1"></i>Save Category
-                </button>
+            <div class="modal-footer border-0 p-4">
+                <div class="d-flex gap-2 w-100">
+                    <button type="button" class="btn btn-secondary flex-fill" data-bs-dismiss="modal" style="border-radius: 10px;">Cancel</button>
+                    <button type="button" class="btn btn-action flex-fill" onclick="submitCategory()" style="background: linear-gradient(135deg, #17a2b8 0%, #6f42c1 100%);">
+                        <i class="fas fa-save me-1"></i>Save Category
+                    </button>
+                </div>
             </div>
         </div>
     </div>
@@ -346,27 +572,27 @@
 
 <!-- Edit Balance Modal -->
 <div class="modal fade" id="editBalanceModal" tabindex="-1">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content border-0 shadow">
-            <div class="modal-header bg-warning text-white border-0">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content border-0 shadow" style="border-radius: 20px;">
+            <div class="modal-header border-0" style="background: linear-gradient(135deg, #ffc107 0%, #fd7e14 100%); border-radius: 20px 20px 0 0; color: white;">
                 <h5 class="modal-title">
                     <i class="fas fa-balance-scale me-2"></i>Edit Manual Balance
                 </h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <div class="modal-body">
+            <div class="modal-body p-4">
                 <form id="editBalanceForm">
                     <input type="hidden" id="edit_wallet_id" name="wallet_id">
                     
-                    <div class="mb-3">
+                    <div class="mb-4">
                         <label for="edit_wallet_name" class="form-label fw-medium">Saving Space</label>
-                        <input type="text" class="form-control form-control-lg" id="edit_wallet_name" readonly>
+                        <input type="text" class="form-control form-control-lg" id="edit_wallet_name" readonly style="border-radius: 10px;">
                     </div>
                     
-                    <div class="mb-3">
+                    <div class="mb-4">
                         <label for="edit_manual_balance" class="form-label fw-medium">Manual Balance</label>
                         <div class="input-group input-group-lg">
-                            <span class="input-group-text bg-light">IDR</span>
+                            <span class="input-group-text bg-light" style="border-radius: 10px 0 0 10px;">IDR</span>
                             <input type="number" 
                                    class="form-control" 
                                    id="edit_manual_balance" 
@@ -374,111 +600,29 @@
                                    step="0.01" 
                                    min="0" 
                                    required
-                                   placeholder="0.00">
+                                   placeholder="0.00"
+                                   style="border-radius: 0 10px 10px 0;">
                         </div>
-                        <div class="form-text">
+                        <div class="form-text mt-2">
                             <i class="fas fa-info-circle me-1"></i>
                             Enter the current balance in your saving space (excluding transactions)
                         </div>
                     </div>
                 </form>
             </div>
-            <div class="modal-footer border-0">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-warning" onclick="saveBalance()">
-                    <i class="fas fa-save me-1"></i>Save Balance
-                </button>
+            <div class="modal-footer border-0 p-4">
+                <div class="d-flex gap-2 w-100">
+                    <button type="button" class="btn btn-secondary flex-fill" data-bs-dismiss="modal" style="border-radius: 10px;">Cancel</button>
+                    <button type="button" class="btn btn-action flex-fill" onclick="saveBalance()" style="background: linear-gradient(135deg, #ffc107 0%, #fd7e14 100%);">
+                        <i class="fas fa-save me-1"></i>Save Balance
+                    </button>
+                </div>
             </div>
         </div>
     </div>
 </div>
 
-<!-- Mobile-specific styles -->
-<style>
-.settings-container {
-    padding: 0;
-}
 
-@media (max-width: 767.98px) {
-    .settings-container {
-        padding: 0.5rem;
-    }
-    
-    .card-body {
-        padding: 1rem;
-    }
-    
-    .btn {
-        font-size: 0.875rem;
-        padding: 0.5rem 0.75rem;
-    }
-    
-    .card-title {
-        font-size: 0.875rem;
-    }
-    
-    .h3 {
-        font-size: 1.5rem;
-    }
-    
-    .list-group-item {
-        padding: 0.75rem 0;
-    }
-    
-    .btn-group-sm .btn {
-        padding: 0.25rem 0.5rem;
-        font-size: 0.75rem;
-    }
-}
-
-@media (max-width: 575.98px) {
-    .settings-container {
-        padding: 0.25rem;
-    }
-    
-    .card-body {
-        padding: 0.75rem;
-    }
-    
-    .btn {
-        font-size: 0.8rem;
-        padding: 0.4rem 0.6rem;
-    }
-    
-    .h3 {
-        font-size: 1.25rem;
-    }
-    
-    .card-title {
-        font-size: 0.8rem;
-    }
-    
-    .modal-dialog {
-        margin: 0.5rem;
-    }
-}
-
-.card {
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
-}
-
-.card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15) !important;
-}
-
-.list-group-item:hover {
-    background-color: rgba(0, 0, 0, 0.02);
-}
-
-.btn-group .btn {
-    border-radius: 0.375rem !important;
-}
-
-.btn-group .btn:not(:last-child) {
-    margin-right: 0.25rem;
-}
-</style>
 
 <script>
 // Scope Functions
@@ -709,14 +853,83 @@ function deleteCategory(categoryId, isSystem) {
     }
 }
 
-// Reset modal forms when opened for new items
+// Event listeners for mobile-friendly interactions
 document.addEventListener('DOMContentLoaded', function() {
+    // Scope edit buttons
+    document.querySelectorAll('.edit-scope-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const scopeId = this.dataset.scopeId;
+            const scopeName = this.dataset.scopeName;
+            const scopeDescription = this.dataset.scopeDescription;
+            editScope(scopeId, scopeName, scopeDescription);
+        });
+    });
+    
+    // Scope delete buttons
+    document.querySelectorAll('.delete-scope-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const scopeId = this.dataset.scopeId;
+            deleteScope(scopeId);
+        });
+    });
+    
+    // Wallet edit buttons
+    document.querySelectorAll('.edit-wallet-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const walletId = this.dataset.walletId;
+            const walletName = this.dataset.walletName;
+            const walletType = this.dataset.walletType;
+            editSavingSpace(walletId, walletName, walletType);
+        });
+    });
+    
+    // Wallet balance edit buttons
+    document.querySelectorAll('.edit-balance-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const walletId = this.dataset.walletId;
+            const walletName = this.dataset.walletName;
+            const walletBalance = parseFloat(this.dataset.walletBalance);
+            editBalance(walletId, walletName, walletBalance);
+        });
+    });
+    
+    // Wallet delete buttons
+    document.querySelectorAll('.delete-wallet-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const walletId = this.dataset.walletId;
+            deleteSavingSpace(walletId);
+        });
+    });
+    
+    // Category edit buttons
+    document.querySelectorAll('.edit-category-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const categoryId = this.dataset.categoryId;
+            const categoryName = this.dataset.categoryName;
+            const categoryDescription = this.dataset.categoryDescription;
+            const isSystem = this.dataset.categoryIsSystem === 'true';
+            editCategory(categoryId, categoryName, categoryDescription, isSystem);
+        });
+    });
+    
+    // Category delete buttons
+    document.querySelectorAll('.delete-category-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const categoryId = this.dataset.categoryId;
+            const isSystem = this.dataset.categoryIsSystem === 'true';
+            deleteCategory(categoryId, isSystem);
+        });
+    });
+    
+    // Reset modal forms when opened for new items
     const modals = ['scopeModal', 'savingSpaceModal', 'categoryModal'];
     modals.forEach(modalId => {
         const modal = document.getElementById(modalId);
         modal.addEventListener('show.bs.modal', function(event) {
             // Only reset if it's not triggered by edit button
-            if (!event.relatedTarget || !event.relatedTarget.hasAttribute('onclick')) {
+            if (!event.relatedTarget || !event.relatedTarget.classList.contains('edit-scope-btn') && 
+                !event.relatedTarget.classList.contains('edit-wallet-btn') && 
+                !event.relatedTarget.classList.contains('edit-category-btn')) {
                 const form = this.querySelector('form');
                 form.reset();
                 const hiddenInput = form.querySelector('input[type="hidden"]');

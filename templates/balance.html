@@ -252,6 +252,12 @@
                                             </option>
                                             {% endfor %}
                                         </select>
+                                        <div id="currentBalanceInfo" class="mt-2" style="display: none;">
+                                            <small class="text-muted">
+                                                <i class="fas fa-info-circle me-1"></i>
+                                                Saldo tersedia: <span id="currentBalanceAmount" class="fw-bold text-success">Rp 0</span>
+                                            </small>
+                                        </div>
                                     </div>
                                     <div class="col-12 col-md-6 col-lg-3">
                                         <label for="toWallet" class="form-label">
@@ -1936,15 +1942,17 @@ function setupBalanceAmountFormatting() {
     }
 }
 
-// Setup transfer form amount formatting
+// Setup transfer form amount formatting and validation
 function setupTransferAmountFormatting() {
     const transferAmountInput = document.getElementById('transferAmount');
     const adminFeeInput = document.getElementById('adminFee');
+    const fromWalletSelect = document.getElementById('fromWallet');
     
     if (transferAmountInput) {
         // Format on input
         transferAmountInput.addEventListener('input', function(e) {
             formatAmountInput(e.target);
+            validateTransferAmount();
         });
         
         // Format on blur
@@ -1953,6 +1961,7 @@ function setupTransferAmountFormatting() {
             if (value && !isNaN(parseFormattedAmount(value))) {
                 e.target.value = parseFormattedAmount(value).toLocaleString('id-ID');
             }
+            validateTransferAmount();
         });
     }
     
@@ -1960,6 +1969,7 @@ function setupTransferAmountFormatting() {
         // Format on input
         adminFeeInput.addEventListener('input', function(e) {
             formatAmountInput(e.target);
+            validateTransferAmount();
         });
         
         // Format on blur
@@ -1968,7 +1978,112 @@ function setupTransferAmountFormatting() {
             if (value && !isNaN(parseFormattedAmount(value))) {
                 e.target.value = parseFormattedAmount(value).toLocaleString('id-ID');
             }
+            validateTransferAmount();
         });
+    }
+    
+    if (fromWalletSelect) {
+        fromWalletSelect.addEventListener('change', function() {
+            updateCurrentBalanceDisplay();
+            validateTransferAmount();
+        });
+    }
+}
+
+// Real-time transfer amount validation
+function validateTransferAmount() {
+    const fromWalletSelect = document.getElementById('fromWallet');
+    const transferAmountInput = document.getElementById('transferAmount');
+    const adminFeeInput = document.getElementById('adminFee');
+    const transferBtn = document.querySelector('.transfer-btn');
+    
+    if (!fromWalletSelect || !transferAmountInput || !transferBtn) return;
+    
+    const selectedOption = fromWalletSelect.options[fromWalletSelect.selectedIndex];
+    const currentBalance = parseFloat(selectedOption.getAttribute('data-balance') || 0);
+    const amount = parseFormattedAmount(transferAmountInput.value) || 0;
+    const adminFee = parseFormattedAmount(adminFeeInput.value) || 0;
+    const totalRequired = amount + adminFee;
+    
+    // Update button state and styling
+    if (totalRequired > currentBalance && totalRequired > 0) {
+        transferBtn.disabled = true;
+        transferBtn.innerHTML = '<i class="fas fa-exclamation-triangle me-1"></i>Saldo Tidak Cukup';
+        transferBtn.classList.remove('btn-success');
+        transferBtn.classList.add('btn-danger');
+        
+        // Show balance info
+        showBalanceInfo(currentBalance, totalRequired, amount, adminFee);
+    } else if (totalRequired > 0) {
+        transferBtn.disabled = false;
+        transferBtn.innerHTML = '<i class="fas fa-paper-plane me-1"></i>Transfer';
+        transferBtn.classList.remove('btn-danger');
+        transferBtn.classList.add('btn-success');
+        
+        // Hide balance info
+        hideBalanceInfo();
+    } else {
+        transferBtn.disabled = true;
+        transferBtn.innerHTML = '<i class="fas fa-paper-plane me-1"></i>Transfer';
+        transferBtn.classList.remove('btn-danger');
+        transferBtn.classList.add('btn-success');
+        
+        // Hide balance info
+        hideBalanceInfo();
+    }
+}
+
+// Show balance information
+function showBalanceInfo(currentBalance, totalRequired, amount, adminFee) {
+    let balanceInfo = document.getElementById('balanceInfo');
+    if (!balanceInfo) {
+        balanceInfo = document.createElement('div');
+        balanceInfo.id = 'balanceInfo';
+        balanceInfo.className = 'alert alert-warning mt-3';
+        document.getElementById('transferForm').appendChild(balanceInfo);
+    }
+    
+    const shortfall = totalRequired - currentBalance;
+    balanceInfo.innerHTML = `
+        <div class="d-flex align-items-center">
+            <i class="fas fa-exclamation-triangle me-2"></i>
+            <div>
+                <strong>Saldo Tidak Mencukupi!</strong><br>
+                <small>
+                    Saldo: Rp ${currentBalance.toLocaleString('id-ID')} | 
+                    Transfer: Rp ${amount.toLocaleString('id-ID')} | 
+                    Fee: Rp ${adminFee.toLocaleString('id-ID')} | 
+                    <span class="text-danger">Kekurangan: Rp ${shortfall.toLocaleString('id-ID')}</span>
+                </small>
+            </div>
+        </div>
+    `;
+    balanceInfo.style.display = 'block';
+}
+
+// Hide balance information
+function hideBalanceInfo() {
+    const balanceInfo = document.getElementById('balanceInfo');
+    if (balanceInfo) {
+        balanceInfo.style.display = 'none';
+    }
+}
+
+// Update current balance display
+function updateCurrentBalanceDisplay() {
+    const fromWalletSelect = document.getElementById('fromWallet');
+    const currentBalanceInfo = document.getElementById('currentBalanceInfo');
+    const currentBalanceAmount = document.getElementById('currentBalanceAmount');
+    
+    if (!fromWalletSelect || !currentBalanceInfo || !currentBalanceAmount) return;
+    
+    const selectedOption = fromWalletSelect.options[fromWalletSelect.selectedIndex];
+    if (selectedOption.value) {
+        const currentBalance = parseFloat(selectedOption.getAttribute('data-balance') || 0);
+        currentBalanceAmount.textContent = `Rp ${currentBalance.toLocaleString('id-ID')}`;
+        currentBalanceInfo.style.display = 'block';
+    } else {
+        currentBalanceInfo.style.display = 'none';
     }
 }
 
@@ -2340,7 +2455,15 @@ function processTransfer(event) {
         const currentBalance = parseFloat(selectedOption.getAttribute('data-balance') || 0);
         
         if (amount + adminFee > currentBalance) {
-            alert(`Saldo tidak cukup. Saldo: ${currentBalance.toLocaleString('id-ID')}, Transfer: ${amount.toLocaleString('id-ID')}, Admin: ${adminFee.toLocaleString('id-ID')}`);
+            const shortfall = (amount + adminFee) - currentBalance;
+            const errorMessage = `❌ Saldo Tidak Mencukupi!\n\n` +
+                `💰 Saldo Tersedia: Rp ${currentBalance.toLocaleString('id-ID')}\n` +
+                `💸 Jumlah Transfer: Rp ${amount.toLocaleString('id-ID')}\n` +
+                `💳 Admin Fee: Rp ${adminFee.toLocaleString('id-ID')}\n` +
+                `📊 Total Dibutuhkan: Rp ${(amount + adminFee).toLocaleString('id-ID')}\n` +
+                `⚠️ Kekurangan: Rp ${shortfall.toLocaleString('id-ID')}\n\n` +
+                `Silakan kurangi jumlah transfer atau tambahkan saldo terlebih dahulu.`;
+            alert(errorMessage);
             return;
         }
         
@@ -2376,7 +2499,19 @@ function processTransfer(event) {
         .then(response => response.json())
         .then(data => {
             if (data.error) {
-                alert(`Error: ${data.error}`);
+                // Handle detailed error messages from backend
+                if (data.details && data.details.shortfall) {
+                    const errorMessage = `❌ ${data.error}\n\n` +
+                        `💰 Saldo Tersedia: Rp ${data.details.current_balance.toLocaleString('id-ID')}\n` +
+                        `💸 Jumlah Transfer: Rp ${data.details.transfer_amount.toLocaleString('id-ID')}\n` +
+                        `💳 Admin Fee: Rp ${data.details.admin_fee.toLocaleString('id-ID')}\n` +
+                        `📊 Total Dibutuhkan: Rp ${data.details.total_required.toLocaleString('id-ID')}\n` +
+                        `⚠️ Kekurangan: Rp ${data.details.shortfall.toLocaleString('id-ID')}\n\n` +
+                        `Silakan kurangi jumlah transfer atau tambahkan saldo terlebih dahulu.`;
+                    alert(errorMessage);
+                } else {
+                    alert(`❌ Error: ${data.error}`);
+                }
             } else {
                 alert(`✅ Transfer berhasil!\n\n` +
                     `Dari: ${data.from_wallet}\n` +

@@ -558,6 +558,8 @@
                                     <th>Date</th>
                                     <th>Type</th>
                                     <th>Amount</th>
+                                    <th>Balance Before</th>
+                                    <th>Balance After</th>
                                     <th>Category</th>
                                     <th>Saving Space</th>
                                     <th>Scope</th>
@@ -584,6 +586,20 @@
                                         {% endif %}
                                     </td>
                                     <td class="fw-bold">{{ tx.amount|currency_decimal }}</td>
+                                    <td class="text-muted">
+                                        {% if tx.balance_before is defined and tx.balance_before is not none %}
+                                            Rp {{ "{:,.0f}".format(tx.balance_before|float) }}
+                                        {% else %}
+                                            <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="fw-medium">
+                                        {% if tx.balance_after is defined and tx.balance_after is not none %}
+                                            Rp {{ "{:,.0f}".format(tx.balance_after|float) }}
+                                        {% else %}
+                                            <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
                                     <td>
                                         {% set category = categories|selectattr('_id', 'equalto', tx.category_id)|first %}
                                         {{ category.name if category else 'N/A' }}
@@ -702,6 +718,22 @@
                                 {% if tx.note %}
                                 <div class="transaction-note mb-2">
                                     <small class="text-muted">{{ tx.note }}</small>
+                                </div>
+                                {% endif %}
+                                
+                                <!-- Balance Information -->
+                                {% if tx.balance_before is defined and tx.balance_after is defined and tx.balance_before is not none and tx.balance_after is not none %}
+                                <div class="balance-info mb-2 p-2 bg-light rounded">
+                                    <div class="row text-center">
+                                        <div class="col-6">
+                                            <div class="small text-muted">Balance Before</div>
+                                            <div class="fw-medium">Rp {{ "{:,.0f}".format(tx.balance_before|float) }}</div>
+                                        </div>
+                                        <div class="col-6">
+                                            <div class="small text-muted">Balance After</div>
+                                            <div class="fw-bold text-primary">Rp {{ "{:,.0f}".format(tx.balance_after|float) }}</div>
+                                        </div>
+                                    </div>
                                 </div>
                                 {% endif %}
                                 

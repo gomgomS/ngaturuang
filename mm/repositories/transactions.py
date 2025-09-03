@@ -42,6 +42,8 @@ class TransactionRepository(MongoRepository):
                 tx.setdefault("category_id", "")
                 tx.setdefault("fk_real_balance_id", "")
                 tx.setdefault("tags", [])
+                tx.setdefault("balance_before", 0)
+                tx.setdefault("balance_after", 0)
                 
                 # Format timestamp
                 if "timestamp" in tx:
@@ -82,6 +84,8 @@ class TransactionRepository(MongoRepository):
                 tx.setdefault("category_id", "")
                 tx.setdefault("fk_real_balance_id", "")
                 tx.setdefault("tags", [])
+                tx.setdefault("balance_before", 0)
+                tx.setdefault("balance_after", 0)
                 
                 # Format timestamp
                 if "timestamp" in tx:
@@ -167,6 +171,8 @@ class TransactionRepository(MongoRepository):
                 tx.setdefault("category_id", "")
                 tx.setdefault("fk_real_balance_id", "")
                 tx.setdefault("tags", [])
+                tx.setdefault("balance_before", 0)
+                tx.setdefault("balance_after", 0)
                 
                 # Format timestamp
                 if "timestamp" in tx:
@@ -441,6 +447,8 @@ class TransactionRepository(MongoRepository):
                 tx.setdefault("category_id", "")
                 tx.setdefault("fk_real_balance_id", "")
                 tx.setdefault("tags", [])
+                tx.setdefault("balance_before", 0)
+                tx.setdefault("balance_after", 0)
                 
                 # Format timestamp
                 if "timestamp" in tx:
@@ -539,7 +547,10 @@ class TransactionRepository(MongoRepository):
                 print(f"✅ [TRANSACTIONS] Inserted transaction: {result.inserted_id}")
                 
                 # Auto-update wallet balance setelah transaksi berhasil dibuat
-                if data.get("wallet_id") and data.get("user_id"):
+                # Skip balance update if flag is set (for transfers)
+                if (data.get("wallet_id") and data.get("user_id") and 
+                    not data.get("skip_balance_update", False)):
+                    
                     success = self._update_wallet_balance_after_transaction(
                         data["wallet_id"], 
                         data["user_id"], 
@@ -549,6 +560,8 @@ class TransactionRepository(MongoRepository):
                     
                     # Tambahkan field balance setelah transaksi jika update berhasil
                     if success:
+                        from mm.repositories.wallets import WalletRepository
+                        wallet_repo = WalletRepository()
                         updated_wallet = wallet_repo.get_wallet_by_id(data["wallet_id"], data["user_id"])
                         if updated_wallet:
                             balance_after = float(updated_wallet.get("actual_balance", 0))
@@ -558,6 +571,8 @@ class TransactionRepository(MongoRepository):
                                 {"$set": {"balance_after": balance_after}}
                             )
                             print(f"💰 [TRANSACTIONS] Balance after transaction: {balance_after}")
+                else:
+                    print(f"⏭️ [TRANSACTIONS] Skipping automatic balance update (skip_balance_update flag set)")
                 
                 return str(result.inserted_id)
             else:
