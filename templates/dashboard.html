@@ -203,6 +203,38 @@
         font-weight: 500;
     }
     
+    /* Yesterday Balance Comparison Styles */
+    .yesterday-balance-info {
+        margin-top: 0.75rem;
+        padding-top: 0.75rem;
+        border-top: 1px solid rgba(0, 0, 0, 0.1);
+    }
+    
+    .yesterday-balance-text {
+        margin-bottom: 0.25rem;
+    }
+    
+    .balance-improvement {
+        font-weight: 600;
+    }
+    
+    .improvement-text {
+        font-size: 0.8rem;
+        font-weight: 600;
+    }
+    
+    .improvement-text.text-success {
+        color: #28a745 !important;
+    }
+    
+    .improvement-text.text-danger {
+        color: #dc3545 !important;
+    }
+    
+    .improvement-text.text-muted {
+        color: #6c757d !important;
+    }
+    
     .content-card {
         background: rgba(255, 255, 255, 0.9);
         border: none;
@@ -615,6 +647,15 @@
                                 </div>
                     <h5 class="stats-label">Total Balance</h5>
                     <h3 class="stats-value">Rp {{ "{:,.0f}".format((total_balance|default(0))|float) }}</h3>
+                    <!-- Comparison info (yesterday for specific day, previous month for specific month) -->
+                    <div id="balanceComparisonInfo" class="yesterday-balance-info" style="display: none;">
+                        <div class="yesterday-balance-text">
+                            <small class="text-muted"><span id="balanceComparisonLabel">Yesterday</span>: <span id="balanceComparisonAmount">-</span></small>
+                        </div>
+                        <div class="balance-improvement">
+                            <small id="balanceImprovementText" class="improvement-text">-</small>
+                        </div>
+                    </div>
                                 </div>
                             </div>
                         </div>
@@ -627,6 +668,15 @@
                                 </div>
                     <h5 class="stats-label">Income</h5>
                     <h3 class="stats-value">Rp {{ "{:,.0f}".format((total_income|default(0))|float) }}</h3>
+                    <!-- Comparison info (yesterday for specific day, previous month for specific month) -->
+                    <div id="incomeComparisonInfo" class="yesterday-balance-info" style="display: none;">
+                        <div class="yesterday-balance-text">
+                            <small class="text-muted"><span id="incomeComparisonLabel">Yesterday</span>: <span id="incomeComparisonAmount">-</span></small>
+                        </div>
+                        <div class="balance-improvement">
+                            <small id="incomeImprovementText" class="improvement-text">-</small>
+                        </div>
+                    </div>
                                 </div>
                             </div>
                         </div>
@@ -639,6 +689,15 @@
                                 </div>
                     <h5 class="stats-label">Expenses</h5>
                     <h3 class="stats-value">Rp {{ "{:,.0f}".format((total_expenses|default(0))|float) }}</h3>
+                    <!-- Comparison info (yesterday for specific day, previous month for specific month) -->
+                    <div id="expensesComparisonInfo" class="yesterday-balance-info" style="display: none;">
+                        <div class="yesterday-balance-text">
+                            <small class="text-muted"><span id="expensesComparisonLabel">Yesterday</span>: <span id="expensesComparisonAmount">-</span></small>
+                        </div>
+                        <div class="balance-improvement">
+                            <small id="expensesImprovementText" class="improvement-text">-</small>
+                        </div>
+                    </div>
                                 </div>
                             </div>
                         </div>
@@ -1059,10 +1118,7 @@ function initializeYearFilter() {
         }
     });
     
-    // Load current year data to initialize
-    loadDashboardData(currentYear);
-    
-    // Set default to today's date
+    // Set default to today's date (this will also load the data)
     setDefaultToToday();
 }
 
@@ -1246,8 +1302,7 @@ function populateMonthFilter(year) {
             const currentMonthValue = `${year}-${currentMonth.toString().padStart(2, '0')}`;
             monthFilter.value = currentMonthValue;
             
-            // Load data for the entire month (no specific day)
-            loadDashboardData(year, currentMonthValue);
+            // Don't load data here - let setDefaultToToday() handle the final data loading
         }
         
     } catch (error) {
@@ -1449,6 +1504,11 @@ function updateDashboardData(data) {
         }
     }
     
+    // Update comparison info (yesterday for specific day, previous month for specific month)
+    updateBalanceComparisonInfo(data);
+    updateIncomeComparisonInfo(data);
+    updateExpensesComparisonInfo(data);
+    
     // Update income
     const incomeElement = document.querySelectorAll('.stats-value')[1];
     if (incomeElement && data.total_income !== undefined) {
@@ -1475,6 +1535,210 @@ function updateDashboardData(data) {
     
     // Update recent transactions
     updateRecentTransactions(data.recent_transactions);
+}
+
+function updateBalanceComparisonInfo(data) {
+    const balanceComparisonInfo = document.getElementById('balanceComparisonInfo');
+    const balanceComparisonLabel = document.getElementById('balanceComparisonLabel');
+    const balanceComparisonAmount = document.getElementById('balanceComparisonAmount');
+    const balanceImprovementText = document.getElementById('balanceImprovementText');
+    
+    if (!balanceComparisonInfo || !balanceComparisonLabel || !balanceComparisonAmount || !balanceImprovementText) {
+        return;
+    }
+    
+    // Determine if we're showing yesterday or previous month data
+    let comparisonData = null;
+    let improvementData = null;
+    let labelText = '';
+    
+    if (data.yesterday_balance !== null && data.yesterday_balance !== undefined) {
+        // Show yesterday's data (specific day selected)
+        comparisonData = data.yesterday_balance;
+        improvementData = data.balance_improvement;
+        labelText = 'Yesterday';
+    } else if (data.previous_month_balance !== null && data.previous_month_balance !== undefined) {
+        // Show previous month's data (specific month selected)
+        comparisonData = data.previous_month_balance;
+        improvementData = data.previous_month_balance_improvement;
+        labelText = 'Previous Month';
+    }
+    
+    if (comparisonData !== null) {
+        balanceComparisonInfo.style.display = 'block';
+        balanceComparisonLabel.textContent = labelText;
+        
+        // Update comparison amount
+        if (comparisonData === "-") {
+            balanceComparisonAmount.textContent = "No data";
+        } else {
+            balanceComparisonAmount.textContent = `Rp ${parseFloat(comparisonData).toLocaleString('id-ID', {
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 0
+            })}`;
+        }
+        
+        // Update improvement text
+        if (improvementData !== null && improvementData !== undefined) {
+            const improvement = parseFloat(improvementData);
+            if (improvement > 0) {
+                balanceImprovementText.textContent = `+Rp ${improvement.toLocaleString('id-ID', {
+                    minimumFractionDigits: 0,
+                    maximumFractionDigits: 0
+                })} ↗️`;
+                balanceImprovementText.className = 'improvement-text text-success';
+            } else if (improvement < 0) {
+                balanceImprovementText.textContent = `Rp ${Math.abs(improvement).toLocaleString('id-ID', {
+                    minimumFractionDigits: 0,
+                    maximumFractionDigits: 0
+                })} ↘️`;
+                balanceImprovementText.className = 'improvement-text text-danger';
+            } else {
+                balanceImprovementText.textContent = 'No change';
+                balanceImprovementText.className = 'improvement-text text-muted';
+            }
+        } else {
+            balanceImprovementText.textContent = 'Unable to calculate';
+            balanceImprovementText.className = 'improvement-text text-muted';
+        }
+    } else {
+        // Hide comparison info when not viewing a specific date or month
+        balanceComparisonInfo.style.display = 'none';
+    }
+}
+
+function updateIncomeComparisonInfo(data) {
+    const incomeComparisonInfo = document.getElementById('incomeComparisonInfo');
+    const incomeComparisonLabel = document.getElementById('incomeComparisonLabel');
+    const incomeComparisonAmount = document.getElementById('incomeComparisonAmount');
+    const incomeImprovementText = document.getElementById('incomeImprovementText');
+    
+    if (!incomeComparisonInfo || !incomeComparisonLabel || !incomeComparisonAmount || !incomeImprovementText) {
+        return;
+    }
+    
+    // Determine if we're showing yesterday or previous month data
+    let comparisonData = null;
+    let improvementData = null;
+    let labelText = '';
+    
+    if (data.yesterday_income !== null && data.yesterday_income !== undefined) {
+        // Show yesterday's data (specific day selected)
+        comparisonData = data.yesterday_income;
+        improvementData = data.income_improvement;
+        labelText = 'Yesterday';
+    } else if (data.previous_month_income !== null && data.previous_month_income !== undefined) {
+        // Show previous month's data (specific month selected)
+        comparisonData = data.previous_month_income;
+        improvementData = data.previous_month_income_improvement;
+        labelText = 'Previous Month';
+    }
+    
+    if (comparisonData !== null) {
+        incomeComparisonInfo.style.display = 'block';
+        incomeComparisonLabel.textContent = labelText;
+        
+        // Update comparison amount
+        incomeComparisonAmount.textContent = `Rp ${parseFloat(comparisonData).toLocaleString('id-ID', {
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 0
+        })}`;
+        
+        // Update improvement text
+        if (improvementData !== null && improvementData !== undefined) {
+            const improvement = parseFloat(improvementData);
+            if (improvement > 0) {
+                incomeImprovementText.textContent = `+Rp ${improvement.toLocaleString('id-ID', {
+                    minimumFractionDigits: 0,
+                    maximumFractionDigits: 0
+                })} ↗️`;
+                incomeImprovementText.className = 'improvement-text text-success';
+            } else if (improvement < 0) {
+                incomeImprovementText.textContent = `Rp ${Math.abs(improvement).toLocaleString('id-ID', {
+                    minimumFractionDigits: 0,
+                    maximumFractionDigits: 0
+                })} ↘️`;
+                incomeImprovementText.className = 'improvement-text text-danger';
+            } else {
+                incomeImprovementText.textContent = 'No change';
+                incomeImprovementText.className = 'improvement-text text-muted';
+            }
+        } else {
+            incomeImprovementText.textContent = 'Unable to calculate';
+            incomeImprovementText.className = 'improvement-text text-muted';
+        }
+    } else {
+        // Hide comparison info when not viewing a specific date or month
+        incomeComparisonInfo.style.display = 'none';
+    }
+}
+
+function updateExpensesComparisonInfo(data) {
+    const expensesComparisonInfo = document.getElementById('expensesComparisonInfo');
+    const expensesComparisonLabel = document.getElementById('expensesComparisonLabel');
+    const expensesComparisonAmount = document.getElementById('expensesComparisonAmount');
+    const expensesImprovementText = document.getElementById('expensesImprovementText');
+    
+    if (!expensesComparisonInfo || !expensesComparisonLabel || !expensesComparisonAmount || !expensesImprovementText) {
+        return;
+    }
+    
+    // Determine if we're showing yesterday or previous month data
+    let comparisonData = null;
+    let improvementData = null;
+    let labelText = '';
+    
+    if (data.yesterday_expenses !== null && data.yesterday_expenses !== undefined) {
+        // Show yesterday's data (specific day selected)
+        comparisonData = data.yesterday_expenses;
+        improvementData = data.expenses_improvement;
+        labelText = 'Yesterday';
+    } else if (data.previous_month_expenses !== null && data.previous_month_expenses !== undefined) {
+        // Show previous month's data (specific month selected)
+        comparisonData = data.previous_month_expenses;
+        improvementData = data.previous_month_expenses_improvement;
+        labelText = 'Previous Month';
+    }
+    
+    if (comparisonData !== null) {
+        expensesComparisonInfo.style.display = 'block';
+        expensesComparisonLabel.textContent = labelText;
+        
+        // Update comparison amount
+        expensesComparisonAmount.textContent = `Rp ${parseFloat(comparisonData).toLocaleString('id-ID', {
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 0
+        })}`;
+        
+        // Update improvement text (for expenses, less spending is good, more spending is bad)
+        if (improvementData !== null && improvementData !== undefined) {
+            const improvement = parseFloat(improvementData);
+            if (improvement < 0) {
+                // Less spending than comparison period (good)
+                expensesImprovementText.textContent = `Rp ${Math.abs(improvement).toLocaleString('id-ID', {
+                    minimumFractionDigits: 0,
+                    maximumFractionDigits: 0
+                })} less ↘️`;
+                expensesImprovementText.className = 'improvement-text text-success';
+            } else if (improvement > 0) {
+                // More spending than comparison period (bad)
+                expensesImprovementText.textContent = `+Rp ${improvement.toLocaleString('id-ID', {
+                    minimumFractionDigits: 0,
+                    maximumFractionDigits: 0
+                })} more ↗️`;
+                expensesImprovementText.className = 'improvement-text text-danger';
+            } else {
+                expensesImprovementText.textContent = 'No change';
+                expensesImprovementText.className = 'improvement-text text-muted';
+            }
+        } else {
+            expensesImprovementText.textContent = 'Unable to calculate';
+            expensesImprovementText.className = 'improvement-text text-muted';
+        }
+    } else {
+        // Hide comparison info when not viewing a specific date or month
+        expensesComparisonInfo.style.display = 'none';
+    }
 }
 
 function updateRecentTransactions(transactions) {

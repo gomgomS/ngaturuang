@@ -320,6 +320,96 @@ def api_dashboard_data():
         # For month-only or year-only selection, pass start_timestamp to limit the search to that period
         total_balance = calculate_balance_from_transactions(user_id, end_timestamp, start_timestamp)
         
+        # Calculate comparison data (yesterday for specific day, previous month for specific month)
+        yesterday_balance = None
+        balance_improvement = None
+        yesterday_income = None
+        income_improvement = None
+        yesterday_expenses = None
+        expenses_improvement = None
+        
+        previous_month_balance = None
+        previous_month_income = None
+        previous_month_expenses = None
+        previous_month_balance_improvement = None
+        previous_month_income_improvement = None
+        previous_month_expenses_improvement = None
+        
+        if day and month:
+            # Calculate yesterday's data for specific day
+            yesterday_date = datetime(year, month_num, day_num - 1)
+            yesterday_timestamp = int(yesterday_date.timestamp())
+            yesterday_balance = calculate_balance_from_transactions(user_id, yesterday_timestamp)
+            
+            # Calculate yesterday's income and expenses
+            yesterday_transactions = tx_repo.get_user_transactions_by_date_range(user_id, yesterday_timestamp, yesterday_timestamp + 86400)  # 24 hours
+            yesterday_income = sum(float(tx.get("amount", 0)) for tx in yesterday_transactions if tx.get("type") == "income")
+            yesterday_expenses = sum(float(tx.get("amount", 0)) for tx in yesterday_transactions if tx.get("type") == "expense")
+            
+            # Calculate improvements if data is available
+            if yesterday_balance != "-" and total_balance != "-":
+                try:
+                    yesterday_balance_float = float(yesterday_balance)
+                    total_balance_float = float(total_balance)
+                    balance_improvement = total_balance_float - yesterday_balance_float
+                except (ValueError, TypeError):
+                    balance_improvement = None
+            
+            # Calculate income improvement
+            try:
+                income_improvement = total_income - yesterday_income
+            except (ValueError, TypeError):
+                income_improvement = None
+                
+            # Calculate expenses improvement (negative means less spending, positive means more spending)
+            try:
+                expenses_improvement = total_expenses - yesterday_expenses
+            except (ValueError, TypeError):
+                expenses_improvement = None
+                
+        elif month and not day:
+            # Calculate previous month's data for specific month
+            if month_num == 1:
+                # Previous month is December of previous year
+                prev_month_date = datetime(year - 1, 12, 1)
+                prev_month_end = datetime(year, 1, 1)
+            else:
+                # Previous month is in the same year
+                prev_month_date = datetime(year, month_num - 1, 1)
+                prev_month_end = datetime(year, month_num, 1)
+            
+            prev_month_timestamp = int(prev_month_date.timestamp())
+            prev_month_end_timestamp = int(prev_month_end.timestamp())
+            
+            # Calculate previous month's balance
+            previous_month_balance = calculate_balance_from_transactions(user_id, prev_month_end_timestamp)
+            
+            # Calculate previous month's income and expenses
+            prev_month_transactions = tx_repo.get_user_transactions_by_date_range(user_id, prev_month_timestamp, prev_month_end_timestamp)
+            previous_month_income = sum(float(tx.get("amount", 0)) for tx in prev_month_transactions if tx.get("type") == "income")
+            previous_month_expenses = sum(float(tx.get("amount", 0)) for tx in prev_month_transactions if tx.get("type") == "expense")
+            
+            # Calculate improvements if data is available
+            if previous_month_balance != "-" and total_balance != "-":
+                try:
+                    prev_balance_float = float(previous_month_balance)
+                    total_balance_float = float(total_balance)
+                    previous_month_balance_improvement = total_balance_float - prev_balance_float
+                except (ValueError, TypeError):
+                    previous_month_balance_improvement = None
+            
+            # Calculate income improvement
+            try:
+                previous_month_income_improvement = total_income - previous_month_income
+            except (ValueError, TypeError):
+                previous_month_income_improvement = None
+                
+            # Calculate expenses improvement
+            try:
+                previous_month_expenses_improvement = total_expenses - previous_month_expenses
+            except (ValueError, TypeError):
+                previous_month_expenses_improvement = None
+        
         # Get recent transactions (limit to 5)
         recent_transactions = transactions[:5]
         
@@ -346,7 +436,19 @@ def api_dashboard_data():
             "total_transfer": total_transfer,
             "transaction_count": transaction_count,
             "recent_transactions": recent_transactions,
-            "chartData": chart_data
+            "chartData": chart_data,
+            "yesterday_balance": yesterday_balance,
+            "balance_improvement": balance_improvement,
+            "yesterday_income": yesterday_income,
+            "income_improvement": income_improvement,
+            "yesterday_expenses": yesterday_expenses,
+            "expenses_improvement": expenses_improvement,
+            "previous_month_balance": previous_month_balance,
+            "previous_month_balance_improvement": previous_month_balance_improvement,
+            "previous_month_income": previous_month_income,
+            "previous_month_income_improvement": previous_month_income_improvement,
+            "previous_month_expenses": previous_month_expenses,
+            "previous_month_expenses_improvement": previous_month_expenses_improvement
         })
         
     except Exception as e:
