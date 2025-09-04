@@ -262,7 +262,7 @@
             </div>
             <div class="col-md-4">
                 <div class="stats-card">
-                    <h3 class="stats-value">Rp {{ wallets|sum(attribute='actual_balance')|currency }}</h3>
+                    <h3 class="stats-value">Rp {{ wallets|sum(attribute='latest_balance')|currency }}</h3>
                     <p class="stats-label">Total Balance</p>
                 </div>
             </div>
@@ -298,7 +298,7 @@
                          
                         <!-- Balance -->
                         <div class="account-balance mb-2">
-                            Rp {{ wallet.actual_balance|currency if wallet.actual_balance else '0' }}
+                            Rp {{ wallet.latest_balance|currency if wallet.latest_balance else '0' }}
                         </div>
                         
                         <!-- Click indicator -->

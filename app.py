@@ -1,4 +1,5 @@
 import os
+from datetime import datetime
 from flask import Flask, render_template, session, request, jsonify, redirect, url_for
 from mm.repositories.transactions import TransactionRepository
 from mm.repositories.scopes import ScopeRepository
@@ -9,7 +10,6 @@ from bson import ObjectId
 from config import ensure_indexes
 from model import index_specs
 from mm.repositories.manual_balance import ManualBalanceRepository
-from datetime import datetime
 
 app = Flask(__name__)
 app.secret_key = "your-secret-key-here"
@@ -34,21 +34,19 @@ def inject_global_data():
         print(f"🔍 [CONTEXT] username from session: {username}")
         
         if user_id:
-            wallet_repo = WalletRepository()
-            wallets = wallet_repo.list_by_user(user_id)
+            # Calculate total balance using the same logic as dashboard
+            # Get latest balance_after from all wallets up to current time
+            current_timestamp = int(datetime.now().timestamp())
+            total_balance = calculate_balance_from_transactions(user_id, current_timestamp)
             
-            print(f"🔍 [CONTEXT] Found {len(wallets)} wallets for user {user_id}")
-            
-            # Calculate total balance from all wallets
-            total_balance = 0
-            for wallet in wallets:
-                actual_balance = wallet.get("actual_balance", 0)
-                wallet_name = wallet.get("name", "Unknown")
-                print(f"🔍 [CONTEXT] Wallet {wallet_name}: actual_balance = {actual_balance}")
-                if actual_balance:
-                    total_balance += float(actual_balance)
-            
-            print(f"🔍 [CONTEXT] Total balance calculated: {total_balance}")
+            # If no transactions found, fallback to wallet actual_balance
+            if total_balance == "-":
+                wallet_repo = WalletRepository()
+                wallets = wallet_repo.list_by_user(user_id)
+                total_balance = sum(float(wallet.get("actual_balance", 0)) for wallet in wallets)
+                print(f"🔍 [CONTEXT] Fallback to wallet actual_balance: {total_balance}")
+            else:
+                print(f"🔍 [CONTEXT] Total balance calculated using transaction logic: {total_balance}")
             
             return {
                 "total_balance": total_balance,
@@ -319,7 +317,8 @@ def api_dashboard_data():
         transaction_count = len(transactions)
         
         # Calculate total balance based on latest transaction balance_after for each wallet up to selected date
-        total_balance = calculate_balance_from_transactions(user_id, end_timestamp)
+        # For month-only or year-only selection, pass start_timestamp to limit the search to that period
+        total_balance = calculate_balance_from_transactions(user_id, end_timestamp, start_timestamp)
         
         # Get recent transactions (limit to 5)
         recent_transactions = transactions[:5]
@@ -561,7 +560,7 @@ def generate_yearly_chart_data(transactions, year):
             "expenses": []
         }
 
-def calculate_balance_from_transactions(user_id, end_timestamp):
+def calculate_balance_from_transactions(user_id, end_timestamp, start_timestamp=None):
     """Calculate total balance based on latest transaction balance_after for each wallet up to selected date"""
     try:
         from config import get_collection
@@ -569,13 +568,17 @@ def calculate_balance_from_transactions(user_id, end_timestamp):
         # Get all transactions for the user up to the end timestamp
         coll = get_collection("transactions")
         
+        # For balance calculation, we always want the latest transaction up to the end_timestamp
+        # regardless of start_timestamp (which is used for income/expense filtering)
+        balance_match_query = {
+            "user_id": user_id,
+            "timestamp": {"$lte": end_timestamp}
+        }
+        
         # Find the latest transaction for each wallet up to the end timestamp
         pipeline = [
             {
-                "$match": {
-                    "user_id": user_id,
-                    "timestamp": {"$lte": end_timestamp}
-                }
+                "$match": balance_match_query
             },
             {
                 "$sort": {"wallet_id": 1, "timestamp": -1, "sequence_number": -1}
@@ -590,6 +593,11 @@ def calculate_balance_from_transactions(user_id, end_timestamp):
         
         latest_transactions = list(coll.aggregate(pipeline))
         
+        # If no transactions found for the period, return "-"
+        if not latest_transactions:
+            print(f"⚠️ [BALANCE] No transactions found for user {user_id} up to the selected date")
+            return "-"
+        
         # Sum up the balance_after from the latest transaction of each wallet
         total_balance = 0
         for wallet_data in latest_transactions:
@@ -598,6 +606,7 @@ def calculate_balance_from_transactions(user_id, end_timestamp):
             if balance_after is not None:
                 total_balance += float(balance_after)
         
+        print(f"💰 [BALANCE] Calculated total balance: {total_balance} from {len(latest_transactions)} wallets")
         return total_balance
         
     except Exception as e:
@@ -608,7 +617,34 @@ def calculate_balance_from_transactions(user_id, end_timestamp):
             wallets = wallet_repo.list_by_user(user_id)
             return sum(float(wallet.get("actual_balance", 0)) for wallet in wallets)
         except:
-            return 0
+            return "-"
+
+def get_latest_wallet_balance(user_id, wallet_id, end_timestamp):
+    """Get the latest balance_after for a specific wallet up to the given timestamp"""
+    try:
+        from config import get_collection
+        
+        coll = get_collection("transactions")
+        
+        # Find the latest transaction for this specific wallet up to the end timestamp
+        latest_tx = coll.find_one(
+            {
+                "user_id": user_id,
+                "wallet_id": wallet_id,
+                "timestamp": {"$lte": end_timestamp}
+            },
+            sort=[("timestamp", -1), ("sequence_number", -1)]
+        )
+        
+        if latest_tx and latest_tx.get("balance_after") is not None:
+            return float(latest_tx.get("balance_after", 0))
+        else:
+            # If no transactions found, return 0
+            return 0.0
+            
+    except Exception as e:
+        print(f"Error getting latest wallet balance: {e}")
+        return 0.0
 
 def calculate_wallet_balance_from_transactions(user_id, wallet_id):
     """Calculate balance for a specific wallet based on its latest transaction"""
@@ -810,6 +846,21 @@ def accounts():
     
     # Get all wallets for the user
     wallets = wallet_repo.list_by_user(user_id)
+    
+    # Calculate balance from latest transaction for each wallet
+    if wallets:
+        current_timestamp = int(datetime.now().timestamp())
+        
+        for wallet in wallets:
+            wallet_id = wallet.get("_id")
+            if wallet_id:
+                # Get latest transaction for this wallet
+                latest_balance = get_latest_wallet_balance(user_id, wallet_id, current_timestamp)
+                # Update the wallet with the latest balance
+                wallet["latest_balance"] = latest_balance
+                print(f"💰 [ACCOUNTS] Wallet {wallet.get('name')}: latest_balance = {latest_balance}")
+            else:
+                wallet["latest_balance"] = 0
     
     # Ensure wallets list is passed
     wallets = wallets or []

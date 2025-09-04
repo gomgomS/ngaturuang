@@ -1052,8 +1052,10 @@ function initializeYearFilter() {
             // Reset month and day filters when year changes
             resetMonthFilter();
             resetDayFilter();
-            // populateMonthFilter will handle setting up the month filter
-            populateMonthFilter(selectedYear);
+            // Update display immediately to show the selected year
+            updateCurrentDateDisplay(selectedYear);
+            // Load data for the entire year (no specific month or day)
+            loadDashboardData(selectedYear);
         }
     });
     
@@ -1082,7 +1084,7 @@ function generateYearOptions() {
 function resetMonthFilter() {
     const monthFilter = document.getElementById('monthFilter');
     if (monthFilter) {
-        monthFilter.innerHTML = '<option value="">Loading months...</option>';
+        monthFilter.innerHTML = '<option value="">All Months</option>';
         monthFilter.value = '';
     }
 }
@@ -1162,7 +1164,7 @@ function initializeMonthFilter() {
     const months = generateMonthOptions();
     
     // Clear existing options
-    monthFilter.innerHTML = '';
+    monthFilter.innerHTML = '<option value="">All Months</option>';
     
     // Add month options
     months.forEach((month, index) => {
@@ -1173,7 +1175,6 @@ function initializeMonthFilter() {
         // Highlight current month (first in the list)
         if (index === 0) {
             option.textContent = `${month.label} (Current)`;
-            option.selected = true;
         }
         
         monthFilter.appendChild(option);
@@ -1188,10 +1189,12 @@ function initializeMonthFilter() {
         const selectedMonth = this.value;
         const selectedYear = document.getElementById('yearFilter').value;
         if (selectedMonth && selectedMonth !== 'undefined' && selectedYear && selectedYear !== 'undefined') {
-            // Reset day filter when month changes
+            // Reset day filter when month changes and set to "All Days"
             resetDayFilter();
-            // populateDayFilter will handle auto-selecting today if it's the current month
-            populateDayFilter(selectedYear, selectedMonth.split('-')[1]);
+            // Update display immediately to show the selected month and year
+            updateCurrentDateDisplay(selectedYear, selectedMonth);
+            // Load data for the entire month (no specific day)
+            loadDashboardData(selectedYear, selectedMonth);
         }
     });
 }
@@ -1225,7 +1228,7 @@ function populateMonthFilter(year) {
         const currentMonth = today.getMonth() + 1; // 1-based month
         
         // Clear existing options
-        monthFilter.innerHTML = '<option value="">All months</option>';
+        monthFilter.innerHTML = '<option value="">All Months</option>';
         
         // Add month options for the selected year
         for (let month = 1; month <= 12; month++) {
@@ -1243,8 +1246,8 @@ function populateMonthFilter(year) {
             const currentMonthValue = `${year}-${currentMonth.toString().padStart(2, '0')}`;
             monthFilter.value = currentMonthValue;
             
-            // Also populate day filter and auto-select today
-            populateDayFilter(year, currentMonth.toString().padStart(2, '0'));
+            // Load data for the entire month (no specific day)
+            loadDashboardData(year, currentMonthValue);
         }
         
     } catch (error) {
@@ -1267,6 +1270,8 @@ function initializeDayFilter() {
         const selectedYear = document.getElementById('yearFilter').value;
         
         if (selectedDay && selectedDay !== '' && selectedMonth && selectedMonth !== 'undefined' && selectedYear && selectedYear !== 'undefined') {
+            // Update display immediately to show the selected day, month and year
+            updateCurrentDateDisplay(selectedYear, selectedMonth, selectedDay);
             loadDashboardData(selectedYear, selectedMonth, selectedDay);
         }
     });
@@ -1275,7 +1280,7 @@ function initializeDayFilter() {
 function resetDayFilter() {
     const dayFilter = document.getElementById('dayFilter');
     if (dayFilter) {
-        dayFilter.innerHTML = '<option value="">All days</option>';
+        dayFilter.innerHTML = '<option value="">All Days</option>';
         dayFilter.value = '';
     }
 }
@@ -1297,42 +1302,42 @@ function populateDayFilter(year, month) {
                                selectedMonth.getMonth() === currentMonth);
         
         // Clear existing options
-        dayFilter.innerHTML = '<option value="">All days</option>';
+        dayFilter.innerHTML = '<option value="">All Days</option>';
         
-        // Generate relative date options for the last 30 days
-        for (let i = 0; i < 30; i++) {
-            const date = new Date(today);
-            date.setDate(today.getDate() - i);
-            
-            // Only include dates from the selected month
-            if (date.getFullYear() === selectedMonth.getFullYear() && 
-                date.getMonth() === selectedMonth.getMonth()) {
-                
-                const option = document.createElement('option');
-                const dayStr = date.getDate().toString().padStart(2, '0');
-                option.value = dayStr;
-                
-                // Generate relative date text
-                let relativeText = '';
-                if (i === 0) {
-                    relativeText = 'Today';
-                } else if (i === 1) {
-                    relativeText = 'Yesterday';
-                } else {
-                    relativeText = `${i} days ago`;
-                }
-                
-                // Format date (e.g., "3 Aug")
-                const monthName = date.toLocaleDateString('en-US', { month: 'short' });
-                const dayNum = date.getDate();
-                
-                option.textContent = `${relativeText} - ${dayNum} ${monthName}`;
-                dayFilter.appendChild(option);
-            }
-        }
-        
-        // Auto-select "Today" if we're in the current month and today exists in the options
         if (isCurrentMonth) {
+            // For current month, use relative dates (Today, Yesterday, etc.)
+            for (let i = 0; i < 30; i++) {
+                const date = new Date(today);
+                date.setDate(today.getDate() - i);
+                
+                // Only include dates from the selected month
+                if (date.getFullYear() === selectedMonth.getFullYear() && 
+                    date.getMonth() === selectedMonth.getMonth()) {
+                    
+                    const option = document.createElement('option');
+                    const dayStr = date.getDate().toString().padStart(2, '0');
+                    option.value = dayStr;
+                    
+                    // Generate relative date text
+                    let relativeText = '';
+                    if (i === 0) {
+                        relativeText = 'Today';
+                    } else if (i === 1) {
+                        relativeText = 'Yesterday';
+                    } else {
+                        relativeText = `${i} days ago`;
+                    }
+                    
+                    // Format date (e.g., "3 Aug")
+                    const monthName = date.toLocaleDateString('en-US', { month: 'short' });
+                    const dayNum = date.getDate();
+                    
+                    option.textContent = `${relativeText} - ${dayNum} ${monthName}`;
+                    dayFilter.appendChild(option);
+                }
+            }
+            
+            // Auto-select "Today" if we're in the current month and today exists in the options
             const todayOption = dayFilter.querySelector(`option[value="${currentDay.toString().padStart(2, '0')}"]`);
             if (todayOption) {
                 dayFilter.value = currentDay.toString().padStart(2, '0');
@@ -1343,6 +1348,19 @@ function populateDayFilter(year, month) {
                 if (selectedYear && selectedMonth) {
                     loadDashboardData(selectedYear, selectedMonth, currentDay.toString().padStart(2, '0'));
                 }
+            }
+        } else {
+            // For non-current months, show just the day numbers (1, 2, 3, ..., 31)
+            const daysInMonth = new Date(parseInt(year), parseInt(month), 0).getDate();
+            
+            for (let day = 1; day <= daysInMonth; day++) {
+                const option = document.createElement('option');
+                const dayStr = day.toString().padStart(2, '0');
+                option.value = dayStr;
+                
+                // Show just the day number
+                option.textContent = day.toString();
+                dayFilter.appendChild(option);
             }
         }
         
@@ -1421,10 +1439,14 @@ function updateDashboardData(data) {
     // Update total balance
     const totalBalanceElement = document.querySelector('.stats-value');
     if (totalBalanceElement && data.total_balance !== undefined) {
-        totalBalanceElement.textContent = `Rp ${data.total_balance.toLocaleString('id-ID', {
-            minimumFractionDigits: 0,
-            maximumFractionDigits: 0
-        })}`;
+        if (data.total_balance === "-") {
+            totalBalanceElement.textContent = "-";
+        } else {
+            totalBalanceElement.textContent = `Rp ${data.total_balance.toLocaleString('id-ID', {
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 0
+            })}`;
+        }
     }
     
     // Update income
