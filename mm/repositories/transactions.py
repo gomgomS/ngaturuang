@@ -825,6 +825,126 @@ class TransactionRepository(MongoRepository):
             print(f"❌ [TRANSACTIONS] Error deleting transaction: {e}")
             return False
     
+    def recalculate_wallet_balances(self, user_id: str, wallet_id: str) -> Dict[str, Any]:
+        """Recalculate all balance_before and balance_after for transactions in a specific wallet"""
+        try:
+            print(f"🔄 [BALANCE] Starting balance recalculation for wallet: {wallet_id}")
+            
+            # Get all transactions for this wallet, sorted by timestamp ascending
+            query = {
+                "user_id": user_id,
+                "wallet_id": wallet_id
+            }
+            
+            transactions = list(self.collection.find(query).sort("timestamp", 1))
+            
+            if not transactions:
+                print(f"⚠️ [BALANCE] No transactions found for wallet: {wallet_id}")
+                return {"success": True, "message": "No transactions to recalculate", "updated_count": 0}
+            
+            print(f"🔍 [BALANCE] Found {len(transactions)} transactions to recalculate")
+            
+            # Get the starting balance from the wallet
+            from mm.repositories.wallets import WalletRepository
+            wallet_repo = WalletRepository()
+            wallet = wallet_repo.get_wallet_by_id(wallet_id, user_id)
+            
+            if not wallet:
+                print(f"❌ [BALANCE] Wallet not found: {wallet_id}")
+                return {"success": False, "error": "Wallet not found"}
+            
+            # Get the current actual balance
+            current_balance = float(wallet.get("actual_balance", 0))
+            print(f"💰 [BALANCE] Current wallet balance: {current_balance}")
+            
+            # Calculate what the balance should be by going through all transactions
+            calculated_balance = 0.0
+            for tx in transactions:
+                tx_type = tx.get("type", "expense")
+                tx_amount = float(tx.get("amount", 0))
+                
+                if tx_type == "income":
+                    calculated_balance += tx_amount
+                elif tx_type == "expense":
+                    calculated_balance -= tx_amount
+                # Skip transfer types as they're handled separately
+                
+                print(f"🔍 [BALANCE] Transaction {tx['_id']}: {tx_type} {tx_amount} -> balance: {calculated_balance}")
+            
+            print(f"💰 [BALANCE] Calculated final balance: {calculated_balance}")
+            print(f"💰 [BALANCE] Actual wallet balance: {current_balance}")
+            
+            # If balances don't match, we need to find the starting balance
+            if abs(calculated_balance - current_balance) > 0.01:  # Allow small floating point differences
+                print(f"⚠️ [BALANCE] Balance mismatch detected. Need to find correct starting balance.")
+                
+                # Find the difference and adjust starting balance
+                balance_difference = current_balance - calculated_balance
+                starting_balance = balance_difference
+                print(f"🔍 [BALANCE] Balance difference: {balance_difference}")
+                print(f"🔍 [BALANCE] Starting balance should be: {starting_balance}")
+            else:
+                # Balances match, use 0 as starting balance
+                starting_balance = 0.0
+                print(f"✅ [BALANCE] Balances match, using starting balance: {starting_balance}")
+            
+            # Now recalculate all transactions with the correct starting balance
+            running_balance = starting_balance
+            updated_count = 0
+            
+            for tx in transactions:
+                tx_id = tx["_id"]
+                tx_type = tx.get("type", "expense")
+                tx_amount = float(tx.get("amount", 0))
+                
+                # Set balance_before to current running balance
+                balance_before = running_balance
+                
+                # Calculate balance_after based on transaction type
+                if tx_type == "income":
+                    balance_after = running_balance + tx_amount
+                    running_balance = balance_after
+                elif tx_type == "expense":
+                    balance_after = running_balance - tx_amount
+                    running_balance = balance_after
+                else:
+                    # For transfer types, keep the same balance
+                    balance_after = running_balance
+                
+                # Update the transaction with new balance values
+                update_result = self.collection.update_one(
+                    {"_id": tx_id},
+                    {
+                        "$set": {
+                            "balance_before": balance_before,
+                            "balance_after": balance_after,
+                            "updated_at": int(time.time())
+                        }
+                    }
+                )
+                
+                if update_result.modified_count > 0:
+                    updated_count += 1
+                    print(f"✅ [BALANCE] Updated transaction {tx_id}: before={balance_before}, after={balance_after}")
+                else:
+                    print(f"⚠️ [BALANCE] No changes made to transaction {tx_id}")
+            
+            print(f"✅ [BALANCE] Recalculation completed. Updated {updated_count} transactions.")
+            
+            return {
+                "success": True, 
+                "message": f"Successfully recalculated {updated_count} transactions",
+                "updated_count": updated_count,
+                "starting_balance": starting_balance,
+                "final_balance": running_balance
+            }
+            
+        except Exception as e:
+            print(f"❌ [BALANCE] Error recalculating balances: {e}")
+            import traceback
+            print(f"❌ [BALANCE] Error traceback: {traceback.format_exc()}")
+            return {"success": False, "error": str(e)}
+
     def get_transaction_by_id(self, transaction_id: str, user_id: str) -> Dict[str, Any]:
         """Get transaksi berdasarkan ID dengan validasi user ownership"""
         try:

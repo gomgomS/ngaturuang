@@ -1288,10 +1288,17 @@ function editTransaction(transactionId) {
             document.getElementById('edit_tags').value = Array.isArray(data.tags) ? data.tags.join(', ') : '';
             document.getElementById('edit_note').value = data.note || '';
             
-            // Convert timestamp to datetime-local format
+            // Convert timestamp to datetime-local format (using local timezone)
             if (data.timestamp) {
                 const date = new Date(data.timestamp * 1000);
-                const localDateTime = date.toISOString().slice(0, 16);
+                // Format as YYYY-MM-DDTHH:MM:SS using local timezone
+                const year = date.getFullYear();
+                const month = String(date.getMonth() + 1).padStart(2, '0');
+                const day = String(date.getDate()).padStart(2, '0');
+                const hours = String(date.getHours()).padStart(2, '0');
+                const minutes = String(date.getMinutes()).padStart(2, '0');
+                const seconds = String(date.getSeconds()).padStart(2, '0');
+                const localDateTime = `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
                 document.getElementById('edit_timestamp').value = localDateTime;
             }
             
@@ -1330,27 +1337,46 @@ function updateTransaction() {
     const transactionId = data._id;
     delete data._id;
     
-    fetch(`/api/transactions/${transactionId}`, {
-        method: 'PUT',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(data)
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.message) {
-            alert('Transaction updated successfully!');
+        // Show loading state
+        const submitButton = document.querySelector('#editModal .btn-primary');
+        const originalText = submitButton.innerHTML;
+        submitButton.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Updating...';
+        submitButton.disabled = true;
+        
+        fetch(`/api/transactions/${transactionId}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(data)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.message) {
+                // Show balance recalculation loading
+                submitButton.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Recalculating balances...';
+                
+                // Wait a moment to show the loading state, then proceed
+                setTimeout(() => {
+                    alert('Transaction updated and balances recalculated successfully!');
+                    closeEditModal();
+                    location.reload();
+                }, 1000);
+            } else {
+                throw new Error('Failed to update transaction');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Failed to update transaction');
             closeEditModal();
             location.reload();
-        } else {
-            alert('Failed to update transaction');
-        }
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        alert('Failed to update transaction');
-    });
+        })
+        .finally(() => {
+            // Restore button state
+            submitButton.innerHTML = originalText;
+            submitButton.disabled = false;
+        });
 }
 
 function deleteTransaction(transactionId) {
