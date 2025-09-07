@@ -574,18 +574,25 @@
                                     <th>Balance Before</th>
                                     <th>Balance After</th>
                                     <th>Category</th>
-                                    <th>Saving Space</th>
-                                    <th>Scope</th>
-                                    <th>Tags</th>
-                                    <th>Note</th>
-                                    <th>Transfer Details</th>
                                     <th>Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {% for tx in transactions %}
                                 <tr>
-                                    <td>{{ tx.formatted_time or 'N/A' }}</td>
+                                    <td>
+                                        {% if tx.formatted_time and tx.formatted_time != 'N/A' %}
+                                            {% set date_time_parts = tx.formatted_time.split(' ') %}
+                                            {% if date_time_parts|length >= 2 %}
+                                                <span class="badge bg-primary me-1">{{ date_time_parts[0] }}</span>
+                                                <span class="badge bg-secondary">{{ date_time_parts[1] }}</span>
+                                            {% else %}
+                                                <span class="badge bg-primary">{{ tx.formatted_time }}</span>
+                                            {% endif %}
+                                        {% else %}
+                                            <span class="badge bg-light text-dark">N/A</span>
+                                        {% endif %}
+                                    </td>
                                     <td>
                                         {% if tx.is_balance_adjustment %}
                                         <span class="badge {% if tx.type == 'income' %}bg-success{% else %}bg-danger{% endif %}">
@@ -597,8 +604,18 @@
                                             {{ tx.type|title }}
                                         </span>
                                         {% endif %}
+                                        <div class="mt-1">
+                                            {% set scope = scopes|selectattr('_id', 'equalto', tx.scope_id)|first %}
+                                            <small class="text-muted">{{ scope.name if scope else 'N/A' }}</small>
+                                        </div>
                                     </td>
-                                    <td class="fw-bold">{{ tx.amount|currency_decimal }}</td>
+                                    <td class="fw-bold">
+                                        {{ tx.amount|currency_decimal }}
+                                        <div class="mt-1">
+                                            {% set wallet = wallets|selectattr('_id', 'equalto', tx.wallet_id)|first %}
+                                            <small class="text-muted">{{ wallet.name if wallet else 'N/A' }}{% if wallet %} ({{ wallet.type or 'bank' }}){% endif %}</small>
+                                        </div>
+                                    </td>
                                     <td class="text-muted">
                                         {% if tx.balance_before is defined and tx.balance_before is not none %}
                                             Rp {{ "{:,.0f}".format(tx.balance_before|float) }}
@@ -615,68 +632,27 @@
                                     </td>
                                     <td>
                                         {% set category = categories|selectattr('_id', 'equalto', tx.category_id)|first %}
-                                        {{ category.name if category else 'N/A' }}
-                                    </td>
-                                    <td>
-                                        {% set wallet = wallets|selectattr('_id', 'equalto', tx.wallet_id)|first %}
-                                        {{ wallet.name if wallet else 'N/A' }} 
-                                        {% if wallet %}({{ wallet.type or 'bank' }}){% endif %}
-                                    </td>
-                                    <td>
-                                        {% set scope = scopes|selectattr('_id', 'equalto', tx.scope_id)|first %}
-                                        {{ scope.name if scope else 'N/A' }}
-                                    </td>
-                                    <td>
+                                        <div>{{ category.name if category else 'N/A' }}</div>
                                         {% if tx.tags %}
-                                            {% for tag in tx.tags %}
-                                            <span class="badge bg-secondary me-1">{{ tag }}</span>
-                                            {% endfor %}
-                                        {% else %}
-                                            <span class="text-muted">No tags</span>
-                                        {% endif %}
-                                    </td>
-                                    <td>{{ tx.note or '-' }}</td>
-                                    <td>
-                                        {% if tx.is_transfer or tx.type == 'transfer' %}
-                                            <div class="small">
-                                                <div><strong>From:</strong> 
-                                                    {% set from_wallet = wallets|selectattr('_id', 'equalto', tx.from_wallet_id)|first %}
-                                                    {{ from_wallet.name if from_wallet else 'N/A' }}
-                                                </div>
-                                                <div><strong>To:</strong> 
-                                                    {% set to_wallet = wallets|selectattr('_id', 'equalto', tx.to_wallet_id)|first %}
-                                                    {{ to_wallet.name if to_wallet else 'N/A' }}
-                                                </div>
-                                                {% if tx.admin_fee %}
-                                                <div class="text-danger"><strong>Fee:</strong> {{ tx.admin_fee|currency_decimal }}</div>
-                                                {% endif %}
-                                            </div>
-                                        {% elif tx.is_transfer_fee %}
-                                            <div class="small">
-                                                <div class="text-danger"><strong>Transfer Fee</strong></div>
-                                                <div><strong>From:</strong> 
-                                                    {% set from_wallet = wallets|selectattr('_id', 'equalto', tx.from_wallet_id)|first %}
-                                                    {{ from_wallet.name if from_wallet else 'N/A' }}
-                                                </div>
-                                                <div><strong>To:</strong> 
-                                                    {% set to_wallet = wallets|selectattr('_id', 'equalto', tx.to_wallet_id)|first %}
-                                                    {{ to_wallet.name if to_wallet else 'N/A' }}
-                                                </div>
-                                            </div>
-                                        {% elif tx.type == 'expense' and tx.note and 'Transfer fee' in tx.note %}
-                                            <div class="small">
-                                                <div class="text-danger"><strong>Admin Fee</strong></div>
-                                                <div class="text-muted">{{ tx.note }}</div>
+                                            <div class="mt-1">
+                                                {% for tag in tx.tags %}
+                                                <span class="badge bg-secondary me-1" style="font-size: 0.65rem;">{{ tag }}</span>
+                                                {% endfor %}
                                             </div>
                                         {% else %}
-                                            <span class="text-muted">-</span>
+                                            <div class="mt-1">
+                                                <small class="text-muted">No tags</small>
+                                            </div>
                                         {% endif %}
                                     </td>
                                     <td>
-                                        <button class="btn btn-sm btn-outline-primary" onclick="editTransaction('{{ tx._id }}')">
+                                        <button class="btn btn-sm btn-outline-info me-1" onclick="showTransactionDetails('{{ tx._id }}')" title="View Details">
+                                            <i class="fas fa-info-circle"></i>
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-primary me-1" onclick="editTransaction('{{ tx._id }}')" title="Edit Transaction">
                                             <i class="fas fa-edit"></i>
                                         </button>
-                                        <button class="btn btn-sm btn-outline-danger" onclick="deleteTransaction('{{ tx._id }}')">
+                                        <button class="btn btn-sm btn-outline-danger" onclick="deleteTransaction('{{ tx._id }}')" title="Delete Transaction">
                                             <i class="fas fa-trash"></i>
                                         </button>
                                     </td>
@@ -2239,6 +2215,125 @@ function updateFromWalletBalance() {
     }
 }
 
+function showTransactionDetails(transactionId) {
+    // Find the transaction data from the current page data
+    const transaction = window.transactionData ? window.transactionData.find(tx => tx._id === transactionId) : null;
+    
+    if (!transaction) {
+        // If not found in page data, fetch from API
+        fetch(`/api/transactions/${transactionId}`)
+            .then(response => response.json())
+            .then(data => {
+                displayTransactionDetails(data);
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Failed to load transaction details');
+            });
+    } else {
+        displayTransactionDetails(transaction);
+    }
+}
+
+function displayTransactionDetails(tx) {
+    const content = document.getElementById('transactionDetailsContent');
+    
+    // Build the details HTML
+    let detailsHTML = `
+        <div class="row">
+            <div class="col-md-6">
+                <h6 class="text-primary">Basic Information</h6>
+                <table class="table table-sm">
+                    <tr>
+                        <td><strong>Date & Time:</strong></td>
+                        <td>${tx.formatted_time || 'N/A'}</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Type:</strong></td>
+                        <td>
+                            <span class="badge ${tx.type === 'income' ? 'bg-success' : 'bg-danger'}">
+                                ${tx.type ? tx.type.charAt(0).toUpperCase() + tx.type.slice(1) : 'N/A'}
+                            </span>
+                            ${tx.is_balance_adjustment ? '<br><small class="text-muted">Balance Adjustment</small>' : ''}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td><strong>Amount:</strong></td>
+                        <td class="fw-bold">${tx.amount ? 'Rp ' + parseFloat(tx.amount).toLocaleString('id-ID') : 'N/A'}</td>
+                    </tr>
+                </table>
+            </div>
+            <div class="col-md-6">
+                <h6 class="text-primary">Balance Information</h6>
+                <table class="table table-sm">
+                    <tr>
+                        <td><strong>Balance Before:</strong></td>
+                        <td>${tx.balance_before ? 'Rp ' + parseFloat(tx.balance_before).toLocaleString('id-ID') : 'N/A'}</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Balance After:</strong></td>
+                        <td class="fw-bold">${tx.balance_after ? 'Rp ' + parseFloat(tx.balance_after).toLocaleString('id-ID') : 'N/A'}</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+    `;
+    
+    // Add note if exists
+    if (tx.note) {
+        detailsHTML += `
+            <div class="mt-3">
+                <h6 class="text-primary">Note</h6>
+                <div class="alert alert-light">
+                    <i class="fas fa-sticky-note me-2"></i>${tx.note}
+                </div>
+            </div>
+        `;
+    }
+    
+    // Add transfer details if it's a transfer
+    if (tx.is_transfer || tx.type === 'transfer') {
+        detailsHTML += `
+            <div class="mt-3">
+                <h6 class="text-primary">Transfer Details</h6>
+                <div class="alert alert-info">
+                    <div><strong>From:</strong> ${tx.from_wallet_name || 'N/A'}</div>
+                    <div><strong>To:</strong> ${tx.to_wallet_name || 'N/A'}</div>
+                    ${tx.admin_fee ? `<div class="text-danger"><strong>Fee:</strong> Rp ${parseFloat(tx.admin_fee).toLocaleString('id-ID')}</div>` : ''}
+                </div>
+            </div>
+        `;
+    } else if (tx.is_transfer_fee) {
+        detailsHTML += `
+            <div class="mt-3">
+                <h6 class="text-primary">Transfer Fee Details</h6>
+                <div class="alert alert-warning">
+                    <div class="text-danger"><strong>Transfer Fee</strong></div>
+                    <div><strong>From:</strong> ${tx.from_wallet_name || 'N/A'}</div>
+                    <div><strong>To:</strong> ${tx.to_wallet_name || 'N/A'}</div>
+                </div>
+            </div>
+        `;
+    }
+    
+    // Add tags if exist
+    if (tx.tags && tx.tags.length > 0) {
+        const tagsHTML = tx.tags.map(tag => `<span class="badge bg-secondary me-1">${tag}</span>`).join('');
+        detailsHTML += `
+            <div class="mt-3">
+                <h6 class="text-primary">Tags</h6>
+                <div>${tagsHTML}</div>
+            </div>
+        `;
+    }
+    
+    content.innerHTML = detailsHTML;
+    
+    // Show the modal
+    const modal = new bootstrap.Modal(document.getElementById('transactionDetailsModal'));
+    modal.show();
+}
+
 
 </script>
 
@@ -2403,6 +2498,28 @@ function updateFromWalletBalance() {
                 <button type="button" class="btn btn-info" onclick="submitTransfer()">
                     <i class="fas fa-exchange-alt me-1"></i>Transfer Money
                 </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Transaction Details Modal -->
+<div class="modal fade" id="transactionDetailsModal" tabindex="-1" aria-labelledby="transactionDetailsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="transactionDetailsModalLabel">
+                    <i class="fas fa-info-circle me-2"></i>Transaction Details
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="transactionDetailsContent">
+                    <!-- Content will be loaded here -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
             </div>
         </div>
     </div>
