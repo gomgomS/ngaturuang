@@ -12,7 +12,7 @@ class TransactionRepository(MongoRepository):
     def list_by_user(self, user_id: str, limit: int = 200) -> List[Dict[str, Any]]:
         """Query sederhana untuk mendapatkan transaksi user"""
         try:
-            transactions = self.find_many({"user_id": user_id}, limit=limit, sort=[("created_at", -1)])
+            transactions = self.find_many({"user_id": user_id}, limit=limit, sort=[("timestamp", -1)])
             # Ensure we always return a list, never None
             if transactions is None:
                 transactions = []
@@ -25,7 +25,7 @@ class TransactionRepository(MongoRepository):
         """Method sederhana untuk mendapatkan transaksi user"""
         try:
             query = {"user_id": user_id}
-            transactions = self.find_many(query, limit=limit, sort=[("created_at", -1)])
+            transactions = self.find_many(query, limit=limit, sort=[("timestamp", -1)])
             
             # Ensure we always return a list, never None
             if transactions is None:
@@ -48,7 +48,7 @@ class TransactionRepository(MongoRepository):
                 # Format timestamp
                 if "timestamp" in tx:
                     try:
-                        tx["formatted_time"] = datetime.fromtimestamp(tx["timestamp"]).strftime("%Y-%m-%d %H:%M")
+                        tx["formatted_time"] = datetime.fromtimestamp(tx["timestamp"]).strftime("%Y-%m-%d %H:%M:%S")
                     except (ValueError, TypeError):
                         tx["formatted_time"] = "Invalid Time"
             
@@ -67,7 +67,7 @@ class TransactionRepository(MongoRepository):
                     "$lt": end_timestamp
                 }
             }
-            transactions = self.find_many(query, limit=limit, sort=[("created_at", -1)])
+            transactions = self.find_many(query, limit=limit, sort=[("timestamp", -1)])
             
             # Ensure we always return a list, never None
             if transactions is None:
@@ -90,7 +90,7 @@ class TransactionRepository(MongoRepository):
                 # Format timestamp
                 if "timestamp" in tx:
                     try:
-                        tx["formatted_time"] = datetime.fromtimestamp(tx["timestamp"]).strftime("%Y-%m-%d %H:%M")
+                        tx["formatted_time"] = datetime.fromtimestamp(tx["timestamp"]).strftime("%Y-%m-%d %H:%M:%S")
                         tx["date"] = datetime.fromtimestamp(tx["timestamp"]).strftime("%Y-%m-%d")
                     except (ValueError, TypeError):
                         tx["formatted_time"] = "Invalid Date"
@@ -154,7 +154,7 @@ class TransactionRepository(MongoRepository):
         """Method untuk mendapatkan transaksi berdasarkan scope tertentu"""
         try:
             query = {"user_id": user_id, "scope_id": scope_id}
-            transactions = self.find_many(query, limit=limit, sort=[("created_at", -1)])
+            transactions = self.find_many(query, limit=limit, sort=[("timestamp", -1)])
             
             # Ensure we always return a list, never None
             if transactions is None:
@@ -177,7 +177,7 @@ class TransactionRepository(MongoRepository):
                 # Format timestamp
                 if "timestamp" in tx:
                     try:
-                        tx["formatted_time"] = datetime.fromtimestamp(tx["timestamp"]).strftime("%Y-%m-%d %H:%M")
+                        tx["formatted_time"] = datetime.fromtimestamp(tx["timestamp"]).strftime("%Y-%m-%d %H:%M:%S")
                     except (ValueError, TypeError):
                         tx["formatted_time"] = "Invalid Time"
             
@@ -331,7 +331,7 @@ class TransactionRepository(MongoRepository):
                 "fk_manual_balance_id": manual_balance_id
             }
             
-            transactions = self.find_many(query, sort=[("created_at", -1)], limit=limit)
+            transactions = self.find_many(query, sort=[("timestamp", -1)], limit=limit)
             
             # Set default values untuk backward compatibility
             for tx in transactions:
@@ -352,7 +352,7 @@ class TransactionRepository(MongoRepository):
                 "timestamp": {"$gt": balance_timestamp}
             }
             
-            return self.find_many(query, sort=[("created_at", 1)], limit=limit)
+            return self.find_many(query, sort=[("timestamp", 1)], limit=limit)
             
         except Exception as e:
             print(f"❌ [TRANSACTIONS] Error getting transactions after manual balance: {e}")
@@ -420,7 +420,7 @@ class TransactionRepository(MongoRepository):
             
             print(f"🔍 [REPO] Final query: {query}")
             
-            transactions = self.find_many(query, limit=limit, sort=[("created_at", -1)])
+            transactions = self.find_many(query, limit=limit, sort=[("timestamp", -1)])
             
             print(f"🔍 [REPO] find_many result type: {type(transactions)}")
             print(f"🔍 [REPO] find_many result: {transactions}")
@@ -453,7 +453,7 @@ class TransactionRepository(MongoRepository):
                 # Format timestamp
                 if "timestamp" in tx:
                     try:
-                        tx["formatted_time"] = datetime.fromtimestamp(tx["timestamp"]).strftime("%Y-%m-%d %H:%M")
+                        tx["formatted_time"] = datetime.fromtimestamp(tx["timestamp"]).strftime("%Y-%m-%d %H:%M:%S")
                     except (ValueError, TypeError):
                         tx["formatted_time"] = "Invalid Time"
             
@@ -531,7 +531,8 @@ class TransactionRepository(MongoRepository):
             data["updated_at"] = current_time
             
             # Tambahkan field balance tracking sebelum transaksi
-            if data.get("wallet_id") and data.get("user_id"):
+            # Skip balance tracking for transfer fee transactions as they already have correct values
+            if data.get("wallet_id") and data.get("user_id") and not data.get("is_transfer_fee"):
                 from mm.repositories.wallets import WalletRepository
                 wallet_repo = WalletRepository()
                 wallet = wallet_repo.get_wallet_by_id(data["wallet_id"], data["user_id"])
@@ -539,6 +540,9 @@ class TransactionRepository(MongoRepository):
                     # Balance sebelum transaksi
                     data["balance_before"] = float(wallet.get("actual_balance", 0))
                     print(f"💰 [TRANSACTIONS] Balance before transaction: {data['balance_before']}")
+            elif data.get("is_transfer_fee"):
+                print(f"💰 [TRANSACTIONS] Skipping balance_before overwrite for transfer fee transaction")
+                print(f"💰 [TRANSACTIONS] Keeping calculated balance_before: {data.get('balance_before')}")
             
             # Insert ke database
             result = self.collection.insert_one(data)
@@ -847,7 +851,7 @@ class TransactionRepository(MongoRepository):
                 # Format timestamp
                 if "timestamp" in transaction:
                     try:
-                        transaction["formatted_time"] = datetime.fromtimestamp(transaction["timestamp"]).strftime("%Y-%m-%d %H:%M")
+                        transaction["formatted_time"] = datetime.fromtimestamp(transaction["timestamp"]).strftime("%Y-%m-%d %H:%M:%S")
                     except (ValueError, TypeError):
                         transaction["formatted_time"] = "Invalid Time"
             

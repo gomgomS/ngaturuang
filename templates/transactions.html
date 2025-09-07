@@ -51,6 +51,19 @@
     background-color: #e9ecef;
 }
 
+/* Styling for disabled category options */
+#add_category_id option:disabled,
+#edit_category_id option:disabled {
+    color: #6c757d;
+    font-style: italic;
+    background-color: #f8f9fa;
+}
+
+#add_category_id option:disabled:hover,
+#edit_category_id option:disabled:hover {
+    background-color: #e9ecef;
+}
+
 /* Mobile Transaction Cards */
 .transaction-card {
     border: none;
@@ -913,7 +926,11 @@
                             <select class="form-select" id="add_category_id" name="category_id">
                                 <option value="">Select Category</option>
                                 {% for category in categories %}
+                                {% if category.name == "Transfer" or category.name == "Balance Adjustment" %}
+                                <option value="{{ category._id }}" disabled>{{ category.name }} (by system only)</option>
+                                {% else %}
                                 <option value="{{ category._id }}">{{ category.name }}</option>
+                                {% endif %}
                                 {% endfor %}
                             </select>
                         </div>
@@ -1077,7 +1094,11 @@
                             <select class="form-select" id="edit_category_id" name="category_id">
                                 <option value="">Select Category</option>
                                 {% for category in categories %}
+                                {% if category.name == "Transfer" or category.name == "Balance Adjustment" %}
+                                <option value="{{ category._id }}" disabled>{{ category.name }} (by system only)</option>
+                                {% else %}
                                 <option value="{{ category._id }}">{{ category.name }}</option>
+                                {% endif %}
                                 {% endfor %}
                             </select>
                         </div>

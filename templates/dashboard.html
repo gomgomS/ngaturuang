@@ -769,10 +769,10 @@
                 </div>
                                 <div>
                                             <div class="fw-medium text-truncate" style="max-width: 120px;">
-                                                {{ tx.note or tx.description or 'No description' }}
+                                                {{ tx.category_id or 'No Category' }}
                                 </div>
-                                            {% if (tx.category_name and tx.category_name != 'Unknown') or (tx.category and tx.category != 'Unknown') %}
-                                            <small class="text-muted">{{ tx.category_name or tx.category or 'Uncategorized' }}</small>
+                                            {% if tx.note or tx.description %}
+                                            <small class="text-muted">{{ tx.note or tx.description or 'No description' }}</small>
                                             {% endif %}
                                             <small class="text-muted d-block">{{ tx.wallet_name or 'No Wallet' }}</small>
                                 </div>
@@ -1782,10 +1782,10 @@ function createTransactionItem(tx) {
                 </div>
                 <div>
                     <div class="fw-medium text-truncate" style="max-width: 120px;">
-                        ${tx.note || tx.description || 'No description'}
+                        ${tx.category_id || 'No Category'}
                     </div>
-                    ${(tx.category_name && tx.category_name !== 'Unknown') || (tx.category && tx.category !== 'Unknown') ? 
-                        `<small class="text-muted">${tx.category_name || tx.category || 'Uncategorized'}</small>` : ''}
+                    ${(tx.note || tx.description) ? 
+                        `<small class="text-muted">${tx.note || tx.description || 'No description'}</small>` : ''}
                     <small class="text-muted d-block">${tx.wallet_name || 'No Wallet'}</small>
                 </div>
             </div>

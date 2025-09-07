@@ -163,6 +163,10 @@ def dashboard():
             print(f"🔍 [DASHBOARD] No transactions in current month, getting recent transactions from all time")
             transactions = tx_repo.get_user_transactions_simple(user_id, limit=10)
         
+        # Filter out system categories (Transfer and Balance Adjustment)
+        system_categories = ["transfer", "balance_adjustment"]
+        transactions = [tx for tx in transactions if tx.get("category_id") not in system_categories]
+        
         scopes = scope_repo.list_by_user(user_id)
         wallets = wallet_repo.list_by_user(user_id)
         
@@ -205,8 +209,9 @@ def dashboard():
         # Get current month name for display
         current_month_name = current_date.strftime('%B %Y')
         
-        # Process tags data - get all user transactions to count tags
+        # Process tags data - get all user transactions to count tags (excluding system categories)
         all_transactions = tx_repo.get_user_transactions_simple(user_id, limit=1000)  # Get more transactions for better tag analysis
+        all_transactions = [tx for tx in all_transactions if tx.get("category_id") not in system_categories]
         tag_counts = {}
         
         for tx in all_transactions:
@@ -310,11 +315,15 @@ def api_dashboard_data():
         # Get transactions for the specified month
         transactions = tx_repo.get_user_transactions_by_date_range(user_id, start_timestamp, end_timestamp)
         
-        # Calculate totals for the month
-        total_income = sum(float(tx.get("amount", 0)) for tx in transactions if tx.get("type") == "income")
-        total_expenses = sum(float(tx.get("amount", 0)) for tx in transactions if tx.get("type") == "expense")
-        total_transfer = sum(float(tx.get("amount", 0)) for tx in transactions if tx.get("type") == "transfer")
-        transaction_count = len(transactions)
+        # Filter out system categories (Transfer and Balance Adjustment)
+        system_categories = ["transfer", "balance_adjustment"]
+        filtered_transactions = [tx for tx in transactions if tx.get("category_id") not in system_categories]
+        
+        # Calculate totals for the month (excluding system categories)
+        total_income = sum(float(tx.get("amount", 0)) for tx in filtered_transactions if tx.get("type") == "income")
+        total_expenses = sum(float(tx.get("amount", 0)) for tx in filtered_transactions if tx.get("type") == "expense")
+        total_transfer = sum(float(tx.get("amount", 0)) for tx in filtered_transactions if tx.get("type") == "transfer")
+        transaction_count = len(filtered_transactions)
         
         # Calculate total balance based on latest transaction balance_after for each wallet up to selected date
         # For month-only or year-only selection, pass start_timestamp to limit the search to that period
@@ -341,10 +350,11 @@ def api_dashboard_data():
             yesterday_timestamp = int(yesterday_date.timestamp())
             yesterday_balance = calculate_balance_from_transactions(user_id, yesterday_timestamp)
             
-            # Calculate yesterday's income and expenses
+            # Calculate yesterday's income and expenses (excluding system categories)
             yesterday_transactions = tx_repo.get_user_transactions_by_date_range(user_id, yesterday_timestamp, yesterday_timestamp + 86400)  # 24 hours
-            yesterday_income = sum(float(tx.get("amount", 0)) for tx in yesterday_transactions if tx.get("type") == "income")
-            yesterday_expenses = sum(float(tx.get("amount", 0)) for tx in yesterday_transactions if tx.get("type") == "expense")
+            yesterday_filtered = [tx for tx in yesterday_transactions if tx.get("category_id") not in system_categories]
+            yesterday_income = sum(float(tx.get("amount", 0)) for tx in yesterday_filtered if tx.get("type") == "income")
+            yesterday_expenses = sum(float(tx.get("amount", 0)) for tx in yesterday_filtered if tx.get("type") == "expense")
             
             # Calculate improvements if data is available
             if yesterday_balance != "-" and total_balance != "-":
@@ -384,10 +394,11 @@ def api_dashboard_data():
             # Calculate previous month's balance
             previous_month_balance = calculate_balance_from_transactions(user_id, prev_month_end_timestamp)
             
-            # Calculate previous month's income and expenses
+            # Calculate previous month's income and expenses (excluding system categories)
             prev_month_transactions = tx_repo.get_user_transactions_by_date_range(user_id, prev_month_timestamp, prev_month_end_timestamp)
-            previous_month_income = sum(float(tx.get("amount", 0)) for tx in prev_month_transactions if tx.get("type") == "income")
-            previous_month_expenses = sum(float(tx.get("amount", 0)) for tx in prev_month_transactions if tx.get("type") == "expense")
+            prev_month_filtered = [tx for tx in prev_month_transactions if tx.get("category_id") not in system_categories]
+            previous_month_income = sum(float(tx.get("amount", 0)) for tx in prev_month_filtered if tx.get("type") == "income")
+            previous_month_expenses = sum(float(tx.get("amount", 0)) for tx in prev_month_filtered if tx.get("type") == "expense")
             
             # Calculate improvements if data is available
             if previous_month_balance != "-" and total_balance != "-":
@@ -410,24 +421,24 @@ def api_dashboard_data():
             except (ValueError, TypeError):
                 previous_month_expenses_improvement = None
         
-        # Get recent transactions (limit to 5)
-        recent_transactions = transactions[:5]
+        # Get recent transactions (limit to 5, excluding system categories)
+        recent_transactions = filtered_transactions[:5]
         
-        # Generate chart data based on filter type
+        # Generate chart data based on filter type (using filtered transactions)
         if day and month:
             # For day view, show hourly breakdown
             month_parts = month.split('-')
             month_num = int(month_parts[1])
             day_num = int(day)
-            chart_data = generate_daily_chart_data(transactions, year, month_num, day_num)
+            chart_data = generate_daily_chart_data(filtered_transactions, year, month_num, day_num)
         elif month:
             # For month view, show daily breakdown
             month_parts = month.split('-')
             month_num = int(month_parts[1])
-            chart_data = generate_monthly_chart_data(transactions, year, month_num)
+            chart_data = generate_monthly_chart_data(filtered_transactions, year, month_num)
         else:
             # For year view, show monthly breakdown
-            chart_data = generate_yearly_chart_data(transactions, year)
+            chart_data = generate_yearly_chart_data(filtered_transactions, year)
         
         return jsonify({
             "total_balance": total_balance,
@@ -2003,8 +2014,26 @@ def create_transfer_transaction():
         # Create admin fee transaction (if fee > 0)
         fee_data = None
         if admin_fee > 0:
-            fee_balance_before = from_wallet_balance_after  # After the main transfer
-            fee_balance_after = fee_balance_before - admin_fee
+            print(f"🔍 [TRANSFER DEBUG] Starting fee calculation...")
+            print(f"🔍 [TRANSFER DEBUG] current_balance: {current_balance}")
+            print(f"🔍 [TRANSFER DEBUG] amount: {amount}")
+            print(f"🔍 [TRANSFER DEBUG] admin_fee: {admin_fee}")
+            
+            # Fee balance should be calculated AFTER the main transfer amount is deducted
+            # Main transfer deducts 'amount', so fee starts from that reduced balance
+            fee_balance_before = from_wallet_balance_after  # Balance after main transfer
+            fee_balance_after = fee_balance_before - admin_fee  # Balance after fee deduction
+            
+            # Debug logging
+            print(f"🔍 [TRANSFER DEBUG] Main transfer - balance_before: {from_wallet_balance_before}")
+            print(f"🔍 [TRANSFER DEBUG] Main transfer - balance_after: {from_wallet_balance_after}")
+            print(f"🔍 [TRANSFER DEBUG] Fee - balance_before: {fee_balance_before}")
+            print(f"🔍 [TRANSFER DEBUG] Fee - balance_after: {fee_balance_after}")
+            print(f"🔍 [TRANSFER DEBUG] from_wallet_balance_after value: {from_wallet_balance_after}")
+            
+            # Set fee transaction timestamp 2 seconds after main transfer
+            # This ensures fee appears before main transfer when sorted by timestamp (descending)
+            fee_timestamp = current_time + 2
             
             fee_data = {
                 "user_id": user_id,
@@ -2012,8 +2041,8 @@ def create_transfer_transaction():
                 "type": "expense",
                 "amount": admin_fee,
                 "note": f"Transfer fee for transfer to {to_wallet.get('name', 'Unknown')}",
-                "timestamp": current_time,
-                "created_at": current_time,
+                "timestamp": fee_timestamp,
+                "created_at": fee_timestamp,
                 "category_id": "transfer_fee",  # You may want to add this category
                 "scope_id": None,
                 "tags": ["transfer", "fee"],
@@ -2022,9 +2051,17 @@ def create_transfer_transaction():
                 "to_wallet_id": to_wallet_id,
                 "transfer_amount": amount,
                 "admin_fee": admin_fee,
-                "balance_before": fee_balance_before,
-                "balance_after": fee_balance_after
+                "balance_before": fee_balance_before,  # Balance after main transfer
+                "balance_after": fee_balance_after     # Balance after fee deduction
             }
+            
+            print(f"🔍 [TRANSFER DEBUG] Fee data before insert:")
+            print(f"🔍 [TRANSFER DEBUG] fee_data['balance_before']: {fee_data['balance_before']}")
+            print(f"🔍 [TRANSFER DEBUG] fee_data['balance_after']: {fee_data['balance_after']}")
+            print(f"🔍 [TRANSFER DEBUG] fee_balance_before variable: {fee_balance_before}")
+            print(f"🔍 [TRANSFER DEBUG] fee_balance_after variable: {fee_balance_after}")
+            print(f"🔍 [TRANSFER DEBUG] from_wallet_balance_after variable: {from_wallet_balance_after}")
+            print(f"🔍 [TRANSFER DEBUG] current_balance variable: {current_balance}")
         
         # Create transactions
         transaction_repo = TransactionRepository()
