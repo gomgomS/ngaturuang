@@ -1925,6 +1925,8 @@ def api_ai_chat():
                     "amount": float(t.get("amount", 0) or 0),
                     "type": t.get("type", ""),
                     "timestamp": t.get("timestamp"),
+                    "tags": t.get("tags", []),
+                    "note": t.get("note"),
                     "category": {"id": cat_id or None, "name": cat_name.get(cat_id) if cat_id else None, "selected": cat_id in cat_ids},
                     "wallet": {"id": wal_id or None, "name": wal_name.get(wal_id) if wal_id else None, "selected": wal_id in wal_ids},
                     "scope": {"id": scp_id or None, "name": scp_name.get(scp_id) if scp_id else None, "selected": scp_id in scp_ids}
