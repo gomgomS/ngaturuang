@@ -10,7 +10,7 @@ from mm.repositories.ai_chats import AiChatRepository
 from mm.repositories.users import UserRepository
 from bson import ObjectId
 from config import ensure_indexes
-from model import index_specs
+# from model import index_specs
 from config import get_gemini_api_key
 from mm.repositories.manual_balance import ManualBalanceRepository
 
@@ -18,12 +18,12 @@ app = Flask(__name__)
 app.secret_key = "your-secret-key-here"
 
 # Ensure database indexes (with error handling)
-try:
-    ensure_indexes(index_specs)
-    print("✅ Database indexes created successfully")
-except Exception as e:
-    print(f"⚠️ Warning: Could not create database indexes: {e}")
-    print("Application will continue without indexes...")
+# try:
+#     ensure_indexes(index_specs)
+#     print("✅ Database indexes created successfully")
+# except Exception as e:
+#     print(f"⚠️ Warning: Could not create database indexes: {e}")
+#     print("Application will continue without indexes...")
 
 # Context processor to add total balance and username to all templates
 @app.context_processor
