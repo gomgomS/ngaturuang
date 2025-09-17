@@ -134,7 +134,6 @@ class TransactionRepository(MongoRepository):
                         wallet = wallet_repo.find_by_id(tx["wallet_id"])
                         if wallet:
                             tx["wallet_name"] = wallet.get("name", "Unknown")
-                            print(f"🔍 [TX] Found wallet: {tx['wallet_name']} for wallet_id: {tx['wallet_id']}")
                         else:
                             tx["wallet_name"] = "Unknown"
                             print(f"❌ [TX] Wallet not found for wallet_id: {tx['wallet_id']}")
@@ -143,7 +142,6 @@ class TransactionRepository(MongoRepository):
                         print(f"❌ [TX] Error getting wallet for wallet_id {tx['wallet_id']}: {e}")
                 else:
                     tx["wallet_name"] = "No Wallet"
-                    print(f"⚠️ [TX] No wallet_id in transaction")
             
             return transactions
         except Exception as e:
@@ -208,7 +206,6 @@ class TransactionRepository(MongoRepository):
             )
             
             if balance:
-                print(f"🔗 [TRANSACTIONS] Found active manual balance: {balance['_id']} (seq: {balance.get('sequence_number', 0)})")
                 return str(balance["_id"])
             
             # Fallback: jika tidak ada yang is_latest, cari berdasarkan balance_date
@@ -224,10 +221,7 @@ class TransactionRepository(MongoRepository):
             )
             
             if fallback_balance:
-                print(f"⚠️ [TRANSACTIONS] Using fallback manual balance: {fallback_balance['_id']} (seq: {fallback_balance.get('sequence_number', 0)})")
                 return str(fallback_balance["_id"])
-            
-            print(f"⚠️ [TRANSACTIONS] No manual balance found for user: {user_id}, wallet: {wallet_id}")
             return None
             
         except Exception as e:
@@ -237,7 +231,6 @@ class TransactionRepository(MongoRepository):
     def migrate_existing_transactions(self, user_id: str = None):
         """Migrate transaksi yang sudah ada untuk menambahkan fk_manual_balance_id dan sequence_number"""
         try:
-            print(f"🔄 [TRANSACTIONS] Starting migration for existing transactions...")
             
             # Query untuk transaksi yang belum ada fk_manual_balance_id
             query = {}
@@ -262,7 +255,6 @@ class TransactionRepository(MongoRepository):
                     tx_timestamp = tx.get("timestamp", 0)
                     
                     if not tx_user_id or not tx_wallet_id:
-                        print(f"⚠️ [TRANSACTIONS] Skipping transaction {tx['_id']}: missing user_id or wallet_id")
                         continue
                     
                     # Get active manual balance untuk timestamp transaksi
@@ -295,8 +287,6 @@ class TransactionRepository(MongoRepository):
                 except Exception as e:
                     print(f"❌ [TRANSACTIONS] Error migrating transaction {tx.get('_id', 'unknown')}: {e}")
                     continue
-            
-            print(f"✅ [TRANSACTIONS] Migration completed. {migrated_count} transactions migrated.")
             return migrated_count
             
         except Exception as e:
@@ -377,8 +367,6 @@ class TransactionRepository(MongoRepository):
     def get_transactions_with_filters(self, user_id: str, filters: Dict[str, Any] = None, limit: int = 200) -> List[Dict[str, Any]]:
         """Method untuk mendapatkan transaksi dengan multiple filters"""
         try:
-            print(f"🔍 [REPO] get_transactions_with_filters called with user_id: {user_id}, filters: {filters}")
-            
             # Base query selalu include user_id
             query = {"user_id": user_id}
             
@@ -418,24 +406,15 @@ class TransactionRepository(MongoRepository):
                     if amount_query:
                         query["amount"] = amount_query
             
-            print(f"🔍 [REPO] Final query: {query}")
-            
+  
             transactions = self.find_many(query, limit=limit, sort=[("timestamp", -1)])
-            
-            print(f"🔍 [REPO] find_many result type: {type(transactions)}")
-            print(f"🔍 [REPO] find_many result: {transactions}")
-            
+
             # Ensure we always return a list, never None
             if transactions is None:
-                print(f"⚠️ [REPO] Transactions is None, returning empty list")
                 transactions = []
             elif not isinstance(transactions, list):
-                print(f"⚠️ [REPO] Transactions is not a list, converting to list")
                 transactions = list(transactions) if transactions else []
-            
-            print(f"🔍 [REPO] After validation - transactions type: {type(transactions)}")
-            print(f"🔍 [REPO] After validation - transactions length: {len(transactions) if transactions else 0}")
-            
+   
             # Format data agar mudah digunakan di template
             for tx in transactions:
                 # Pastikan field yang diperlukan ada
@@ -457,11 +436,8 @@ class TransactionRepository(MongoRepository):
                     except (ValueError, TypeError):
                         tx["formatted_time"] = "Invalid Time"
             
-            print(f"🔍 [REPO] Returning {len(transactions)} formatted transactions")
             return transactions
         except Exception as e:
-            print(f"❌ [REPO] Error in get_transactions_with_filters: {e}")
-            print(f"❌ [REPO] Error type: {type(e)}")
             import traceback
             print(f"❌ [REPO] Error traceback: {traceback.format_exc()}")
             return []
@@ -479,8 +455,7 @@ class TransactionRepository(MongoRepository):
                     manual_balance_id = self.get_active_manual_balance_id(user_id, wallet_id, timestamp)
                     if manual_balance_id:
                         data["fk_manual_balance_id"] = manual_balance_id
-                        print(f"🔗 [TRANSACTIONS] Auto-linked to manual balance: {manual_balance_id}")
-            
+
             # Auto-populate sequence_number jika tidak ada
             if "sequence_number" not in data or not data["sequence_number"]:
                 user_id = data.get("user_id")
@@ -490,8 +465,7 @@ class TransactionRepository(MongoRepository):
                 if user_id and wallet_id and manual_balance_id:
                     next_sequence = self.get_next_sequence_number(user_id, wallet_id, manual_balance_id)
                     data["sequence_number"] = next_sequence
-                    print(f"🔢 [TRANSACTIONS] Auto-assigned sequence: {next_sequence}")
-            
+
             # Set timestamp jika tidak ada
             if "timestamp" not in data:
                 data["timestamp"] = int(datetime.now().timestamp())
@@ -505,25 +479,20 @@ class TransactionRepository(MongoRepository):
                         # Jika string kosong atau whitespace, set ke 0
                         if not amount_value.strip():
                             data["amount"] = 0.0
-                            print(f"⚠️ [TRANSACTIONS] Empty amount string, setting to 0")
                         else:
                             # Coba konversi string ke float
                             data["amount"] = float(amount_value)
-                            print(f"💰 [TRANSACTIONS] Converted amount string to float: {data['amount']}")
                     elif isinstance(amount_value, (int, float)):
                         # Jika sudah numeric, pastikan float
                         data["amount"] = float(amount_value)
                     else:
                         # Jika tipe data tidak valid, set ke 0
-                        print(f"⚠️ [TRANSACTIONS] Invalid amount type: {type(amount_value)}, setting to 0")
                         data["amount"] = 0.0
                 except (ValueError, TypeError) as e:
-                    print(f"⚠️ [TRANSACTIONS] Error converting amount '{amount_value}': {e}, setting to 0")
                     data["amount"] = 0.0
             else:
                 # Jika amount tidak ada, set default 0
                 data["amount"] = 0.0
-                print(f"⚠️ [TRANSACTIONS] Amount field missing, setting to 0")
             
             # Set created_at dan updated_at
             current_time = int(datetime.now().timestamp())
@@ -539,17 +508,10 @@ class TransactionRepository(MongoRepository):
                 if wallet:
                     # Balance sebelum transaksi
                     data["balance_before"] = float(wallet.get("actual_balance", 0))
-                    print(f"💰 [TRANSACTIONS] Balance before transaction: {data['balance_before']}")
-            elif data.get("is_transfer_fee"):
-                print(f"💰 [TRANSACTIONS] Skipping balance_before overwrite for transfer fee transaction")
-                print(f"💰 [TRANSACTIONS] Keeping calculated balance_before: {data.get('balance_before')}")
-            
             # Insert ke database
             result = self.collection.insert_one(data)
             
-            if result.inserted_id:
-                print(f"✅ [TRANSACTIONS] Inserted transaction: {result.inserted_id}")
-                
+            if result.inserted_id:  
                 # Auto-update wallet balance setelah transaksi berhasil dibuat
                 # Skip balance update if flag is set (for transfers)
                 if (data.get("wallet_id") and data.get("user_id") and 
@@ -574,17 +536,12 @@ class TransactionRepository(MongoRepository):
                                 {"_id": result.inserted_id},
                                 {"$set": {"balance_after": balance_after}}
                             )
-                            print(f"💰 [TRANSACTIONS] Balance after transaction: {balance_after}")
-                else:
-                    print(f"⏭️ [TRANSACTIONS] Skipping automatic balance update (skip_balance_update flag set)")
-                
+                else: 
                 return str(result.inserted_id)
             else:
-                print("❌ [TRANSACTIONS] Failed to insert transaction")
                 return None
                 
         except Exception as e:
-            print(f"❌ [TRANSACTIONS] Error inserting transaction: {e}")
             import traceback
             print(f"❌ [TRANSACTIONS] Error traceback: {traceback.format_exc()}")
             return None
@@ -592,8 +549,6 @@ class TransactionRepository(MongoRepository):
     def _update_wallet_balance_after_transaction(self, wallet_id: str, user_id: str, transaction_type: str, amount: float) -> bool:
         """Update wallet balance secara otomatis setelah transaksi dibuat"""
         try:
-            print(f"💰 [TRANSACTIONS] Auto-updating wallet balance for transaction: {wallet_id}, type: {transaction_type}, amount: {amount}")
-            
             from mm.repositories.wallets import WalletRepository
             wallet_repo = WalletRepository()
             
@@ -610,31 +565,20 @@ class TransactionRepository(MongoRepository):
             new_balance = current_balance
             if transaction_type == "income":
                 new_balance += amount
-                print(f"💰 [TRANSACTIONS] Income: {current_balance} + {amount} = {new_balance}")
             elif transaction_type == "expense":
                 new_balance -= amount
-                print(f"💰 [TRANSACTIONS] Expense: {current_balance} - {amount} = {new_balance}")
             elif transaction_type == "transfer":
                 # For transfers, we need to check if it's incoming or outgoing
                 # This will be handled by the transfer logic
-                print(f"💰 [TRANSACTIONS] Transfer transaction - balance update handled by transfer logic")
                 return True
             else:
-                print(f"💰 [TRANSACTIONS] Unknown transaction type: {transaction_type}, skipping balance update")
                 return True
             
             # Update wallet balance
-            success = wallet_repo.update_wallet_balance(wallet_id, user_id, new_balance)
-            
-            if success:
-                print(f"✅ [TRANSACTIONS] Successfully updated wallet balance: {wallet_id} -> {new_balance}")
-            else:
-                print(f"❌ [TRANSACTIONS] Failed to update wallet balance: {wallet_id}")
-            
+            success = wallet_repo.update_wallet_balance(wallet_id, user_id, new_balance)    
             return success
             
         except Exception as e:
-            print(f"❌ [TRANSACTIONS] Error updating wallet balance: {e}")
             import traceback
             print(f"❌ [TRANSACTIONS] Error traceback: {traceback.format_exc()}")
             return False
@@ -659,8 +603,6 @@ class TransactionRepository(MongoRepository):
                 old_amount = float(existing_tx.get("amount", 0))
             except (ValueError, TypeError):
                 old_amount = 0.0
-                print(f"⚠️ [TRANSACTIONS] Invalid old_amount, setting to 0")
-            
             # Tambah timestamp update
             updates["updated_at"] = int(time.time())
             
@@ -687,8 +629,7 @@ class TransactionRepository(MongoRepository):
                         new_amount = float(updates.get("amount", old_amount))
                     except (ValueError, TypeError):
                         new_amount = 0.0
-                        print(f"⚠️ [TRANSACTIONS] Invalid new_amount, setting to 0")
-                    
+
                     if new_wallet_id and new_type and new_amount > 0:
                         # Update balance tracking fields
                         from mm.repositories.wallets import WalletRepository
@@ -699,8 +640,7 @@ class TransactionRepository(MongoRepository):
                         if wallet:
                             balance_before = float(wallet.get("actual_balance", 0))
                             updates["balance_before"] = balance_before
-                            print(f"💰 [TRANSACTIONS] Updated balance_before: {balance_before}")
-                        
+
                         # Apply new transaction effect
                         success = self._update_wallet_balance_after_transaction(new_wallet_id, user_id, new_type, new_amount)
                         
@@ -710,8 +650,7 @@ class TransactionRepository(MongoRepository):
                             if updated_wallet:
                                 balance_after = float(updated_wallet.get("actual_balance", 0))
                                 updates["balance_after"] = balance_after
-                                print(f"💰 [TRANSACTIONS] Updated balance_after: {balance_after}")
-                                
+  
                                 # Update transaksi dengan field balance tracking
                                 self.collection.update_one(
                                     {"_id": obj_id},
@@ -729,8 +668,7 @@ class TransactionRepository(MongoRepository):
     def _revert_wallet_balance_change(self, wallet_id: str, user_id: str, transaction_type: str, amount: float) -> bool:
         """Revert wallet balance change when transaction is updated or deleted"""
         try:
-            print(f"🔄 [TRANSACTIONS] Reverting wallet balance change: {wallet_id}, type: {transaction_type}, amount: {amount}")
-            
+
             from mm.repositories.wallets import WalletRepository
             wallet_repo = WalletRepository()
             
@@ -747,26 +685,17 @@ class TransactionRepository(MongoRepository):
             reverted_balance = current_balance
             if transaction_type == "income":
                 reverted_balance -= amount  # Remove income
-                print(f"🔄 [TRANSACTIONS] Reverting income: {current_balance} - {amount} = {reverted_balance}")
             elif transaction_type == "expense":
                 reverted_balance += amount  # Add back expense
-                print(f"🔄 [TRANSACTIONS] Reverting expense: {current_balance} + {amount} = {reverted_balance}")
             else:
-                print(f"🔄 [TRANSACTIONS] Unknown transaction type for revert: {transaction_type}")
                 return True
             
             # Update wallet balance
             success = wallet_repo.update_wallet_balance(wallet_id, user_id, reverted_balance)
             
-            if success:
-                print(f"✅ [TRANSACTIONS] Successfully reverted wallet balance: {wallet_id} -> {reverted_balance}")
-            else:
-                print(f"❌ [TRANSACTIONS] Failed to revert wallet balance: {wallet_id}")
-            
             return success
             
         except Exception as e:
-            print(f"❌ [TRANSACTIONS] Error reverting wallet balance: {e}")
             import traceback
             print(f"❌ [TRANSACTIONS] Error traceback: {traceback.format_exc()}")
             return False
@@ -791,8 +720,7 @@ class TransactionRepository(MongoRepository):
                 amount = float(existing_tx.get("amount", 0))
             except (ValueError, TypeError):
                 amount = 0.0
-                print(f"⚠️ [TRANSACTIONS] Invalid amount for deletion, setting to 0")
-            
+
             # Delete dengan ObjectId
             result = self.collection.delete_one({"_id": obj_id})
             
@@ -805,8 +733,7 @@ class TransactionRepository(MongoRepository):
                     wallet = wallet_repo.get_wallet_by_id(wallet_id, user_id)
                     if wallet:
                         balance_before = float(wallet.get("actual_balance", 0))
-                        print(f"💰 [TRANSACTIONS] Balance before deletion: {balance_before}")
-                    
+    
                     # Revert balance change
                     success = self._revert_wallet_balance_change(wallet_id, user_id, transaction_type, amount)
                     
@@ -815,8 +742,7 @@ class TransactionRepository(MongoRepository):
                         updated_wallet = wallet_repo.get_wallet_by_id(wallet_id, user_id)
                         if updated_wallet:
                             balance_after = float(updated_wallet.get("actual_balance", 0))
-                            print(f"💰 [TRANSACTIONS] Balance after deletion: {balance_after}")
-                
+
                 return True
             else:
                 return False
@@ -828,8 +754,7 @@ class TransactionRepository(MongoRepository):
     def recalculate_wallet_balances(self, user_id: str, wallet_id: str) -> Dict[str, Any]:
         """Recalculate all balance_before and balance_after for transactions in a specific wallet"""
         try:
-            print(f"🔄 [BALANCE] Starting balance recalculation for wallet: {wallet_id}")
-            
+  
             # Get all transactions for this wallet, sorted by timestamp ascending
             query = {
                 "user_id": user_id,
@@ -839,11 +764,9 @@ class TransactionRepository(MongoRepository):
             transactions = list(self.collection.find(query).sort("timestamp", 1))
             
             if not transactions:
-                print(f"⚠️ [BALANCE] No transactions found for wallet: {wallet_id}")
                 return {"success": True, "message": "No transactions to recalculate", "updated_count": 0}
             
-            print(f"🔍 [BALANCE] Found {len(transactions)} transactions to recalculate")
-            
+
             # Get the starting balance from the wallet
             from mm.repositories.wallets import WalletRepository
             wallet_repo = WalletRepository()
@@ -855,8 +778,7 @@ class TransactionRepository(MongoRepository):
             
             # Get the current actual balance
             current_balance = float(wallet.get("actual_balance", 0))
-            print(f"💰 [BALANCE] Current wallet balance: {current_balance}")
-            
+
             # Calculate what the balance should be by going through all transactions
             calculated_balance = 0.0
             for tx in transactions:
@@ -868,26 +790,17 @@ class TransactionRepository(MongoRepository):
                 elif tx_type == "expense":
                     calculated_balance -= tx_amount
                 # Skip transfer types as they're handled separately
-                
-                print(f"🔍 [BALANCE] Transaction {tx['_id']}: {tx_type} {tx_amount} -> balance: {calculated_balance}")
-            
-            print(f"💰 [BALANCE] Calculated final balance: {calculated_balance}")
-            print(f"💰 [BALANCE] Actual wallet balance: {current_balance}")
-            
+
             # If balances don't match, we need to find the starting balance
-            if abs(calculated_balance - current_balance) > 0.01:  # Allow small floating point differences
-                print(f"⚠️ [BALANCE] Balance mismatch detected. Need to find correct starting balance.")
+            if abs(calculated_balance - current_balance) > 0.01:  # Allow small floating point differences  
                 
                 # Find the difference and adjust starting balance
                 balance_difference = current_balance - calculated_balance
                 starting_balance = balance_difference
-                print(f"🔍 [BALANCE] Balance difference: {balance_difference}")
-                print(f"🔍 [BALANCE] Starting balance should be: {starting_balance}")
             else:
                 # Balances match, use 0 as starting balance
                 starting_balance = 0.0
-                print(f"✅ [BALANCE] Balances match, using starting balance: {starting_balance}")
-            
+
             # Now recalculate all transactions with the correct starting balance
             running_balance = starting_balance
             updated_count = 0
@@ -925,11 +838,8 @@ class TransactionRepository(MongoRepository):
                 
                 if update_result.modified_count > 0:
                     updated_count += 1
-                    print(f"✅ [BALANCE] Updated transaction {tx_id}: before={balance_before}, after={balance_after}")
                 else:
                     print(f"⚠️ [BALANCE] No changes made to transaction {tx_id}")
-            
-            print(f"✅ [BALANCE] Recalculation completed. Updated {updated_count} transactions.")
             
             return {
                 "success": True, 

@@ -29,7 +29,6 @@ class CategoryRepository(MongoRepository):
         try:
             # Check if it's a system category (default category)
             if category_id in ["transfer", "income_general", "expense_general"]:
-                print(f"Warning: Attempted to update system category: {category_id}")
                 return False
             
             # Convert string ID ke ObjectId
@@ -51,7 +50,6 @@ class CategoryRepository(MongoRepository):
         try:
             # Check if it's a system category (default category)
             if category_id in ["transfer", "income_general", "expense_general"]:
-                print(f"Warning: Attempted to delete system category: {category_id}")
                 return False
             
             # Convert string ID ke ObjectId
@@ -97,11 +95,9 @@ class CategoryRepository(MongoRepository):
                 
                 return formatted_categories
             else:
-                print(f"Warning: Default categories file not found at {json_path}")
                 return []
                 
         except Exception as e:
-            print(f"Error loading default categories: {e}")
             return []
     
     def list_by_user_with_defaults(self, user_id: str) -> List[Dict[str, Any]]:
@@ -119,7 +115,6 @@ class CategoryRepository(MongoRepository):
             return all_categories
             
         except Exception as e:
-            print(f"Error getting categories with defaults: {e}")
             return []
     
     def get_category_by_id(self, category_id: str, user_id: str = None) -> Optional[Dict[str, Any]]:
@@ -139,5 +134,4 @@ class CategoryRepository(MongoRepository):
             return None
             
         except Exception as e:
-            print(f"Error getting category by ID: {e}")
             return None

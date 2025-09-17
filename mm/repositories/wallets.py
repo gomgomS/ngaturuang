@@ -18,9 +18,7 @@ class WalletRepository(MongoRepository):
     def find_one(self, query: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         """Find satu dokumen"""
         try:
-            print(f"🔍 [WALLET] find_one called with query: {query}")
             result = super().find_one(query)
-            print(f"🔍 [WALLET] find_one result: {result}")
             return result
         except Exception as e:
             print(f"❌ [WALLET] Error in wallet find_one: {e}")
@@ -31,27 +29,19 @@ class WalletRepository(MongoRepository):
     def update_wallet(self, wallet_id: str, user_id: str, updates: Dict[str, Any]) -> bool:
         """Update saving space dengan validasi user ownership"""
         try:
-            print(f"🔍 [WALLET] update_wallet called with wallet_id: {wallet_id}, user_id: {user_id}, updates: {updates}")
-            
             # Convert string ID ke ObjectId
-            obj_id = ObjectId(wallet_id)
-            print(f"🔍 [WALLET] Converted to ObjectId: {obj_id}")
-            
+            obj_id = ObjectId(wallet_id) 
             # Pastikan saving space milik user yang bersangkutan
             existing_wallet = self.collection.find_one({"_id": obj_id, "user_id": user_id})
-            print(f"🔍 [WALLET] Existing wallet check result: {existing_wallet is not None}")
-            
+
             if not existing_wallet:
                 print(f"❌ [WALLET] Wallet not found or not owned by user")
                 return False
             
             # Update dengan ObjectId
-            print(f"🔍 [WALLET] Performing update operation...")
             result = self.collection.update_one({"_id": obj_id}, {"$set": updates})
-            print(f"🔍 [WALLET] Update result: {result.modified_count} documents modified")
-            
             success = result.modified_count > 0
-            print(f"🔍 [WALLET] Update success: {success}")
+
             return success
         except Exception as e:
             print(f"❌ [WALLET] Error in update_wallet: {e}")
@@ -79,8 +69,6 @@ class WalletRepository(MongoRepository):
     def update_wallet_balance(self, wallet_id: str, user_id: str, actual_balance: float, expected_balance: float = None) -> bool:
         """Update wallet balance ketika manual balance dibuat"""
         try:
-            print(f"💰 [WALLET] Updating wallet balance: {wallet_id}, actual: {actual_balance}, expected: {expected_balance}")
-            
             # Convert string ID ke ObjectId
             obj_id = ObjectId(wallet_id)
             
@@ -104,10 +92,8 @@ class WalletRepository(MongoRepository):
             result = self.collection.update_one({"_id": obj_id}, {"$set": updates})
             
             if result.modified_count > 0:
-                print(f"✅ [WALLET] Successfully updated wallet balance: {wallet_id}")
                 return True
             else:
-                print(f"⚠️ [WALLET] No changes made to wallet: {wallet_id}")
                 return False
                 
         except Exception as e:

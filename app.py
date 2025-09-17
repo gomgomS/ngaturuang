@@ -2259,16 +2259,9 @@ def update_transaction(transaction_id):
             existing_tx = repo.get_transaction_by_id(transaction_id, user_id)
             wallet_id = existing_tx.get("wallet_id")
         
-        if wallet_id:
-            # Trigger balance recalculation for the wallet
-            print(f"🔄 [API] Triggering balance recalculation for wallet: {wallet_id}")
+        if wallet_id: 
             balance_result = repo.recalculate_wallet_balances(user_id, wallet_id)
-            
-            if balance_result.get("success"):
-                print(f"✅ [API] Balance recalculation successful: {balance_result.get('message')}")
-            else:
-                print(f"❌ [API] Balance recalculation failed: {balance_result.get('error')}")
-        
+              
         return jsonify({"message": "Transaction updated successfully"})
     except Exception as e:
         print(f"Error in update_transaction: {e}")
@@ -2347,10 +2340,7 @@ def create_transfer_transaction():
         wallet_repo = WalletRepository()
         from_wallet = wallet_repo.get_wallet_by_id(from_wallet_id, user_id)
         to_wallet = wallet_repo.get_wallet_by_id(to_wallet_id, user_id)
-        
-        print(f"🔍 [TRANSFER] From wallet data: {from_wallet}")
-        print(f"🔍 [TRANSFER] To wallet data: {to_wallet}")
-        
+
         if not from_wallet:
             return jsonify({"error": "Source wallet not found or access denied"}), 404
         
@@ -2432,25 +2422,11 @@ def create_transfer_transaction():
         # Create admin fee transaction (if fee > 0)
         fee_data = None
         if admin_fee > 0:
-            print(f"🔍 [TRANSFER DEBUG] Starting fee calculation...")
-            print(f"🔍 [TRANSFER DEBUG] current_balance: {current_balance}")
-            print(f"🔍 [TRANSFER DEBUG] amount: {amount}")
-            print(f"🔍 [TRANSFER DEBUG] admin_fee: {admin_fee}")
             
             # Fee balance should be calculated AFTER the main transfer amount is deducted
             # Main transfer deducts 'amount', so fee starts from that reduced balance
             fee_balance_before = from_wallet_balance_after  # Balance after main transfer
             fee_balance_after = fee_balance_before - admin_fee  # Balance after fee deduction
-            
-            # Debug logging
-            print(f"🔍 [TRANSFER DEBUG] Main transfer - balance_before: {from_wallet_balance_before}")
-            print(f"🔍 [TRANSFER DEBUG] Main transfer - balance_after: {from_wallet_balance_after}")
-            print(f"🔍 [TRANSFER DEBUG] Fee - balance_before: {fee_balance_before}")
-            print(f"🔍 [TRANSFER DEBUG] Fee - balance_after: {fee_balance_after}")
-            print(f"🔍 [TRANSFER DEBUG] from_wallet_balance_after value: {from_wallet_balance_after}")
-            
-            # Set fee transaction timestamp 2 seconds after main transfer
-            # This ensures fee appears before main transfer when sorted by timestamp (descending)
             fee_timestamp = current_time + 2
             
             fee_data = {
@@ -2473,14 +2449,6 @@ def create_transfer_transaction():
                 "balance_after": fee_balance_after     # Balance after fee deduction
             }
             
-            print(f"🔍 [TRANSFER DEBUG] Fee data before insert:")
-            print(f"🔍 [TRANSFER DEBUG] fee_data['balance_before']: {fee_data['balance_before']}")
-            print(f"🔍 [TRANSFER DEBUG] fee_data['balance_after']: {fee_data['balance_after']}")
-            print(f"🔍 [TRANSFER DEBUG] fee_balance_before variable: {fee_balance_before}")
-            print(f"🔍 [TRANSFER DEBUG] fee_balance_after variable: {fee_balance_after}")
-            print(f"🔍 [TRANSFER DEBUG] from_wallet_balance_after variable: {from_wallet_balance_after}")
-            print(f"🔍 [TRANSFER DEBUG] current_balance variable: {current_balance}")
-        
         # Create transactions
         transaction_repo = TransactionRepository()
         
@@ -2511,18 +2479,13 @@ def create_transfer_transaction():
         # Now manually update wallet balances for the complete transfer
         # Update destination wallet (add amount)
         new_to_balance = float(to_wallet.get("actual_balance", 0)) + amount
-        print(f"🔄 [TRANSFER] Updating destination wallet {to_wallet_id} to balance {new_to_balance}")
         success_to = wallet_repo.update_wallet_balance(to_wallet_id, user_id, new_to_balance)
-        print(f"🔄 [TRANSFER] Destination wallet update result: {success_to}")
         
         # Update source wallet (subtract amount + fee)
         new_from_balance = current_balance - total_deducted
-        print(f"🔄 [TRANSFER] Updating source wallet {from_wallet_id} to balance {new_from_balance}")
         success_from = wallet_repo.update_wallet_balance(from_wallet_id, user_id, new_from_balance)
-        print(f"🔄 [TRANSFER] Source wallet update result: {success_from}")
         
         if not success_to or not success_from:
-            print(f"❌ [TRANSFER] Wallet balance update failed - success_to: {success_to}, success_from: {success_from}")
             return jsonify({"error": "Transfer created but failed to update wallet balances"}), 500
         
         return jsonify({
@@ -2891,17 +2854,7 @@ def transfer_funds():
         
         # Check if source wallet has sufficient balance (use actual_balance from wallet)
         current_balance = from_wallet.get("actual_balance", 0)
-        
         total_debit = amount + admin_fee
-        
-        # Debug logging - after all variables are defined
-        print(f"Transfer Debug - User ID: {user_id}")
-        print(f"From Wallet ID: {from_wallet_id}, Found: {from_wallet is not None}")
-        print(f"To Wallet ID: {to_wallet_id}, Found: {to_wallet is not None}")
-        print(f"Actual Balance: {current_balance}")
-        print(f"Transfer Amount: {amount}")
-        print(f"Admin Fee: {admin_fee}")
-        print(f"Total Debit: {total_debit}")
         
         if current_balance < total_debit:
             return jsonify({"error": f"Insufficient balance. Available: {current_balance}, Required: {total_debit}"}), 400

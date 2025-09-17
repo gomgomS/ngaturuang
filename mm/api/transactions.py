@@ -64,14 +64,7 @@ def update_transaction(transaction_id):
     
     if wallet_id:
         # Trigger balance recalculation for the wallet
-        print(f"🔄 [API] Triggering balance recalculation for wallet: {wallet_id}")
-        balance_result = repo.recalculate_wallet_balances(user_id, wallet_id)
-        
-        if balance_result.get("success"):
-            print(f"✅ [API] Balance recalculation successful: {balance_result.get('message')}")
-        else:
-            print(f"❌ [API] Balance recalculation failed: {balance_result.get('error')}")
-    
+        balance_result = repo.recalculate_wallet_balances(user_id, wallet_id)     
     return jsonify({"message": "Transaction updated successfully"})
 
 @bp.delete("/<transaction_id>")

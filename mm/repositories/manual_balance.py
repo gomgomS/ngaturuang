@@ -18,7 +18,7 @@ class ManualBalanceRepository(MongoRepository):
             }
             return self.find_one(query)
         except Exception as e:
-            print(f"❌ [MANUAL_BALANCE] Error getting latest balance: {e}")
+            print(f" [MANUAL_BALANCE] Error getting latest balance: {e}")
             return None
 
     def get_balance_history(self, user_id: str, wallet_id: str, limit: int = 10) -> List[Dict[str, Any]]:
@@ -31,7 +31,7 @@ class ManualBalanceRepository(MongoRepository):
             # Sort by balance_date descending (newest first) untuk dropdown
             return self.find_many(query, sort=[("balance_date", -1)], limit=limit)
         except Exception as e:
-            print(f"❌ [MANUAL_BALANCE] Error getting balance history: {e}")
+            print(f" [MANUAL_BALANCE] Error getting balance history: {e}")
             return []
 
     def create_balance(self, user_id: str, wallet_id: str, balance_data: Dict[str, Any]) -> Optional[str]:
@@ -63,7 +63,6 @@ class ManualBalanceRepository(MongoRepository):
                         }
                     }
                 )
-                print(f"🔒 [MANUAL_BALANCE] Closed previous balance {last_balance['_id']} with close_balance: {close_balance}")
             
             # Set semua balance lama untuk wallet ini menjadi tidak latest
             self.collection.update_many(
@@ -92,7 +91,6 @@ class ManualBalanceRepository(MongoRepository):
 
             # Insert balance baru
             _id = self.insert_one(balance_data)
-            print(f"✅ [MANUAL_BALANCE] Created new balance: {_id} with sequence: {next_sequence}")
             
             # Update wallet actual_balance
             if _id:
@@ -107,21 +105,15 @@ class ManualBalanceRepository(MongoRepository):
                         user_id=user_id,
                         actual_balance=balance_amount
                     )
-                    
-                    if wallet_updated:
-                        print(f"💰 [MANUAL_BALANCE] Successfully updated wallet actual_balance: {balance_amount}")
-                    else:
-                        print(f"⚠️ [MANUAL_BALANCE] Failed to update wallet actual_balance")
-                        
+                          
                 except Exception as e:
-                    print(f"❌ [MANUAL_BALANCE] Error updating wallet balance: {e}")
+                    print(f" [MANUAL_BALANCE] Error updating wallet balance: {e}")
             
             return _id
 
         except Exception as e:
-            print(f"❌ [MANUAL_BALANCE] Error creating balance: {e}")
             import traceback
-            print(f"❌ [MANUAL_BALANCE] Error traceback: {traceback.format_exc()}")
+            print(f" [MANUAL_BALANCE] Error traceback: {traceback.format_exc()}")
             return None
 
     def update_balance(self, balance_id: str, user_id: str, updates: Dict[str, Any]) -> bool:
@@ -133,7 +125,7 @@ class ManualBalanceRepository(MongoRepository):
             # Pastikan balance milik user yang bersangkutan
             existing_balance = self.collection.find_one({"_id": obj_id, "user_id": user_id})
             if not existing_balance:
-                print(f"❌ [MANUAL_BALANCE] Balance not found or not owned by user")
+                print(f" [MANUAL_BALANCE] Balance not found or not owned by user")
                 return False
             
             # Update dengan ObjectId
@@ -141,13 +133,12 @@ class ManualBalanceRepository(MongoRepository):
             result = self.collection.update_one({"_id": obj_id}, {"$set": updates})
             
             success = result.modified_count > 0
-            print(f"✅ [MANUAL_BALANCE] Update success: {success}")
             return success
 
         except Exception as e:
-            print(f"❌ [MANUAL_BALANCE] Error updating balance: {e}")
+            print(f" [MANUAL_BALANCE] Error updating balance: {e}")
             import traceback
-            print(f"❌ [MANUAL_BALANCE] Error traceback: {traceback.format_exc()}")
+            print(f" [MANUAL_BALANCE] Error traceback: {traceback.format_exc()}")
             return False
 
     def delete_balance(self, balance_id: str, user_id: str) -> bool:
@@ -174,7 +165,7 @@ class ManualBalanceRepository(MongoRepository):
             query = {"user_id": user_id, "is_latest": True}
             return self.find_many(query)
         except Exception as e:
-            print(f"❌ [MANUAL_BALANCE] Error getting user balances: {e}")
+            print(f" [MANUAL_BALANCE] Error getting user balances: {e}")
             return []
 
     def get_balance_summary(self, user_id: str, wallet_id: str) -> Dict[str, Any]:
@@ -204,7 +195,7 @@ class ManualBalanceRepository(MongoRepository):
             }
             
         except Exception as e:
-            print(f"❌ [MANUAL_BALANCE] Error getting balance summary: {e}")
+            print(f" [MANUAL_BALANCE] Error getting balance summary: {e}")
             return {
                 "latest_balance": None,
                 "balance_history": [],
@@ -222,7 +213,7 @@ class ManualBalanceRepository(MongoRepository):
             }
             return self.find_one(query)
         except Exception as e:
-            print(f"❌ [MANUAL_BALANCE] Error getting balance by sequence: {e}")
+            print(f" [MANUAL_BALANCE] Error getting balance by sequence: {e}")
             return None
     
     def get_balance_sequence_summary(self, user_id: str, wallet_id: str) -> Dict[str, Any]:
@@ -289,7 +280,7 @@ class ManualBalanceRepository(MongoRepository):
             }
             
         except Exception as e:
-            print(f"❌ [MANUAL_BALANCE] Error getting balance sequence summary: {e}")
+            print(f" [MANUAL_BALANCE] Error getting balance sequence summary: {e}")
             return {
                 "wallet_id": wallet_id,
                 "total_sequences": 0,

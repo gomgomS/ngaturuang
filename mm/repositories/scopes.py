@@ -9,10 +9,8 @@ class ScopeRepository(MongoRepository):
 
     def list_by_user(self, user_id: str) -> List[Dict[str, Any]]:
         """Get semua scope untuk user tertentu"""
-        try:
-            print("🔍 [SCOPE_REPO] Fetching scopes for user_id:", user_id)
-            result = self.find_many({"user_id": user_id}, limit=100)
-            print("🔍 [SCOPE_REPO] Found scopes:", len(result))
+        try:  
+            result = self.find_many({"user_id": user_id}, limit=100)        
             for scope in result:
                 print("  - Scope:", scope.get('name', 'No name'), "ID:", scope.get('_id', 'No ID'))
             return result
