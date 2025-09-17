@@ -1,14 +1,17 @@
 import os
+import json
 from datetime import datetime
 from flask import Flask, render_template, session, request, jsonify, redirect, url_for
 from mm.repositories.transactions import TransactionRepository
 from mm.repositories.scopes import ScopeRepository
 from mm.repositories.wallets import WalletRepository
 from mm.repositories.categories import CategoryRepository
+from mm.repositories.ai_chats import AiChatRepository
 from mm.repositories.users import UserRepository
 from bson import ObjectId
 from config import ensure_indexes
 from model import index_specs
+from config import get_gemini_api_key
 from mm.repositories.manual_balance import ManualBalanceRepository
 
 app = Flask(__name__)
@@ -1809,7 +1812,324 @@ def settings():
                              wallets=[],
                              categories=[])
 
+@app.route("/ai-advisor")
+def ai_advisor():
+    # Check authentication
+    auth_check = require_login()
+    if auth_check:
+        return auth_check
+    
+    try:
+        user_id = session.get("user_id")
+        
+        # Get repositories
+        scope_repo = ScopeRepository()
+        wallet_repo = WalletRepository()
+        category_repo = CategoryRepository()
+        
+        # Get data for filters
+        scopes = scope_repo.list_by_user(user_id)
+        wallets = wallet_repo.list_by_user(user_id)
+        categories = category_repo.list_by_user_with_defaults(user_id)
+        
+        # Ensure lists are passed
+        scopes = scopes or []
+        wallets = wallets or []
+        categories = categories or []
+        
+        return render_template("ai_advisor.html",
+                             scopes=scopes,
+                             wallets=wallets,
+                             categories=categories)
+    except Exception as e:
+        print(f"Error in ai_advisor: {e}")
+        return render_template("ai_advisor.html",
+                             scopes=[],
+                             wallets=[],
+                             categories=[])
+
 # API Routes
+@app.route("/api/ai/chat", methods=["POST"])
+def api_ai_chat():
+    """Append a chat message into per-user conversation document.
+
+    Body JSON is stored as-is under messages[].data with minimal metadata.
+    """
+    try:
+        user_id = session.get("user_id", "demo_user")
+        data = request.get_json(force=True) or {}
+        message_text = (data.get("message") or "").strip()
+        if not message_text:
+            return jsonify({"error": "message is required"}), 400
+
+        # Map helpers to proper types/ids using user's data (categories, wallets, scopes)
+        try:
+            # Load master data
+            cat_repo = CategoryRepository()
+            wal_repo = WalletRepository()
+            scp_repo = ScopeRepository()
+            categories = cat_repo.list_by_user_with_defaults(user_id) or []
+            wallets = wal_repo.list_by_user(user_id) or []
+            scopes = scp_repo.list_by_user(user_id) or []
+
+            # Build lookup maps by lowercase name
+            cat_map = {str(c.get("name", "")).strip().lower(): {"type": "category", "id": str(c.get("_id")), "name": c.get("name")}
+                       for c in categories if c.get("name")}
+            wal_map = {str(w.get("name", "")).strip().lower(): {"type": "wallet", "id": str(w.get("_id")), "name": w.get("name")}
+                       for w in wallets if w.get("name")}
+            scp_map = {str(s.get("name", "")).strip().lower(): {"type": "scope", "id": str(s.get("_id")), "name": s.get("name")}
+                       for s in scopes if s.get("name")}
+
+            # Parse helpers from payload or message
+            helpers_in = data.get("helpers") or []
+            if not helpers_in:
+                import re
+                found = re.findall(r"\(@([^\)]+)\)", message_text)
+                helpers_in = [{"name": n} for n in found]
+
+            mapped_helpers = []
+            for h in helpers_in:
+                name = str(h.get("name", "")).strip()
+                if not name:
+                    continue
+                key = name.lower()
+                info = cat_map.get(key) or wal_map.get(key) or scp_map.get(key)
+                if info:
+                    mapped_helpers.append({"type": info["type"], "name": info["name"], "id": info["id"]})
+                else:
+                    mapped_helpers.append({"type": h.get("type") or "unknown", "name": name})
+        except Exception:
+            # Fallback: keep original helpers
+            mapped_helpers = data.get("helpers") or []
+
+        # Enrich payload minimally while storing full JSON under data
+        payload = dict(data)
+        payload.setdefault("text", message_text)
+        # Store both user id and username in payload
+        username = session.get("username")
+        payload["user_id"] = user_id
+        if username is not None:
+            payload["user_name"] = username
+        payload.setdefault("received_at", int(datetime.now().timestamp()))
+        # Overwrite helpers with mapped helpers
+        payload["helpers"] = mapped_helpers
+
+        repo = AiChatRepository()
+        conversation = repo.append_message(user_id, payload)
+        # Generate helper-based transactions JSON file under data/json_banks.json (raw transactions with relations)
+        try:
+            tx_repo = TransactionRepository()
+            base_dir = os.path.dirname(os.path.abspath(__file__))
+            out_dir = os.path.join(base_dir, "data")
+            os.makedirs(out_dir, exist_ok=True)
+            out_path = os.path.join(out_dir, "json_banks.json")
+            # Clear file first
+            try:
+                with open(out_path, "w", encoding="utf-8") as f:
+                    f.write("{}")
+            except Exception as _e:
+                print(f"Error clearing json_banks.json: {_e}")
+            # Build lookup maps for names
+            cat_name = {}
+            wal_name = {}
+            scp_name = {}
+            try:
+                for c in categories:
+                    if c.get("_id") and c.get("name"):
+                        cat_name[str(c["_id"])]= c.get("name")
+            except Exception:
+                pass
+            try:
+                for w in wallets:
+                    if w.get("_id") and w.get("name"):
+                        wal_name[str(w["_id"])]= w.get("name")
+            except Exception:
+                pass
+            try:
+                for s in scopes:
+                    if s.get("_id") and s.get("name"):
+                        scp_name[str(s["_id"])]= s.get("name")
+            except Exception:
+                pass
+
+            # Collect transactions matching any helper
+            union_map = {}
+            cat_ids = [h.get("id") for h in mapped_helpers if h.get("type") == "category" and h.get("id")]
+            wal_ids = [h.get("id") for h in mapped_helpers if h.get("type") == "wallet" and h.get("id")]
+            scp_ids = [h.get("id") for h in mapped_helpers if h.get("type") == "scope" and h.get("id")]
+
+            def add_txs(filters):
+                txs = tx_repo.get_transactions_with_filters(user_id, filters, limit=2000)
+                for t in txs:
+                    tid = str(t.get("_id"))
+                    union_map[tid] = t
+
+            for c in cat_ids:
+                add_txs({"category_id": c})
+            for w in wal_ids:
+                add_txs({"wallet_id": w})
+            for s in scp_ids:
+                add_txs({"scope_id": s})
+
+            # Build raw list with relation info
+            tx_items = []
+            for t in union_map.values():
+                cat_id = str(t.get("category_id") or "")
+                wal_id = str(t.get("wallet_id") or "")
+                scp_id = str(t.get("scope_id") or "")
+                tx_items.append({
+                    "_id": str(t.get("_id")),
+                    "amount": float(t.get("amount", 0) or 0),
+                    "type": t.get("type", ""),
+                    "timestamp": t.get("timestamp"),
+                    "category": {"id": cat_id or None, "name": cat_name.get(cat_id) if cat_id else None, "selected": cat_id in cat_ids},
+                    "wallet": {"id": wal_id or None, "name": wal_name.get(wal_id) if wal_id else None, "selected": wal_id in wal_ids},
+                    "scope": {"id": scp_id or None, "name": scp_name.get(scp_id) if scp_id else None, "selected": scp_id in scp_ids}
+                })
+
+            output = {
+                "meta": {
+                    "user_id": user_id,
+                    "user_name": username,
+                    "message": message_text,
+                    "generated_at": int(datetime.now().timestamp())
+                },
+                "helpers": mapped_helpers,
+                "transactions": tx_items
+            }
+            with open(out_path, "w", encoding="utf-8") as f:
+                json.dump(output, f, ensure_ascii=False, indent=2)
+        except Exception as e:
+            print(f"Error generating json_banks.json: {e}")
+        # Build AI-style analysis text based on prompt and json
+        ai_text = None
+        try:
+            # Read the freshly created JSON
+            with open(out_path, "r", encoding="utf-8") as f:
+                dataset = json.load(f)
+            helpers_list = dataset.get("helpers", [])
+            txs = dataset.get("transactions", [])
+            # Try Gemini first if API key available
+            try:
+                api_key = get_gemini_api_key()
+                print(f"🔍 [API] Gemini API key: {api_key}")
+                if api_key:
+                    prompt_path = os.path.join(base_dir, "data", "prompt_advicer.ai")
+                    prompt_text = ""
+                    try:
+                        with open(prompt_path, "r", encoding="utf-8") as pf:
+                            prompt_text = pf.read()
+                    except Exception:
+                        prompt_text = "You are a financial advisor. Analyze the following JSON."
+                    user_payload = prompt_text + "\n\nJSON dataset:\n" + json.dumps(dataset, ensure_ascii=False)
+                    # Call Gemini via REST
+                    import urllib.request
+                    req = urllib.request.Request(
+                        url=f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key={api_key}",
+                        method="POST",
+                        data=json.dumps({
+                            "contents": [
+                                {
+                                    "role": "user",
+                                    "parts": [{"text": user_payload}]
+                                }
+                            ]
+                        }).encode("utf-8"),
+                        headers={"Content-Type": "application/json"}
+                    )
+                    with urllib.request.urlopen(req, timeout=20) as resp:
+                        resp_json = json.loads(resp.read().decode("utf-8"))
+                        cand = (resp_json.get("candidates") or [{}])[0]
+                        cont = cand.get("content") or {}
+                        parts = cont.get("parts") or []
+                        if parts and isinstance(parts, list) and parts[0].get("text"):
+                            ai_text = parts[0]["text"]
+            except Exception as ge:
+                print(f"Gemini call failed: {ge}")
+            # Selected filters
+            selected_categories = {t["category"]["id"]: t["category"]["name"] for t in txs if t.get("category", {}).get("selected")}
+            selected_wallets = {t["wallet"]["id"]: t["wallet"]["name"] for t in txs if t.get("wallet", {}).get("selected")}
+
+            # Totals
+            def sum_amount(items):
+                return sum(float(x.get("amount", 0) or 0) for x in items)
+
+            # Total expense in selected category (sum across all selected categories)
+            cat_expense_total = sum_amount([t for t in txs if t.get("type") == "expense" and t.get("category", {}).get("selected")])
+
+            # Wallet totals
+            wallet_income_total = sum_amount([t for t in txs if t.get("type") == "income" and t.get("wallet", {}).get("selected")])
+            wallet_expense_total = sum_amount([t for t in txs if t.get("type") == "expense" and t.get("wallet", {}).get("selected")])
+            wallet_net = wallet_income_total - wallet_expense_total
+
+            # Overlap (selected in both category and wallet)
+            overlap_txs = [t for t in txs if t.get("wallet", {}).get("selected") and t.get("category", {}).get("selected")]
+            overlap_total = sum_amount(overlap_txs)
+
+            # Compose text (following prompt tone)
+            cat_names = ", ".join(filter(None, set(selected_categories.values()))) or "(tidak ada kategori terpilih)"
+            wal_names = ", ".join(filter(None, set(selected_wallets.values()))) or "(tidak ada wallet terpilih)"
+
+            insights = []
+            if wallet_expense_total > wallet_income_total * 0.9 and wallet_expense_total > 0:
+                insights.append("Pengeluaran dari wallet terpilih cukup tinggi dibanding pemasukan — pertimbangkan batas anggaran mingguan.")
+            if cat_expense_total > 0 and wallet_expense_total > 0:
+                share = (cat_expense_total / wallet_expense_total) * 100.0
+                if share >= 30:
+                    insights.append(f"Kategori terpilih menyumbang sekitar {share:.1f}% dari pengeluaran wallet — ini sinyal untuk dikendalikan.")
+            if not insights:
+                insights.append("Data terlihat sehat. Lanjutkan kebiasaan baik dan sisihkan sebagian pemasukan untuk tabungan.")
+
+            advice = [
+                "Tetapkan budget bulanan untuk kategori utama dan aktifkan pengingat.",
+                "Alokasikan sebagian pemasukan otomatis ke tabungan/goal.",
+                "Gunakan satu wallet untuk belanja harian agar pemantauan lebih mudah."
+            ]
+
+            if not ai_text:
+                ai_text = (
+                f"Berikut rangkuman berdasarkan data terpilih:\n\n"
+                f"- Kategori terpilih: {cat_names}.\n"
+                f"- Wallet terpilih: {wal_names}.\n"
+                f"- Total pengeluaran kategori terpilih: Rp {cat_expense_total:,.0f}.\n"
+                f"- Wallet (terpilih) — pemasukan: Rp {wallet_income_total:,.0f}, pengeluaran: Rp {wallet_expense_total:,.0f}, neto: Rp {wallet_net:,.0f}.\n"
+                f"- Transaksi overlap (kategori & wallet terpilih): Rp {overlap_total:,.0f}.\n\n"
+                f"Insight: {insights[0]}\n"
+                f"Saran: {advice[0]}\n\n"
+                f"Kamu sudah di jalur yang tepat — tetap disiplin agar keuangan makin kuat!"
+            )
+
+            # Append AI message to conversation
+            try:
+                repo.append_message(user_id, {"role": "ai", "text": ai_text, "source": "prompt_advicer", "created_at": int(datetime.now().timestamp())})
+            except Exception:
+                pass
+            # Clear json_banks.json after processing
+            try:
+                with open(out_path, "w", encoding="utf-8") as f:
+                    f.write("{}")
+            except Exception as _e:
+                print(f"Error clearing json_banks.json after read: {_e}")
+        except Exception as e:
+            print(f"Error building AI analysis text: {e}")
+            ai_text = None
+
+        return jsonify({"ok": True, "conversation": conversation, "ai_text": ai_text})
+    except Exception as e:
+        print(f"Error in api_ai_chat: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/api/ai/chat", methods=["GET"])
+def api_ai_chat_get():
+    """Return current user's conversation document if exists."""
+    try:
+        user_id = session.get("user_id", "demo_user")
+        repo = AiChatRepository()
+        conv = repo.get_by_user_id(user_id)
+        return jsonify({"ok": True, "conversation": conv})
+    except Exception as e:
+        print(f"Error in api_ai_chat_get: {e}")
+        return jsonify({"error": str(e)}), 500
 @app.route("/api/transactions/", methods=["GET"])
 def list_transactions():
     """Get semua transaksi untuk user"""

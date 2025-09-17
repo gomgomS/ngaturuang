@@ -1,0 +1,143 @@
+{
+  "meta": {
+    "user_id": "68b40e708a336d6d2ed67405",
+    "user_name": "jaka",
+    "message": "seberapa parah minum kopi saya (@Food & Dining)",
+    "generated_at": 1758086677
+  },
+  "helpers": [
+    {
+      "type": "category",
+      "name": "Food & Dining",
+      "id": "food"
+    }
+  ],
+  "transactions": [
+    {
+      "_id": "68bed4aaaf1137d7732cf42f",
+      "amount": 210000.0,
+      "type": "expense",
+      "timestamp": 1757336745,
+      "category": {
+        "id": "food",
+        "name": "Food & Dining",
+        "selected": true
+      },
+      "wallet": {
+        "id": "68b6d0657459705fd0c00c90",
+        "name": "BCA",
+        "selected": false
+      },
+      "scope": {
+        "id": "68b7d044c72116e89da1c4cc",
+        "name": "ayyam",
+        "selected": false
+      }
+    },
+    {
+      "_id": "68bd8b51bb9ccd5f3650e2a5",
+      "amount": 150000.0,
+      "type": "expense",
+      "timestamp": 1757252400,
+      "category": {
+        "id": "food",
+        "name": "Food & Dining",
+        "selected": true
+      },
+      "wallet": {
+        "id": "68bd86f4bb9ccd5f3650e29f",
+        "name": "OVO",
+        "selected": false
+      },
+      "scope": {
+        "id": "68b7d044c72116e89da1c4cc",
+        "name": "ayyam",
+        "selected": false
+      }
+    },
+    {
+      "_id": "68bd843abb9ccd5f3650e29b",
+      "amount": 20000.0,
+      "type": "expense",
+      "timestamp": 1757250616,
+      "category": {
+        "id": "food",
+        "name": "Food & Dining",
+        "selected": true
+      },
+      "wallet": {
+        "id": "68b6d05c7459705fd0c00c8f",
+        "name": "MANDIRI",
+        "selected": false
+      },
+      "scope": {
+        "id": "68b7d044c72116e89da1c4cc",
+        "name": "ayyam",
+        "selected": false
+      }
+    },
+    {
+      "_id": "68bd8596bb9ccd5f3650e29d",
+      "amount": 100000.0,
+      "type": "expense",
+      "timestamp": 1757225760,
+      "category": {
+        "id": "food",
+        "name": "Food & Dining",
+        "selected": true
+      },
+      "wallet": {
+        "id": "68b6d0657459705fd0c00c90",
+        "name": "BCA",
+        "selected": false
+      },
+      "scope": {
+        "id": "68b7d044c72116e89da1c4cc",
+        "name": "ayyam",
+        "selected": false
+      }
+    },
+    {
+      "_id": "68b6d6f07459705fd0c00c98",
+      "amount": 200000.0,
+      "type": "expense",
+      "timestamp": 1756813038,
+      "category": {
+        "id": "food",
+        "name": "Food & Dining",
+        "selected": true
+      },
+      "wallet": {
+        "id": "68b6d05c7459705fd0c00c8f",
+        "name": "MANDIRI",
+        "selected": false
+      },
+      "scope": {
+        "id": "68b6d0d37459705fd0c00c93",
+        "name": null,
+        "selected": false
+      }
+    },
+    {
+      "_id": "68b985c4b06292204132a03c",
+      "amount": 200000.0,
+      "type": "expense",
+      "timestamp": 1754246400,
+      "category": {
+        "id": "food",
+        "name": "Food & Dining",
+        "selected": true
+      },
+      "wallet": {
+        "id": "68b6d05c7459705fd0c00c8f",
+        "name": "MANDIRI",
+        "selected": false
+      },
+      "scope": {
+        "id": "68b6d0d37459705fd0c00c93",
+        "name": null,
+        "selected": false
+      }
+    }
+  ]
+}

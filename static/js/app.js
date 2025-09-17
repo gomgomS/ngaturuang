@@ -882,13 +882,20 @@ function formatDate(timestamp) {
     });
 }
 
+// AI Advisor functionality
+function initializeAIAdvisor() {
+    // This function can be called from the AI Advisor page
+    console.log('🤖 AI Advisor initialized');
+}
+
 // Export functions for global access
 window.MoneyManagementAI = {
     showAlert,
     formatCurrency,
     formatDate,
     handleEdit,
-    handleDelete
+    handleDelete,
+    initializeAIAdvisor
 };
 
 

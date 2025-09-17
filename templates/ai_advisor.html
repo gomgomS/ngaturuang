@@ -1,0 +1,2171 @@
+{% extends "layout.html" %}
+
+{% block head %}
+<style>
+    :root {
+        --primary-color: #6366f1;
+        --primary-dark: #4f46e5;
+        --secondary-color: #8b5cf6;
+        --accent-color: #06b6d4;
+        --success-color: #10b981;
+        --warning-color: #f59e0b;
+        --error-color: #ef4444;
+        --bg-primary: #ffffff;
+        --bg-secondary: #f8fafc;
+        --bg-tertiary: #f1f5f9;
+        --text-primary: #1e293b;
+        --text-secondary: #64748b;
+        --text-muted: #94a3b8;
+        --border-color: #e2e8f0;
+        --border-light: #f1f5f9;
+        --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+        --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+        --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+        --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+        --radius-sm: 0.375rem;
+        --radius-md: 0.5rem;
+        --radius-lg: 0.75rem;
+        --radius-xl: 1rem;
+        --radius-2xl: 1.5rem;
+    }
+
+    .ai-advisor-container {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: 100vh;
+        padding: 2rem 0;
+    }
+
+    .chat-container {
+        height: calc(100vh - 120px);
+        display: flex;
+        flex-direction: column;
+        background: var(--bg-primary);
+        border-radius: var(--radius-2xl);
+        overflow: hidden;
+        box-shadow: var(--shadow-xl);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+    
+    .chat-header {
+        background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+        color: white;
+        padding: 1.5rem 2rem;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .chat-header::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: linear-gradient(45deg, transparent 30%, rgba(255, 255, 255, 0.1) 50%, transparent 70%);
+        animation: shimmer 3s infinite;
+    }
+    
+    @keyframes shimmer {
+        0% { transform: translateX(-100%); }
+        100% { transform: translateX(100%); }
+    }
+    
+    .chat-header-content {
+         display: flex;
+        align-items: center;
+         gap: 1rem;
+        position: relative;
+        z-index: 1;
+    }
+    
+    .ai-avatar {
+        width: 48px;
+        height: 48px;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.2);
+        display: flex;
+         align-items: center;
+        justify-content: center;
+        font-size: 1.25rem;
+        backdrop-filter: blur(10px);
+        border: 2px solid rgba(255, 255, 255, 0.3);
+    }
+    
+    .chat-header h5 {
+        margin: 0;
+        font-weight: 700;
+        font-size: 1.25rem;
+        letter-spacing: -0.025em;
+    }
+    
+    .chat-subtitle {
+        font-size: 0.875rem;
+        opacity: 0.9;
+        margin: 0;
+        font-weight: 400;
+    }
+    
+    .pro-badge {
+        background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+        color: #1f2937;
+        padding: 0.5rem 1rem;
+        border-radius: 50px;
+        font-size: 0.75rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        box-shadow: var(--shadow-md);
+        position: relative;
+        z-index: 1;
+    }
+    
+    .chat-messages {
+        flex: 1;
+        overflow-y: auto;
+        padding: 1.5rem;
+        background: var(--bg-secondary);
+        position: relative;
+    }
+    
+    .chat-messages::-webkit-scrollbar {
+        width: 6px;
+    }
+    
+    .chat-messages::-webkit-scrollbar-track {
+        background: var(--bg-tertiary);
+        border-radius: 3px;
+    }
+    
+    .chat-messages::-webkit-scrollbar-thumb {
+        background: var(--border-color);
+        border-radius: 3px;
+    }
+    
+    .chat-messages::-webkit-scrollbar-thumb:hover {
+        background: var(--text-muted);
+    }
+    
+    .message {
+        margin-bottom: 1.5rem;
+        display: flex;
+        align-items: flex-start;
+        gap: 1rem;
+        animation: messageSlideIn 0.3s ease-out;
+    }
+    
+    @keyframes messageSlideIn {
+        from {
+            opacity: 0;
+            transform: translateY(10px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    .message.user {
+        flex-direction: row-reverse;
+    }
+    
+    .message-avatar {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1rem;
+        font-weight: 600;
+        flex-shrink: 0;
+        box-shadow: var(--shadow-md);
+    }
+    
+    .message.user .message-avatar {
+        background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
+        color: white;
+    }
+    
+    .message.ai .message-avatar {
+        background: linear-gradient(135deg, var(--success-color) 0%, #059669 100%);
+        color: white;
+    }
+    
+    .message-content {
+        max-width: 75%;
+        padding: 1rem 1.25rem;
+        border-radius: var(--radius-xl);
+        font-size: 0.95rem;
+        line-height: 1.6;
+        position: relative;
+        word-wrap: break-word;
+    }
+    
+    .message.user .message-content {
+        background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
+        color: white;
+        border-bottom-right-radius: var(--radius-sm);
+        box-shadow: var(--shadow-md);
+    }
+    
+    .message.ai .message-content {
+        background: var(--bg-primary);
+        color: var(--text-primary);
+        border: 1px solid var(--border-light);
+        border-bottom-left-radius: var(--radius-sm);
+        box-shadow: var(--shadow-sm);
+    }
+    
+     .category-mention {
+        background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+        color: var(--primary-dark);
+        padding: 0.25rem 0.5rem;
+        border-radius: var(--radius-sm);
+        font-weight: 600;
+        font-size: 0.8rem;
+         display: inline-block;
+        margin: 0.125rem 0.25rem 0.125rem 0;
+        font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', monospace;
+        border: 1px solid #93c5fd;
+        box-shadow: var(--shadow-sm);
+        position: relative;
+    }
+    
+    .category-mention::before {
+        content: '@';
+        color: var(--primary-color);
+        font-weight: 700;
+        margin-right: 0.25rem;
+    }
+    
+    .welcome-message {
+        text-align: center;
+        padding: 3rem 2rem;
+        color: var(--text-secondary);
+        background: var(--bg-primary);
+        border-radius: var(--radius-xl);
+        box-shadow: var(--shadow-sm);
+        border: 1px solid var(--border-light);
+    }
+    
+    .welcome-message i {
+        font-size: 4rem;
+        margin-bottom: 1.5rem;
+        color: var(--primary-color);
+        background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+    }
+    
+    .welcome-message h5 {
+        font-size: 1.5rem;
+        font-weight: 700;
+        margin-bottom: 1rem;
+        color: var(--text-primary);
+    }
+    
+    .welcome-message p {
+        font-size: 1rem;
+        line-height: 1.6;
+        margin-bottom: 0.5rem;
+    }
+    
+    .welcome-message .small {
+        font-size: 0.875rem;
+        color: var(--text-muted);
+    }
+    
+    .typing-indicator {
+        display: none;
+        align-items: center;
+        gap: 0.75rem;
+        color: var(--text-secondary);
+        font-style: italic;
+        margin-bottom: 1.5rem;
+        animation: messageSlideIn 0.3s ease-out;
+    }
+    
+    .typing-dots {
+        display: flex;
+        gap: 0.25rem;
+    }
+    
+    .typing-dots span {
+        width: 8px;
+        height: 8px;
+        background: var(--primary-color);
+        border-radius: 50%;
+        animation: typing 1.4s infinite ease-in-out;
+    }
+    
+    .typing-dots span:nth-child(1) { animation-delay: -0.32s; }
+    .typing-dots span:nth-child(2) { animation-delay: -0.16s; }
+    
+    @keyframes typing {
+        0%, 80%, 100% { 
+            transform: scale(0.8); 
+            opacity: 0.5; 
+        }
+        40% { 
+            transform: scale(1.2); 
+            opacity: 1; 
+        }
+    }
+    
+    .chat-input-container {
+        background: var(--bg-primary);
+        padding: 1.5rem 2rem;
+        border-top: 1px solid var(--border-light);
+        position: relative;
+    }
+    
+    .input-wrapper {
+        display: flex;
+        gap: 1rem;
+        align-items: flex-end;
+        width: 100%;
+        position: relative;
+    }
+    
+    /* Tag area styling */
+    .tag-area {
+        min-height: 56px;
+        max-height: 120px;
+        border: 2px solid var(--border-color);
+        border-radius: var(--radius-2xl);
+        padding: 0.75rem 1rem;
+        box-sizing: border-box;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        align-items: flex-start;
+        background: var(--bg-primary);
+        flex: 1;
+        transition: all 0.3s ease;
+        overflow-y: auto;
+    }
+    
+    .tag-area:focus-within {
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+    }
+    
+    /* The contenteditable "input" */
+    .tag-area [contenteditable] {
+        outline: none;
+        min-width: 120px;
+        flex: 1 1 auto;
+        padding: 0.25rem 0;
+        margin: 0;
+        white-space: pre-wrap;
+        word-break: break-word;
+        font-size: 1rem;
+        line-height: 1.5;
+        color: var(--text-primary);
+        font-family: inherit;
+    }
+    
+    .tag-area [contenteditable]:empty::before {
+        content: "Ask me anything about your finances... (type @ to see helpers)";
+        color: var(--text-muted);
+        font-style: italic;
+    }
+    
+    /* Chip styling */
+    .chip {
+        display: inline-flex;
+        gap: 0.5rem;
+        align-items: center;
+        padding: 0.375rem 0.75rem;
+        border-radius: var(--radius-lg);
+        background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+        color: var(--primary-dark);
+        font-size: 0.875rem;
+        font-weight: 600;
+        user-select: none;
+        border: 1px solid #93c5fd;
+        box-shadow: var(--shadow-sm);
+        font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', monospace;
+    }
+    
+    .chip .remove {
+        cursor: pointer;
+        font-weight: 700;
+        padding-left: 0.25rem;
+        color: var(--primary-color);
+        font-size: 1rem;
+        line-height: 1;
+    }
+    
+    .chip .remove:hover {
+        color: var(--error-color);
+    }
+    
+    .chat-input {
+        flex: 1;
+        border: 2px solid var(--border-color);
+        border-radius: var(--radius-2xl);
+        padding: 1rem 1.5rem;
+        font-size: 1rem;
+        resize: none;
+        max-height: 120px;
+        min-height: 56px;
+        transition: all 0.3s ease;
+        background: var(--bg-primary);
+        color: var(--text-primary);
+        font-family: inherit;
+        line-height: 1.5;
+    }
+    
+    .chat-input:focus {
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+        outline: none;
+    }
+    
+    .chat-input::placeholder {
+        color: var(--text-muted);
+    }
+    
+    .send-button {
+        background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
+        color: white;
+        border: none;
+        border-radius: 50%;
+        width: 56px;
+        height: 56px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        box-shadow: var(--shadow-md);
+        font-size: 1.125rem;
+    }
+    
+    .send-button:hover:not(:disabled) {
+        transform: scale(1.05);
+        box-shadow: var(--shadow-lg);
+    }
+    
+    .send-button:active:not(:disabled) {
+        transform: scale(0.95);
+    }
+    
+    .send-button:disabled {
+        background: var(--text-muted);
+        cursor: not-allowed;
+        transform: none;
+        box-shadow: none;
+    }
+    
+    .helper-suggestions {
+        position: fixed;
+        top: 20%;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 90%;
+        max-width: 500px;
+        background: var(--bg-primary);
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-xl);
+        box-shadow: var(--shadow-xl);
+        z-index: 9999;
+        max-height: 300px;
+        overflow-y: auto;
+        animation: slideDown 0.2s ease-out;
+    }
+    
+    @keyframes slideDown {
+        from {
+            opacity: 0;
+            transform: translateY(-10px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    .suggestion-header {
+        padding: 1rem 1.5rem;
+        background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+        color: white;
+        font-weight: 700;
+        border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+        font-size: 0.95rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .suggestion-categories {
+        padding: 1.5rem;
+    }
+    
+    .suggestion-group {
+        margin-bottom: 1.5rem;
+    }
+    
+    .suggestion-group:last-child {
+        margin-bottom: 0;
+    }
+    
+    .suggestion-group h6 {
+        color: var(--text-secondary);
+        font-size: 0.8rem;
+        font-weight: 700;
+        margin-bottom: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .suggestion-group h6::before {
+        content: '';
+        width: 4px;
+        height: 4px;
+        background: var(--primary-color);
+        border-radius: 50%;
+    }
+    
+    .suggestion-items {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+    }
+    
+    .suggestion-item {
+        background: var(--bg-tertiary);
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-lg);
+        padding: 0.75rem 1rem;
+        font-size: 0.875rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        color: var(--text-primary);
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .suggestion-item::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+        transition: left 0.5s;
+    }
+    
+    .suggestion-item:hover {
+        background: var(--primary-color);
+        color: white;
+        border-color: var(--primary-color);
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-md);
+    }
+    
+    .suggestion-item:hover::before {
+        left: 100%;
+    }
+    
+    .suggestion-item.selected {
+        background: var(--primary-color);
+        color: white;
+        border-color: var(--primary-color);
+        box-shadow: var(--shadow-md);
+    }
+    
+    .suggestion-item i {
+        font-size: 0.875rem;
+        opacity: 0.7;
+    }
+    
+    .clear-chat-btn {
+        background: linear-gradient(135deg, var(--error-color) 0%, #dc2626 100%);
+        color: white;
+        border: none;
+        border-radius: var(--radius-lg);
+        padding: 0.75rem 1.5rem;
+        font-size: 0.875rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        box-shadow: var(--shadow-md);
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .clear-chat-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-lg);
+    }
+    
+    .clear-chat-btn:active {
+        transform: translateY(0);
+    }
+     
+    /* Mobile Responsive Design */
+     @media (max-width: 768px) {
+        .ai-advisor-container {
+            padding: 1rem 0;
+        }
+        
+        .chat-container {
+            height: calc(100vh - 80px);
+            border-radius: var(--radius-xl);
+            margin: 0 0.5rem;
+        }
+        
+        .chat-header {
+            padding: 1rem 1.5rem;
+        }
+        
+        .chat-header-content {
+            gap: 0.75rem;
+        }
+        
+        .ai-avatar {
+            width: 40px;
+            height: 40px;
+            font-size: 1rem;
+        }
+        
+        .chat-header h5 {
+            font-size: 1.125rem;
+        }
+        
+        .chat-subtitle {
+            font-size: 0.8rem;
+        }
+        
+        .pro-badge {
+            font-size: 0.7rem;
+            padding: 0.4rem 0.8rem;
+        }
+        
+        .chat-messages {
+            padding: 1rem;
+        }
+        
+        .message {
+            gap: 0.75rem;
+            margin-bottom: 1.25rem;
+        }
+        
+        .message-avatar {
+            width: 36px;
+            height: 36px;
+            font-size: 0.9rem;
+        }
+        
+        .message-content {
+            max-width: 85%;
+            padding: 0.875rem 1rem;
+            font-size: 0.9rem;
+        }
+        
+        .welcome-message {
+            padding: 2rem 1.5rem;
+        }
+        
+        .welcome-message i {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+        }
+        
+        .welcome-message h5 {
+            font-size: 1.25rem;
+        }
+        
+        .welcome-message p {
+            font-size: 0.9rem;
+        }
+        
+        .chat-input-container {
+            padding: 1rem 1.5rem;
+        }
+        
+        .input-wrapper {
+            gap: 0.75rem;
+        }
+        
+         .chat-input {
+            font-size: 0.9rem;
+            padding: 0.875rem 1.25rem;
+            min-height: 48px;
+        }
+        
+        .send-button {
+            width: 48px;
+            height: 48px;
+            font-size: 1rem;
+        }
+        
+        .helper-suggestions {
+            top: 15%;
+            width: 95%;
+            max-height: 250px;
+        }
+        
+        .suggestion-header {
+            padding: 0.875rem 1.25rem;
+            font-size: 0.875rem;
+        }
+        
+        .suggestion-categories {
+            padding: 1.25rem;
+        }
+        
+        .suggestion-group {
+            margin-bottom: 1.25rem;
+        }
+        
+        .suggestion-group h6 {
+            font-size: 0.75rem;
+            margin-bottom: 0.625rem;
+        }
+        
+        .suggestion-items {
+            gap: 0.625rem;
+        }
+        
+        .suggestion-item {
+            padding: 0.625rem 0.875rem;
+            font-size: 0.8rem;
+        }
+        
+         .clear-chat-btn {
+            font-size: 0.8rem;
+            padding: 0.625rem 1.25rem;
+        }
+        
+        /* Touch improvements */
+        .send-button,
+        .clear-chat-btn,
+        .suggestion-item {
+             -webkit-tap-highlight-color: transparent;
+             touch-action: manipulation;
+         }
+         
+         .message-content {
+             word-wrap: break-word;
+             overflow-wrap: break-word;
+             hyphens: auto;
+         }
+        
+        /* Prevent zoom on input focus (iOS) */
+        .chat-input {
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            appearance: none;
+        }
+    }
+    
+    @media (max-width: 480px) {
+        .chat-container {
+            height: calc(100vh - 60px);
+            margin: 0 0.25rem;
+            border-radius: var(--radius-lg);
+        }
+        
+        .chat-header {
+            padding: 0.875rem 1rem;
+        }
+        
+        .chat-header-content {
+            gap: 0.5rem;
+        }
+        
+        .ai-avatar {
+            width: 36px;
+            height: 36px;
+            font-size: 0.9rem;
+        }
+        
+        .chat-header h5 {
+            font-size: 1rem;
+        }
+        
+        .chat-subtitle {
+            font-size: 0.75rem;
+        }
+        
+        .pro-badge {
+            font-size: 0.65rem;
+            padding: 0.3rem 0.6rem;
+        }
+        
+        .chat-messages {
+            padding: 0.875rem;
+        }
+        
+        .message {
+            gap: 0.625rem;
+            margin-bottom: 1rem;
+        }
+        
+        .message-avatar {
+            width: 32px;
+            height: 32px;
+            font-size: 0.8rem;
+        }
+        
+        .message-content {
+            max-width: 90%;
+            padding: 0.75rem 0.875rem;
+            font-size: 0.85rem;
+        }
+        
+        .welcome-message {
+            padding: 1.5rem 1rem;
+        }
+        
+        .welcome-message i {
+            font-size: 2.5rem;
+            margin-bottom: 0.875rem;
+        }
+        
+        .welcome-message h5 {
+            font-size: 1.125rem;
+        }
+        
+        .welcome-message p {
+            font-size: 0.85rem;
+        }
+        
+        .chat-input-container {
+            padding: 0.875rem 1rem;
+        }
+        
+        .input-wrapper {
+            gap: 0.625rem;
+        }
+        
+        .chat-input {
+            font-size: 0.85rem;
+            padding: 0.75rem 1rem;
+            min-height: 44px;
+        }
+        
+        .send-button {
+            width: 44px;
+            height: 44px;
+            font-size: 0.9rem;
+        }
+        
+        .helper-suggestions {
+            top: 10%;
+            width: 98%;
+            max-height: 200px;
+        }
+        
+        .suggestion-header {
+            padding: 0.75rem 1rem;
+            font-size: 0.8rem;
+        }
+        
+        .suggestion-categories {
+            padding: 1rem;
+        }
+        
+        .suggestion-group {
+            margin-bottom: 1rem;
+        }
+        
+        .suggestion-group h6 {
+            font-size: 0.7rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .suggestion-items {
+            gap: 0.5rem;
+        }
+        
+        .suggestion-item {
+            padding: 0.5rem 0.75rem;
+            font-size: 0.75rem;
+        }
+        
+        .clear-chat-btn {
+            font-size: 0.75rem;
+            padding: 0.5rem 1rem;
+         }
+     }
+    
+     .chat-input-container {
+         background: white;
+         padding: 1rem 1.5rem;
+         border-top: 1px solid #e9ecef;
+         display: flex;
+         gap: 0.75rem;
+         align-items: flex-end;
+         transition: all 0.3s ease;
+     }
+     
+     .filters-toggle-container {
+         background: white;
+         padding: 0.5rem 1.5rem;
+         border-top: 1px solid #e9ecef;
+         display: flex;
+         justify-content: center;
+         align-items: center;
+         transition: all 0.3s ease;
+     }
+     
+     .chat-input {
+         flex: 1;
+         border: 1px solid #dee2e6;
+         border-radius: 25px;
+         padding: 0.75rem 1.25rem;
+         font-size: 0.9rem;
+         resize: none;
+         max-height: 120px;
+         min-height: 45px;
+         transition: all 0.3s ease;
+     }
+     
+     .chat-input:focus {
+         border-color: #667eea;
+         box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+         outline: none;
+     }
+     
+     .chat-input.hidden {
+         display: none;
+     }
+     
+     .send-button {
+         background: #667eea;
+         color: white;
+         border: none;
+         border-radius: 50%;
+         width: 45px;
+         height: 45px;
+         display: flex;
+         align-items: center;
+         justify-content: center;
+         cursor: pointer;
+         transition: all 0.2s ease;
+     }
+     
+     .send-button:hover {
+         background: #5a6fd8;
+         transform: scale(1.05);
+     }
+     
+     .send-button:disabled {
+         background: #6c757d;
+         cursor: not-allowed;
+         transform: none;
+     }
+     
+     .chat-toggle-button {
+         background: #667eea;
+         color: white;
+         border: none;
+         border-radius: 50%;
+         width: 50px;
+         height: 50px;
+         display: flex;
+         align-items: center;
+         justify-content: center;
+         cursor: pointer;
+         transition: all 0.3s ease;
+         box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+         position: relative;
+     }
+     
+     .chat-toggle-button:hover {
+         background: #5a6fd8;
+         transform: scale(1.1);
+         box-shadow: 0 6px 16px rgba(102, 126, 234, 0.4);
+     }
+     
+     .chat-toggle-button i {
+         font-size: 1.2rem;
+         transition: transform 0.3s ease;
+     }
+     
+     .chat-toggle-button.expanded i {
+         transform: rotate(45deg);
+     }
+     
+     .input-wrapper {
+         display: flex;
+         gap: 0.75rem;
+         align-items: flex-end;
+         width: 100%;
+         transition: all 0.3s ease;
+         position: relative;
+     }
+     
+     .input-wrapper.hidden {
+         opacity: 0;
+         transform: translateY(10px);
+         pointer-events: none;
+     }
+     
+     .helper-suggestions {
+         position: absolute;
+         top: 100%;
+         left: 0;
+         right: 0;
+         background: white;
+         border: 1px solid #dee2e6;
+         border-radius: 12px;
+         box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+         z-index: 1000;
+         margin-top: 0.5rem;
+         max-height: 300px;
+         overflow-y: auto;
+     }
+     
+     .suggestion-header {
+         padding: 0.75rem 1rem;
+         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+         color: white;
+         font-weight: 600;
+         border-radius: 12px 12px 0 0;
+         font-size: 0.9rem;
+     }
+     
+     .suggestion-categories {
+         padding: 1rem;
+     }
+     
+     .suggestion-group {
+         margin-bottom: 1rem;
+     }
+     
+     .suggestion-group:last-child {
+         margin-bottom: 0;
+     }
+     
+     .suggestion-group h6 {
+         color: #6c757d;
+         font-size: 0.8rem;
+         font-weight: 600;
+         margin-bottom: 0.5rem;
+         text-transform: uppercase;
+         letter-spacing: 0.5px;
+     }
+     
+     .suggestion-items {
+         display: flex;
+         flex-wrap: wrap;
+         gap: 0.5rem;
+     }
+     
+     .suggestion-item {
+         background: #f8f9fa;
+         border: 1px solid #dee2e6;
+         border-radius: 20px;
+         padding: 0.4rem 0.8rem;
+         font-size: 0.8rem;
+         cursor: pointer;
+         transition: all 0.2s ease;
+         color: #495057;
+     }
+     
+     .suggestion-item:hover {
+         background: #667eea;
+         color: white;
+         border-color: #667eea;
+         transform: translateY(-1px);
+     }
+     
+     .suggestion-item.selected {
+         background: #667eea;
+         color: white;
+         border-color: #667eea;
+     }
+    
+    .welcome-message {
+        text-align: center;
+        padding: 2rem;
+        color: #6c757d;
+    }
+    
+    .welcome-message i {
+        font-size: 3rem;
+        margin-bottom: 1rem;
+        color: #667eea;
+    }
+    
+    .typing-indicator {
+        display: none;
+        align-items: center;
+        gap: 0.5rem;
+        color: #6c757d;
+        font-style: italic;
+        margin-bottom: 1rem;
+    }
+    
+    .typing-dots {
+        display: flex;
+        gap: 0.25rem;
+    }
+    
+    .typing-dots span {
+        width: 6px;
+        height: 6px;
+        background: #6c757d;
+        border-radius: 50%;
+        animation: typing 1.4s infinite ease-in-out;
+    }
+    
+    .typing-dots span:nth-child(1) { animation-delay: -0.32s; }
+    .typing-dots span:nth-child(2) { animation-delay: -0.16s; }
+    
+    @keyframes typing {
+        0%, 80%, 100% { transform: scale(0.8); opacity: 0.5; }
+        40% { transform: scale(1); opacity: 1; }
+    }
+    
+    .clear-chat-btn {
+        background: #dc3545;
+        color: white;
+        border: none;
+        border-radius: 20px;
+        padding: 0.5rem 1rem;
+        font-size: 0.8rem;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+    
+    .clear-chat-btn:hover {
+        background: #c82333;
+        transform: translateY(-1px);
+    }
+    
+     @media (max-width: 768px) {
+         .chat-container {
+             height: calc(100vh - 120px);
+             border-radius: 0;
+             margin: -1rem;
+         }
+         
+         .container-fluid {
+             padding: 0;
+         }
+         
+         .main-content {
+             padding: 0.5rem;
+         }
+         
+         .filters-section {
+             flex-direction: column;
+             align-items: stretch;
+             padding: 0.75rem 1rem;
+             gap: 0.75rem;
+         }
+         
+         .filters-section.collapsed {
+             padding: 0 1rem;
+         }
+         
+         .filters-section.collapsed.helper-tags-section {
+             margin: 0.25rem 1rem 0 1rem;
+         }
+         
+         .filters-toggle-container {
+             padding: 0.4rem 1rem;
+         }
+         
+         .helper-tags-section {
+             margin: 0.5rem 1rem 0 1rem;
+         }
+         
+         .filter-group {
+             min-width: auto;
+         }
+         
+         .filter-group label {
+             font-size: 0.75rem;
+         }
+         
+         .filter-group select,
+         .filter-group input {
+             font-size: 0.8rem;
+             padding: 0.4rem 0.6rem;
+         }
+         
+         .message-content {
+             max-width: 85%;
+             padding: 0.6rem 0.8rem;
+             font-size: 0.85rem;
+         }
+         
+         .chat-input-container {
+             padding: 0.75rem 1rem;
+             gap: 0.5rem;
+         }
+         
+         .chat-input-container.collapsed {
+             padding: 0.4rem 1rem;
+         }
+         
+         .send-button {
+             width: 40px;
+             height: 40px;
+         }
+         
+         .chat-toggle-button {
+             width: 45px;
+             height: 45px;
+         }
+         
+         .chat-toggle-button i {
+             font-size: 1.1rem;
+         }
+         
+         .input-wrapper {
+             gap: 0.5rem;
+         }
+         
+         .helper-suggestions {
+             max-height: 250px;
+         }
+         
+         .suggestion-categories {
+             padding: 0.75rem;
+         }
+         
+         .suggestion-item {
+             font-size: 0.75rem;
+             padding: 0.3rem 0.6rem;
+         }
+         
+         .chat-header {
+             padding: 0.75rem 1rem;
+         }
+         
+         .chat-header h5 {
+             font-size: 1rem;
+         }
+         
+         .pro-badge {
+             font-size: 0.7rem;
+             padding: 0.2rem 0.5rem;
+         }
+         
+         .welcome-message {
+             padding: 1.5rem 1rem;
+         }
+         
+         .welcome-message i {
+             font-size: 2.5rem;
+         }
+         
+         .welcome-message h5 {
+             font-size: 1.1rem;
+         }
+         
+         .welcome-message p {
+             font-size: 0.9rem;
+         }
+         
+         .clear-chat-btn {
+             font-size: 0.75rem;
+             padding: 0.4rem 0.8rem;
+         }
+         
+         .d-flex.justify-content-between {
+             flex-direction: column;
+             align-items: flex-start;
+             gap: 1rem;
+         }
+         
+         .d-flex.justify-content-between .btn {
+             align-self: flex-end;
+         }
+     }
+     
+     @media (max-width: 480px) {
+         .chat-container {
+             height: calc(100vh - 100px);
+         }
+         
+         .filters-section {
+             padding: 0.5rem 0.75rem;
+             gap: 0.5rem;
+         }
+         
+         .filter-group {
+             min-width: calc(50% - 0.25rem);
+             flex: 1;
+         }
+         
+         .filter-group label {
+             font-size: 0.7rem;
+         }
+         
+         .filter-group select,
+         .filter-group input {
+             font-size: 0.75rem;
+             padding: 0.35rem 0.5rem;
+         }
+         
+         .message-content {
+             max-width: 90%;
+             padding: 0.5rem 0.7rem;
+             font-size: 0.8rem;
+         }
+         
+         .message-avatar {
+             width: 28px;
+             height: 28px;
+             font-size: 0.8rem;
+         }
+         
+         .chat-input {
+             font-size: 0.8rem;
+             padding: 0.6rem 1rem;
+         }
+         
+         .send-button {
+             width: 36px;
+             height: 36px;
+         }
+         
+         .chat-header {
+             padding: 0.6rem 0.75rem;
+         }
+         
+         .chat-header h5 {
+             font-size: 0.9rem;
+         }
+         
+         .pro-badge {
+             font-size: 0.65rem;
+             padding: 0.15rem 0.4rem;
+         }
+         
+         .welcome-message {
+             padding: 1rem 0.75rem;
+         }
+         
+         .welcome-message i {
+             font-size: 2rem;
+         }
+         
+         .welcome-message h5 {
+             font-size: 1rem;
+         }
+         
+         .welcome-message p {
+             font-size: 0.8rem;
+         }
+         
+         .chat-toggle-button {
+             width: 40px;
+             height: 40px;
+         }
+         
+         .chat-toggle-button i {
+             font-size: 1rem;
+         }
+         
+         .input-wrapper {
+             gap: 0.4rem;
+         }
+     }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="ai-advisor-container">
+<div class="container-fluid">
+        <div class="row justify-content-center">
+            <div class="col-12 col-lg-10 col-xl-8">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h2 class="text-white mb-1">
+                            <i class="fas fa-robot me-2"></i>AI Financial Advisor
+                    </h2>
+                        <p class="text-white-50 mb-0">Get personalized financial insights and smart recommendations</p>
+                </div>
+                    <button class="clear-chat-btn" id="clearChatBtn">
+                        <i class="fas fa-trash"></i>
+                        <span class="d-none d-md-inline">Clear Chat</span>
+                    </button>
+                    <button class="btn btn-outline-light ms-2" id="testHelperBtn" title="Test Helper Suggestions">
+                        <i class="fas fa-magic"></i>
+                </button>
+            </div>
+            
+            <div class="chat-container">
+                <!-- Chat Header -->
+                <div class="chat-header">
+                        <div class="chat-header-content">
+                            <div class="ai-avatar">
+                                <i class="fas fa-robot"></i>
+                            </div>
+                            <div>
+                        <h5 class="mb-0">Financial AI Assistant</h5>
+                                <p class="chat-subtitle">Powered by advanced AI technology</p>
+                            </div>
+                    </div>
+                    <span class="pro-badge">PRO</span>
+                </div>
+                
+                <!-- Chat Messages -->
+                <div class="chat-messages" id="chatMessages">
+                    <div class="welcome-message">
+                        <i class="fas fa-robot"></i>
+                            <h5>Welcome to AI Financial Advisor!</h5>
+                            <p>I'm your intelligent financial companion, ready to help you make smarter money decisions.</p>
+                            <p>Ask me about your spending patterns, budget optimization, investment strategies, or any financial questions you have!</p>
+                            <p class="small">💡 <strong>Pro tip:</strong> Type <code>@</code> to see available helpers for categories, accounts, and scopes!</p>
+                    </div>
+                </div>
+                
+                <!-- Typing Indicator -->
+                <div class="typing-indicator" id="typingIndicator">
+                    <div class="message-avatar ai">
+                        <i class="fas fa-robot"></i>
+                    </div>
+                    <div class="message-content">
+                            AI is analyzing your request
+                        <div class="typing-dots">
+                            <span></span>
+                            <span></span>
+                            <span></span>
+                        </div>
+                    </div>
+                </div>
+                
+                 <!-- Chat Input -->
+                 <div class="chat-input-container">
+                     <div class="input-wrapper">
+                            <div class="tag-area" id="tagArea" role="listbox" aria-label="Message input with helpers">
+                                <div id="editor" contenteditable="true" aria-multiline="true" aria-label="Type your message and @ for helpers"></div>
+                            </div>
+                         <button id="sendButton" class="send-button" disabled>
+                             <i class="fas fa-paper-plane"></i>
+                         </button>
+                        </div>
+                        <!-- Hidden textarea for form submission -->
+                        <textarea id="hiddenMessage" name="message" style="display:none"></textarea>
+                     </div>
+                     
+                     <!-- Helper Suggestions Dropdown -->
+                     <div class="helper-suggestions" id="helperSuggestions" style="display: none;">
+                         <div class="suggestion-header">
+                            <i class="fas fa-magic"></i>
+                            <span>Quick Helpers</span>
+                            <small class="ms-auto opacity-75">Type @ to see these options</small>
+                         </div>
+                         <div class="suggestion-categories">
+                             <div class="suggestion-group">
+                                <h6><i class="fas fa-tags"></i>Categories</h6>
+                                 <div class="suggestion-items" id="categorySuggestions">
+                                     <!-- Will be populated by JavaScript -->
+                                 </div>
+                             </div>
+                             <div class="suggestion-group">
+                                <h6><i class="fas fa-wallet"></i>Accounts</h6>
+                                 <div class="suggestion-items" id="accountSuggestions">
+                                     <!-- Will be populated by JavaScript -->
+                                 </div>
+                             </div>
+                             <div class="suggestion-group">
+                                <h6><i class="fas fa-calendar-alt"></i>Scopes</h6>
+                                 <div class="suggestion-items" id="scopeSuggestions">
+                                     <!-- Will be populated by JavaScript -->
+                                 </div>
+                             </div>
+                         </div>
+                     </div>
+                 </div>
+                 </div>
+                     </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script id="ai-helper-bootstrap" type="application/json">
+{{ {'categories': categories, 'wallets': wallets, 'scopes': scopes} | tojson }}
+</script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize AI Advisor
+    if (window.MoneyManagementAI && window.MoneyManagementAI.initializeAIAdvisor) {
+        window.MoneyManagementAI.initializeAIAdvisor();
+    }
+    
+     const chatMessages = document.getElementById('chatMessages');
+    const editor = document.getElementById('editor');
+    const tagArea = document.getElementById('tagArea');
+    const hiddenMessage = document.getElementById('hiddenMessage');
+     const sendButton = document.getElementById('sendButton');
+     const typingIndicator = document.getElementById('typingIndicator');
+     const clearChatBtn = document.getElementById('clearChatBtn');
+     const helperSuggestions = document.getElementById('helperSuggestions');
+     const categorySuggestions = document.getElementById('categorySuggestions');
+     const accountSuggestions = document.getElementById('accountSuggestions');
+     const scopeSuggestions = document.getElementById('scopeSuggestions');
+    
+    let tags = [];
+    
+    // Data for helper suggestions
+    const helperData = {
+        categories: [],
+        accounts: [],
+        scopes: []
+    };
+    // Load bootstrap data from JSON script (avoids Jinja-in-JS lint issues)
+    (function bootstrapHelperData(){
+        const bootstrapEl = document.getElementById('ai-helper-bootstrap');
+        if (!bootstrapEl) return;
+        try {
+            const payload = JSON.parse(bootstrapEl.textContent || 'null') || {};
+            helperData.categories = (payload.categories || []).map(c => ({ id: c._id, name: c.name, icon: 'fas fa-tag' }));
+            helperData.accounts = (payload.wallets || []).map(w => ({ id: w._id, name: w.name, icon: 'fas fa-wallet' }));
+            helperData.scopes = (payload.scopes || []).map(s => ({ id: s._id, name: s.name, icon: 'fas fa-calendar-alt' }));
+        } catch (err) {
+            console.error('Failed to parse helper bootstrap JSON', err);
+        }
+    })();
+    
+     let isManuallySelectingHelper = false;
+    let selectedHelperIndex = -1;
+    let currentHelperType = 'categories';
+    
+    // Attach suggestions dropdown to body to avoid clipping within containers
+    if (helperSuggestions && helperSuggestions.parentElement !== document.body) {
+        document.body.appendChild(helperSuggestions);
+    }
+
+    function getCaretClientRect() {
+        const selection = window.getSelection();
+        if (!selection || selection.rangeCount === 0) return null;
+        const originalRange = selection.getRangeAt(0);
+        const range = originalRange.cloneRange();
+        // Collapse to caret end
+        if (!range.collapsed) range.collapse(false);
+        // Try direct rects first
+        const rects = range.getClientRects();
+        if (rects && rects.length > 0) return rects[rects.length - 1];
+        // Fallback: insert a temporary marker
+        const marker = document.createElement('span');
+        marker.textContent = '\u200b';
+        marker.style.display = 'inline-block';
+        marker.style.width = '0';
+        marker.style.height = '1em';
+        marker.style.padding = '0';
+        marker.style.margin = '0';
+        range.insertNode(marker);
+        const rect = marker.getBoundingClientRect();
+        // Cleanup and restore selection
+        const parent = marker.parentNode;
+        if (parent) parent.removeChild(marker);
+        selection.removeAllRanges();
+        selection.addRange(originalRange);
+        return rect;
+    }
+
+    function positionHelperSuggestions() {
+        if (!helperSuggestions || helperSuggestions.style.display !== 'block') return;
+        const caretRect = getCaretClientRect();
+        const anchorRect = caretRect || (tagArea ? tagArea.getBoundingClientRect() : editor.getBoundingClientRect());
+        const margin = 8;
+        const maxWidth = Math.min(500, window.innerWidth - margin * 2);
+        const baseWidth = (tagArea ? tagArea.getBoundingClientRect().width : editor.getBoundingClientRect().width);
+        const width = Math.min(baseWidth, maxWidth);
+        // Base position below the caret
+        let top = anchorRect.bottom + margin;
+        let left = Math.min(Math.max(anchorRect.left, margin), window.innerWidth - margin - width);
+        // Prepare element for measurement
+        helperSuggestions.style.position = 'fixed';
+        helperSuggestions.style.visibility = 'hidden';
+        helperSuggestions.style.display = 'block';
+        helperSuggestions.style.zIndex = '99999';
+        helperSuggestions.style.width = width + 'px';
+        helperSuggestions.style.left = left + 'px';
+        helperSuggestions.style.top = top + 'px';
+        // Measure and flip if needed
+        const box = helperSuggestions.getBoundingClientRect();
+        const spaceBelow = window.innerHeight - anchorRect.bottom - margin;
+        const spaceAbove = anchorRect.top - margin;
+        if (box.height > spaceBelow && spaceAbove > spaceBelow) {
+            top = Math.max(margin, anchorRect.top - margin - Math.min(box.height, spaceAbove));
+            helperSuggestions.style.top = top + 'px';
+            helperSuggestions.style.maxHeight = Math.max(120, spaceAbove - margin) + 'px';
+        } else {
+            helperSuggestions.style.maxHeight = Math.max(120, spaceBelow) + 'px';
+        }
+        helperSuggestions.style.visibility = 'visible';
+    }
+
+    // Initialize helper suggestions
+    initializeHelperSuggestions();
+    
+    // Chip management functions
+    function sanitizeText(t) {
+        return t.replace(/\s+/g,' ').trim();
+    }
+    
+    function getCaretOffset(el) {
+        const selection = window.getSelection();
+        if (!selection || selection.rangeCount === 0) return 0;
+        const range = selection.getRangeAt(0);
+        const pre = range.cloneRange();
+        pre.selectNodeContents(el);
+        pre.setEnd(range.endContainer, range.endOffset);
+        return pre.toString().length;
+    }
+    
+    function setCaretOffset(el, offset) {
+        const selection = window.getSelection();
+        if (!selection) return;
+        const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, null, false);
+        let current = 0;
+        let node;
+        while ((node = walker.nextNode())) {
+            const next = current + (node.nodeValue ? node.nodeValue.length : 0);
+            if (offset <= next) {
+                const range = document.createRange();
+                range.setStart(node, Math.max(0, offset - current));
+                range.collapse(true);
+                selection.removeAllRanges();
+                selection.addRange(range);
+                return;
+            }
+            current = next;
+        }
+        const range = document.createRange();
+        range.selectNodeContents(el);
+        range.collapse(false);
+        selection.removeAllRanges();
+        selection.addRange(range);
+    }
+    
+    function deleteMentionAtCaret(isBackspace) {
+        const text = editor.innerText || editor.textContent || '';
+        let caret = getCaretOffset(editor);
+        let startIdx = -1;
+        let endIdx = -1;
+        if (isBackspace) {
+            const idx = Math.max(0, caret - 1);
+            const open = text.lastIndexOf('(', idx);
+            if (open !== -1 && text[open + 1] === '@') {
+                const close = text.indexOf(')', open + 2);
+                if (close !== -1 && caret >= open + 1 && caret <= close + 1) {
+                    startIdx = open;
+                    endIdx = close;
+                }
+            }
+        } else {
+            const idx = caret;
+            if (text[idx] === '(' && text[idx + 1] === '@') {
+                const close = text.indexOf(')', idx + 2);
+                if (close !== -1) {
+                    startIdx = idx;
+                    endIdx = close;
+                }
+            } else {
+                const open = text.lastIndexOf('(', idx);
+                if (open !== -1 && text[open + 1] === '@') {
+                    const close = text.indexOf(')', open + 2);
+                    if (close !== -1 && idx >= open && idx <= close) {
+                        startIdx = open;
+                        endIdx = close;
+                    }
+                }
+            }
+        }
+        if (startIdx !== -1 && endIdx !== -1) {
+            let newText = text.slice(0, startIdx) + text.slice(endIdx + 1);
+            newText = newText.replace(/\s{2,}/g, ' ');
+            newText = sanitizeText(newText);
+            editor.innerText = newText;
+            setCaretOffset(editor, Math.min(startIdx, newText.length));
+            updateHiddenMessage();
+            return true;
+        }
+        return false;
+    }
+    
+    function updateHiddenMessage() {
+        const messageText = editor.innerText || editor.textContent || '';
+        hiddenMessage.value = messageText;
+        sendButton.disabled = messageText.trim() === '';
+    }
+    
+    function createChip(text, insertPosition = null) {
+        const t = sanitizeText(text);
+        if (!t) return;
+        if (tags.includes(t)) return; // avoid duplicates
+        
+        tags.push(t);
+        
+        const chip = document.createElement('span');
+        chip.className = 'chip';
+        chip.setAttribute('role','option');
+        chip.innerHTML = t; // No @ symbol in the chip
+        
+        const remove = document.createElement('span');
+        remove.className = 'remove';
+        remove.setAttribute('aria-label','Remove tag');
+        remove.textContent = '×';
+        remove.addEventListener('click', () => {
+            tagArea.removeChild(chip);
+            tags = tags.filter(x => x !== t);
+            updateHiddenMessage();
+        });
+        
+        chip.appendChild(remove);
+        
+        // Insert at specific position or before editor
+        if (insertPosition && insertPosition.parentNode) {
+            insertPosition.parentNode.insertBefore(chip, insertPosition);
+        } else {
+            // insert before the editor
+            tagArea.insertBefore(chip, editor);
+        }
+        updateHiddenMessage();
+    }
+    
+    function flushEditor() {
+        // Normalize whitespace but keep content and inline elements intact
+        const raw = editor.innerText || editor.textContent || '';
+        editor.innerText = sanitizeText(raw);
+    }
+    
+    // Editor input handling
+    editor.addEventListener('input', function() {
+        updateHiddenMessage();
+        
+        // Check for trigger input to show suggestions
+        const text = editor.innerText || editor.textContent || '';
+        const lastAt = text.lastIndexOf('@');
+        const hasUnclosedTrigger = lastAt !== -1 && text.substring(lastAt).indexOf(' ') === -1;
+        const query = hasUnclosedTrigger ? text.substring(lastAt + 1) : '';
+        
+        if (hasUnclosedTrigger) {
+            // Show suggestions when user types @
+             showHelperSuggestions();
+            filterHelperSuggestions(query);
+            positionHelperSuggestions();
+            selectedHelperIndex = -1;
+         } else {
+            // Hide suggestions when user types space or moves cursor away
+             hideHelperSuggestions();
+         }
+     });
+    
+    // Editor keydown handling
+    editor.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            if (helperSuggestions.style.display === 'block') {
+                // If suggestions are open, select the highlighted item
+                selectHighlightedHelper();
+            } else {
+            sendMessage();
+            }
+        } else if (e.key === 'Escape') {
+            hideHelperSuggestions();
+        } else if (e.key === 'ArrowDown' && helperSuggestions.style.display === 'block') {
+            e.preventDefault();
+            navigateHelpers(1);
+            positionHelperSuggestions();
+        } else if (e.key === 'ArrowUp' && helperSuggestions.style.display === 'block') {
+            e.preventDefault();
+            navigateHelpers(-1);
+            positionHelperSuggestions();
+        } else if (e.key === '@') {
+            // Immediately show suggestions when @ is typed
+            setTimeout(() => {
+                showHelperSuggestions();
+                filterHelperSuggestions('');
+                positionHelperSuggestions();
+            }, 10);
+        } else if (e.key === 'Backspace') {
+            // Delete whole (@mention) token if caret is on it
+            if (deleteMentionAtCaret(true)) { e.preventDefault(); return; }
+            // if editor is empty, remove last chip
+            const textNow = editor.innerText || editor.textContent || '';
+            if (textNow.trim() === '') {
+                const chips = tagArea.querySelectorAll('.chip');
+                const last = chips[chips.length - 1];
+                if (last) {
+                    const value = last.textContent.replace('@', '').replace('×', '').trim();
+                    tags = tags.filter(x => x !== value);
+                    tagArea.removeChild(last);
+                    updateHiddenMessage();
+                    e.preventDefault();
+                }
+            }
+        } else if (e.key === 'Delete') {
+            // Delete whole (@mention) token if caret is before it or inside
+            if (deleteMentionAtCaret(false)) { e.preventDefault(); return; }
+        }
+    });
+    
+     // Send button click
+     sendButton.addEventListener('click', sendMessage);
+     
+    // Test helper button
+    const testHelperBtn = document.getElementById('testHelperBtn');
+    if (testHelperBtn) {
+        testHelperBtn.addEventListener('click', function() {
+            console.log('Test helper button clicked');
+            showHelperSuggestions();
+            positionHelperSuggestions();
+        });
+    }
+    
+    // Clear chat
+    clearChatBtn.addEventListener('click', function() {
+        if (confirm('Are you sure you want to clear the chat history?')) {
+            chatMessages.innerHTML = `
+                <div class="welcome-message">
+                    <i class="fas fa-robot"></i>
+                    <h5>Welcome to AI Financial Advisor!</h5>
+                    <p>I'm your intelligent financial companion, ready to help you make smarter money decisions.</p>
+                    <p>Ask me about your spending patterns, budget optimization, investment strategies, or any financial questions you have!</p>
+                    <p class="small">💡 <strong>Pro tip:</strong> Type <code>@</code> to see available helpers for categories, accounts, and scopes!</p>
+                </div>
+            `;
+            
+            // Clear input and chips
+            editor.innerText = '';
+            tags = [];
+            tagArea.querySelectorAll('.chip').forEach(chip => chip.remove());
+            updateHiddenMessage();
+        }
+     });
+     
+     // Click outside to hide suggestions
+     document.addEventListener('click', function(e) {
+        if (!tagArea.contains(e.target) && !helperSuggestions.contains(e.target)) {
+             hideHelperSuggestions();
+         }
+     });
+    // Reposition on window and chat scroll/resize
+    window.addEventListener('resize', positionHelperSuggestions, { passive: true });
+    window.addEventListener('scroll', positionHelperSuggestions, { passive: true });
+    if (chatMessages) {
+        chatMessages.addEventListener('scroll', positionHelperSuggestions, { passive: true });
+    }
+    
+    // Keep editor always focusable when clicking inside container
+    tagArea.addEventListener('click', function(e) {
+        if (e.target === tagArea) editor.focus();
+    });
+    
+    // When the editor loses focus, create chips from what's left
+    editor.addEventListener('blur', function() {
+        flushEditor();
+    });
+    
+    // Prevent pasting rich content; instead paste plain text and process
+    editor.addEventListener('paste', function(e) {
+        e.preventDefault();
+        const text = (e.clipboardData || window.clipboardData).getData('text');
+        // insert text then flush
+        document.execCommand('insertText', false, text);
+     });
+     
+     // Mobile-specific enhancements
+     if (window.innerWidth <= 768) {
+         // Prevent zoom on input focus (iOS)
+        editor.addEventListener('focus', function() {
+             const viewport = document.querySelector('meta[name=viewport]');
+             if (viewport) {
+                 viewport.setAttribute('content', 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no');
+             }
+         });
+         
+         // Restore zoom capability when input loses focus
+        editor.addEventListener('blur', function() {
+             const viewport = document.querySelector('meta[name=viewport]');
+             if (viewport) {
+                 viewport.setAttribute('content', 'width=device-width, initial-scale=1.0');
+             }
+         });
+         
+         // Improve touch scrolling for chat messages
+         chatMessages.style.webkitOverflowScrolling = 'touch';
+         
+         // Add touch feedback for buttons
+        const buttons = document.querySelectorAll('.send-button, .clear-chat-btn, .suggestion-item');
+         buttons.forEach(button => {
+             button.addEventListener('touchstart', function() {
+                 this.style.transform = 'scale(0.95)';
+             });
+             
+             button.addEventListener('touchend', function() {
+                 this.style.transform = '';
+             });
+         });
+     }
+    
+    // Helper navigation functions
+    function navigateHelpers(direction) {
+        const allSuggestions = Array.from(helperSuggestions.querySelectorAll('.suggestion-item'))
+            .filter(item => item.style.display !== 'none');
+        if (allSuggestions.length === 0) return;
+        
+        // Remove previous selection
+        allSuggestions.forEach(item => item.classList.remove('selected'));
+        
+        // Calculate new index
+        selectedHelperIndex += direction;
+        if (selectedHelperIndex < 0) selectedHelperIndex = allSuggestions.length - 1;
+        if (selectedHelperIndex >= allSuggestions.length) selectedHelperIndex = 0;
+        
+        // Highlight new selection
+        allSuggestions[selectedHelperIndex].classList.add('selected');
+        allSuggestions[selectedHelperIndex].scrollIntoView({ block: 'nearest' });
+    }
+    
+    function selectHighlightedHelper() {
+        const visibleSuggestions = Array.from(helperSuggestions.querySelectorAll('.suggestion-item'))
+            .filter(item => item.style.display !== 'none');
+        if (visibleSuggestions.length === 0) return;
+        const idx = Math.max(0, Math.min(selectedHelperIndex, visibleSuggestions.length - 1));
+        visibleSuggestions[idx].click();
+    }
+     
+    function initializeHelperSuggestions() {
+         // Populate category suggestions
+         categorySuggestions.innerHTML = '';
+        helperData.categories.forEach(category => {
+                 const suggestionItem = document.createElement('div');
+                 suggestionItem.className = 'suggestion-item';
+            suggestionItem.innerHTML = `<i class="${category.icon}"></i>${category.name}`;
+                 suggestionItem.dataset.type = 'category';
+            suggestionItem.dataset.value = category.id;
+            suggestionItem.dataset.name = category.name;
+                 suggestionItem.addEventListener('click', () => selectHelper(suggestionItem));
+                 categorySuggestions.appendChild(suggestionItem);
+         });
+         
+         // Populate account suggestions
+         accountSuggestions.innerHTML = '';
+        helperData.accounts.forEach(account => {
+                 const suggestionItem = document.createElement('div');
+                 suggestionItem.className = 'suggestion-item';
+            suggestionItem.innerHTML = `<i class="${account.icon}"></i>${account.name}`;
+                 suggestionItem.dataset.type = 'account';
+            suggestionItem.dataset.value = account.id;
+            suggestionItem.dataset.name = account.name;
+                 suggestionItem.addEventListener('click', () => selectHelper(suggestionItem));
+                 accountSuggestions.appendChild(suggestionItem);
+         });
+         
+         // Populate scope suggestions
+         scopeSuggestions.innerHTML = '';
+        helperData.scopes.forEach(scope => {
+                 const suggestionItem = document.createElement('div');
+                 suggestionItem.className = 'suggestion-item';
+            suggestionItem.innerHTML = `<i class="${scope.icon}"></i>${scope.name}`;
+                 suggestionItem.dataset.type = 'scope';
+            suggestionItem.dataset.value = scope.id;
+            suggestionItem.dataset.name = scope.name;
+                 suggestionItem.addEventListener('click', () => selectHelper(suggestionItem));
+                 scopeSuggestions.appendChild(suggestionItem);
+         });
+     }
+    
+    function filterHelperSuggestions(query) {
+        const q = (query || '').toLowerCase();
+        const items = helperSuggestions.querySelectorAll('.suggestion-item');
+        let anyVisible = false;
+        items.forEach(item => {
+            const name = (item.dataset.name || '').toLowerCase();
+            const match = q === '' || name.includes(q);
+            item.style.display = match ? '' : 'none';
+            if (match) anyVisible = true;
+        });
+        // Reset selection index when filtering
+        selectedHelperIndex = -1;
+        // Auto-select first visible for keyboard Enter convenience
+        if (anyVisible) {
+            const firstVisible = Array.from(helperSuggestions.querySelectorAll('.suggestion-item')).find(i => i.style.display !== 'none');
+            if (firstVisible) firstVisible.classList.add('selected');
+            selectedHelperIndex = 0;
+        }
+    }
+     
+    function showHelperSuggestions() {
+        if (!helperSuggestions) return;
+        helperSuggestions.style.display = 'block';
+        selectedHelperIndex = -1;
+        // Apply current query filter
+        const text = editor.innerText || editor.textContent || '';
+        const lastAt = text.lastIndexOf('@');
+        const query = lastAt !== -1 ? text.substring(lastAt + 1) : '';
+        filterHelperSuggestions(query);
+        positionHelperSuggestions();
+    }
+     
+     function hideHelperSuggestions() {
+         helperSuggestions.style.display = 'none';
+        selectedHelperIndex = -1;
+        // Remove all selections
+        helperSuggestions.querySelectorAll('.suggestion-item').forEach(item => {
+            item.classList.remove('selected');
+        });
+     }
+     
+    function selectHelper(suggestionItem) {
+        const helperName = suggestionItem.dataset.name;
+        const mention = '(@' + helperName + ')';
+        
+        // Get current text and find the last @
+        const text = editor.innerText || editor.textContent || '';
+        const lastAt = text.lastIndexOf('@');
+        
+        if (lastAt !== -1) {
+            // Replace the @mention token in-place with the selected helper name
+            const before = text.substring(0, lastAt);
+            const rest = text.substring(lastAt + 1);
+            const spaceIdx = rest.search(/\s/);
+            const after = spaceIdx === -1 ? '' : rest.substring(spaceIdx);
+            const spacer = after.startsWith(' ') || before.endsWith(' ') ? '' : ' ';
+            const newText = sanitizeText(`${before}${spacer}${mention}${after}`);
+            editor.innerText = newText;
+        } else {
+            // Fallback: insert the helper name at the end
+            const base = editor.innerText || editor.textContent || '';
+            const spacer = base.endsWith(' ') || base === '' ? '' : ' ';
+            editor.innerText = sanitizeText(`${base}${spacer}${mention} `);
+        }
+        
+        updateHiddenMessage();
+        
+        // Hide suggestions
+        hideHelperSuggestions();
+        
+        // Focus back to editor and set caret at end
+        editor.focus();
+        setTimeout(() => {
+            const range = document.createRange();
+            const sel = window.getSelection();
+            range.selectNodeContents(editor);
+            range.collapse(false);
+            sel.removeAllRanges();
+            sel.addRange(range);
+        }, 10);
+    }
+    
+     async function sendMessage() {
+        const messageText = editor.innerText || editor.textContent || '';
+        const message = messageText.trim();
+        if (!message) return;
+
+        // Parse helpers from text "(@Name)" pattern to send structured metadata
+        const helperRegex = /\(@([^\)]+)\)/g;
+        const helpers = [];
+        let match;
+        while ((match = helperRegex.exec(message)) !== null) {
+            helpers.push({ type: 'unknown', name: match[1] });
+        }
+
+        // Echo user message immediately
+        addMessage('user', message);
+
+        // Clear input
+        editor.innerText = '';
+        tags = [];
+        tagArea.querySelectorAll('.chip').forEach(chip => chip.remove());
+        updateHiddenMessage();
+        hideHelperSuggestions();
+
+        // Persist to backend
+        try {
+            showTypingIndicator();
+            const res = await fetch('/api/ai/chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ message, helpers, role: 'user' })
+            });
+            const data = await res.json();
+            hideTypingIndicator();
+            const aiResponse = (data && data.ai_text) ? data.ai_text : generateAIResponse(message);
+            addMessage('ai', aiResponse);
+        } catch (err) {
+            hideTypingIndicator();
+            addMessage('ai', 'Maaf, terjadi kesalahan menyimpan percakapan.');
+        }
+     }
+    
+    function addMessage(sender, content) {
+        const messageDiv = document.createElement('div');
+        messageDiv.className = `message ${sender}`;
+        
+        const avatar = document.createElement('div');
+        avatar.className = 'message-avatar';
+        avatar.innerHTML = sender === 'user' ? '<i class="fas fa-user"></i>' : '<i class="fas fa-robot"></i>';
+        
+        const messageContent = document.createElement('div');
+        messageContent.className = 'message-content';
+        
+        // Process content for category mentions
+        messageContent.innerHTML = processCategoryMentions(content);
+        
+        messageDiv.appendChild(avatar);
+        messageDiv.appendChild(messageContent);
+        
+        // Remove welcome message if it exists
+        const welcomeMessage = chatMessages.querySelector('.welcome-message');
+        if (welcomeMessage) {
+            welcomeMessage.remove();
+        }
+        
+        chatMessages.appendChild(messageDiv);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+    
+     function processCategoryMentions(content) {
+        // Process any @mentions in the content for styling
+        return content.replace(/@(\w+)/g, '<span class="category-mention">$1</span>');
+     }
+    
+    function showTypingIndicator() {
+        typingIndicator.style.display = 'flex';
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+    
+    function hideTypingIndicator() {
+        typingIndicator.style.display = 'none';
+    }
+    
+    function generateAIResponse(userMessage) {
+        // This is a placeholder - replace with actual AI integration
+        const responses = [
+            "Based on your financial data, I can see some interesting patterns. Let me analyze your spending habits and provide personalized recommendations.",
+            "I notice you've been spending more on dining out this month. Would you like me to suggest some budget-friendly alternatives?",
+            "Your savings rate has improved by 15% compared to last month. Great job! Here are some ways to optimize it further...",
+            "I can help you set up a budget for the categories you're most concerned about. What would you like to focus on?",
+            "Based on your transaction history, I recommend reviewing your subscription services. You might be able to save money by canceling unused ones.",
+            "I've analyzed your spending patterns and found some opportunities for optimization. Would you like me to create a personalized budget plan?",
+            "Your financial health is looking good! I can help you identify areas where you might be able to save more or invest wisely.",
+            "I notice some interesting trends in your spending. Let me break down the key insights and provide actionable recommendations."
+        ];
+        
+        return responses[Math.floor(Math.random() * responses.length)];
+    }
+});
+</script>
+{% endblock %}

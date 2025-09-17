@@ -55,3 +55,11 @@ def ensure_indexes(index_specs: Dict[str, List[Tuple]]):
             coll.create_index([keys] if isinstance(keys[0], str) else keys, **(options or {}))
 
 
+
+def get_gemini_api_key() -> Optional[str]:
+    """Return Gemini API key from environment.
+
+    Env:
+      - GEMINI_API_KEY
+    """
+    return "AIzaSyAG060Fsp6FYWSLYwQh3kcR1RJOL1cnwlA"
