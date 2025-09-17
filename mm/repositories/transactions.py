@@ -536,7 +536,7 @@ class TransactionRepository(MongoRepository):
                                 {"_id": result.inserted_id},
                                 {"$set": {"balance_after": balance_after}}
                             )
-                else: 
+
                 return str(result.inserted_id)
             else:
                 return None
@@ -838,9 +838,7 @@ class TransactionRepository(MongoRepository):
                 
                 if update_result.modified_count > 0:
                     updated_count += 1
-                else:
-                    print(f"⚠️ [BALANCE] No changes made to transaction {tx_id}")
-            
+
             return {
                 "success": True, 
                 "message": f"Successfully recalculated {updated_count} transactions",

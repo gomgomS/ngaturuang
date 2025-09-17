@@ -32,10 +32,7 @@ def inject_global_data():
     try:
         user_id = session.get("user_id")
         username = session.get("username")
-        
-        print(f"🔍 [CONTEXT] user_id from session: {user_id}")
-        print(f"🔍 [CONTEXT] username from session: {username}")
-        
+           
         if user_id:
             # Calculate total balance using the same logic as dashboard
             # Get latest balance_after from all wallets up to current time
@@ -47,16 +44,13 @@ def inject_global_data():
                 wallet_repo = WalletRepository()
                 wallets = wallet_repo.list_by_user(user_id)
                 total_balance = sum(float(wallet.get("actual_balance", 0)) for wallet in wallets)
-                print(f"🔍 [CONTEXT] Fallback to wallet actual_balance: {total_balance}")
-            else:
-                print(f"🔍 [CONTEXT] Total balance calculated using transaction logic: {total_balance}")
-            
+
             return {
                 "total_balance": total_balance,
                 "username": username or "User"
             }
         else:
-            print(f"🔍 [CONTEXT] No user_id in session, returning default values")
+
             return {
                 "total_balance": 0,
                 "username": "User"
@@ -163,7 +157,6 @@ def dashboard():
         
         # If no transactions in current month, get recent transactions from all time
         if not transactions:
-            print(f"🔍 [DASHBOARD] No transactions in current month, getting recent transactions from all time")
             transactions = tx_repo.get_user_transactions_simple(user_id, limit=10)
         
         # Filter out system categories (Transfer and Balance Adjustment)
@@ -172,13 +165,6 @@ def dashboard():
         
         scopes = scope_repo.list_by_user(user_id)
         wallets = wallet_repo.list_by_user(user_id)
-        
-        # Debug: Print transaction data
-        print(f"🔍 [DASHBOARD] Found {len(transactions)} transactions")
-        if transactions:
-            print(f"🔍 [DASHBOARD] First transaction: {transactions[0]}")
-        else:
-            print(f"🔍 [DASHBOARD] No transactions found at all")
         
         # Calculate totals for current month only
         try:
@@ -711,7 +697,6 @@ def calculate_balance_from_transactions(user_id, end_timestamp, start_timestamp=
         
         # If no transactions found for the period, return "-"
         if not latest_transactions:
-            print(f"⚠️ [BALANCE] No transactions found for user {user_id} up to the selected date")
             return "-"
         
         # Sum up the balance_after from the latest transaction of each wallet
