@@ -741,10 +741,7 @@
                 
                 const data = await response.json();
                 
-                // Debug logging
-                console.log('Register response:', response);
-                console.log('Register data:', data);
-                
+   
                                  if (response.ok && data.success) {
                      showMessage('Account created successfully! Redirecting to login...', 'success');
                      setTimeout(() => {

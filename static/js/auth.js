@@ -288,7 +288,6 @@ function setProcessingState(processing) {
 
 // Demo mode functions (for development/testing)
 function enableDemoMode() {
-    console.log('🎭 Demo mode enabled');
     
     // Auto-fill demo credentials
     const usernameInput = document.getElementById('auth-username');

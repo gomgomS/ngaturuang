@@ -1408,14 +1408,7 @@ function submitTransaction() {
     // Ensure timestamp is a number
     data.timestamp = parseInt(data.timestamp);
     
-    // Debug logging
-    console.log('Submitting transaction data:', data);
-    console.log('Timestamp value:', data.timestamp, 'Type:', typeof data.timestamp);
-    console.log('Date from timestamp:', new Date(data.timestamp * 1000));
-    console.log('Wallet ID:', data.wallet_id);
-    console.log('User ID will be set by backend');
-    console.log('Manual Balance ID and Sequence Number will be auto-populated by backend');
-    
+
     fetch('/api/transactions/', {
         method: 'POST',
         headers: {
@@ -1481,8 +1474,6 @@ function showAddTransaction() {
     // Update progress bar
     updateProgressBar();
     
-    // Debug: check if timestamp field is reset
-    console.log('Form reset - Timestamp field value:', document.getElementById('add_timestamp').value);
 }
 
 function nextStep() {
@@ -1823,9 +1814,6 @@ function confirmRecentTransaction() {
     // Set to hidden field
     document.getElementById('add_timestamp').value = timestamp;
     
-    // Also set to a visible field for debugging (optional)
-    console.log('Timestamp set to:', timestamp, 'Date:', new Date(timestamp * 1000));
-    
     nextStep();
 }
 
@@ -2029,11 +2017,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const transferToWallet = document.getElementById('transfer_to_wallet');
     const transferAmount = document.getElementById('transfer_amount');
     const transferFee = document.getElementById('transfer_fee');
-    
-    console.log('Transfer elements found:');
-    console.log('transferAmount:', transferAmount);
-    console.log('transferFee:', transferFee);
-    
+
     if (transferFromWallet) {
         transferFromWallet.addEventListener('change', function() {
             updateFromWalletBalance();
@@ -2041,13 +2025,11 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     if (transferAmount) {
         transferAmount.addEventListener('input', function(e) {
-            console.log('Transfer amount input event triggered');
             formatAmountInput(e.target);
         });
     }
     if (transferFee) {
         transferFee.addEventListener('input', function(e) {
-            console.log('Transfer fee input event triggered');
             formatAmountInput(e.target);
         });
     }
@@ -2096,7 +2078,6 @@ function updateBalanceDifference() {
 
 // Transfer Functions
 function showTransfer() {
-    console.log('showTransfer called');
     // Reset form
     document.getElementById('transfer_from_wallet').value = '';
     document.getElementById('transfer_to_wallet').value = '';
@@ -2104,12 +2085,9 @@ function showTransfer() {
     document.getElementById('transfer_fee').value = '';
     document.getElementById('fromWalletBalanceDisplay').style.display = 'none';
     
-    console.log('Form reset, displays hidden');
-    
     // Show modal
     const modal = new bootstrap.Modal(document.getElementById('transferModal'));
     modal.show();
-    console.log('Transfer modal shown');
 }
 
 function submitTransfer() {
@@ -2185,33 +2163,29 @@ function submitTransfer() {
 }
 
 function updateFromWalletBalance() {
-    console.log('updateFromWalletBalance called');
     const fromWalletId = document.getElementById('transfer_from_wallet').value;
     const display = document.getElementById('fromWalletBalanceDisplay');
     const balanceSpan = document.getElementById('fromWalletBalance');
     
-    console.log('From wallet ID:', fromWalletId);
-    console.log('Display element:', display);
-    console.log('Balance span element:', balanceSpan);
-    
+
     if (fromWalletId) {
         const selectedOption = document.querySelector(`#transfer_from_wallet option[value="${fromWalletId}"]`);
         if (selectedOption) {
             const balance = selectedOption.getAttribute('data-balance');
-            console.log('Wallet balance:', balance);
+
             if (balance && balance !== '0') {
                 const formattedBalance = parseFloat(balance).toLocaleString('id-ID');
                 balanceSpan.textContent = `IDR ${formattedBalance}`;
                 display.style.display = 'block';
-                console.log('Balance display set to block with:', formattedBalance);
+
             } else {
                 display.style.display = 'none';
-                console.log('Balance display set to none (no balance)');
+
             }
         }
     } else {
         display.style.display = 'none';
-        console.log('Balance display set to none (no wallet selected)');
+
     }
 }
 

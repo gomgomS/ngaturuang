@@ -5,7 +5,6 @@ let currentUser = null;
 
 // Initialize application
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('🚀 Money Management AI initialized');
     initializeApp();
 });
 

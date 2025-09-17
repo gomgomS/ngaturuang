@@ -1640,8 +1640,7 @@ async function saveBalance() {
         
         if (response.ok) {
             const result = await response.json();
-            console.log('Balance updated successfully:', result);
-            
+
             // Close modal
             const modal = bootstrap.Modal.getInstance(document.getElementById('editBalanceModal'));
             modal.hide();
@@ -1662,8 +1661,7 @@ async function saveBalance() {
 // Change Manual Balance by Date Function
 async function changeManualBalanceByDate(walletId, timestamp) {
     try {
-        console.log(`🔄 Changing manual balance for wallet ${walletId} to timestamp ${timestamp}`);
-        
+
         // Show loading state
         const selector = document.querySelector(`select[data-wallet-id="${walletId}"]`);
         const originalText = selector.options[selector.selectedIndex].text;
@@ -1889,8 +1887,6 @@ function showAlert(message, type = 'info') {
 
 // Add event listeners when page loads
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('🚀 DOM loaded, setting up balance history event listeners');
-    
     // Set up event listeners for all balance dropdowns
     setupBalanceDropdownListeners();
     
@@ -2091,14 +2087,13 @@ function updateCurrentBalanceDisplay() {
 function setupBalanceDropdownListeners() {
     try {
         const dropdowns = document.querySelectorAll('select[data-wallet-id]');
-        console.log(`🔧 Setting up ${dropdowns.length} balance dropdown listeners`);
-        
+
         dropdowns.forEach(dropdown => {
             const walletId = dropdown.getAttribute('data-wallet-id');
             
             // Add change event listener
             dropdown.addEventListener('change', function(e) {
-                console.log(`🔄 Dropdown change event for wallet ${walletId}`);
+
                 // Ensure dropdown is enabled after change
                 setTimeout(() => {
                     ensureDropdownEnabled(walletId);
@@ -2107,17 +2102,15 @@ function setupBalanceDropdownListeners() {
             
             // Add focus event listener
             dropdown.addEventListener('focus', function(e) {
-                console.log(`🎯 Dropdown focus event for wallet ${walletId}`);
                 ensureDropdownEnabled(walletId);
             });
             
             // Add click event listener
             dropdown.addEventListener('click', function(e) {
-                console.log(`🖱️ Dropdown click event for wallet ${walletId}`);
                 ensureDropdownEnabled(walletId);
             });
             
-            console.log(`✅ Event listeners added for wallet ${walletId}`);
+
         });
         
     } catch (error) {
@@ -2132,7 +2125,7 @@ function setupGlobalDropdownErrorHandler() {
         setInterval(() => {
             const disabledDropdowns = document.querySelectorAll('select[data-wallet-id]:disabled');
             if (disabledDropdowns.length > 0) {
-                console.log(`⚠️ Found ${disabledDropdowns.length} disabled dropdowns, re-enabling...`);
+
                 disabledDropdowns.forEach(dropdown => {
                     const walletId = dropdown.getAttribute('data-wallet-id');
                     ensureDropdownEnabled(walletId);
@@ -2140,8 +2133,7 @@ function setupGlobalDropdownErrorHandler() {
             }
         }, 5000); // Check every 5 seconds
         
-        console.log('✅ Global dropdown error handler set up');
-        
+
     } catch (error) {
         console.error('❌ Error setting up global error handler:', error);
     }
@@ -2179,7 +2171,7 @@ function ensureDropdownEnabled(walletId) {
     try {
         const selector = document.querySelector(`select[data-wallet-id="${walletId}"]`);
         if (selector && selector.disabled) {
-            console.log(`⚙️ Re-enabling dropdown for wallet ${walletId}`);
+
             selector.disabled = false;
         }
     } catch (error) {
@@ -2190,12 +2182,12 @@ function ensureDropdownEnabled(walletId) {
 // Function to change balance history display
 function changeBalanceHistory(walletId, balanceId) {
     try {
-        console.log(`🔄 Changing balance history for wallet ${walletId} to balance ${balanceId}`);
+
         
         // Get the balance data from hidden elements
         const balanceDataContainer = document.getElementById(`balance-data-${walletId}`);
         if (!balanceDataContainer) {
-            console.error(`❌ Balance data container not found for wallet ${walletId}`);
+
             return;
         }
         
@@ -2211,7 +2203,7 @@ function changeBalanceHistory(walletId, balanceId) {
         }
         
         if (!selectedBalanceData) {
-            console.error(`❌ Balance data not found for balance ID ${balanceId}`);
+
             return;
         }
         
@@ -2221,7 +2213,7 @@ function changeBalanceHistory(walletId, balanceId) {
         const isClosed = selectedBalanceData.getAttribute('data-is-closed') === 'true';
         const closeBalance = selectedBalanceData.getAttribute('data-close-balance');
         
-        console.log(`📊 Extracted data: Date=${balanceDate}, Amount=${balanceAmount}, Closed=${isClosed}, CloseBalance=${closeBalance}`);
+
         
         // Update the display elements
         const dateElement = document.getElementById(`balance-date-${walletId}`);
@@ -2231,12 +2223,12 @@ function changeBalanceHistory(walletId, balanceId) {
         
         if (dateElement) {
             dateElement.textContent = balanceDate;
-            console.log(`✅ Updated date to: ${balanceDate}`);
+
         }
         
         if (amountElement) {
             amountElement.textContent = balanceAmount;
-            console.log(`✅ Updated amount to: ${balanceAmount}`);
+
         }
         
         // Update status badge
@@ -2244,11 +2236,11 @@ function changeBalanceHistory(walletId, balanceId) {
             if (isClosed) {
                 statusElement.textContent = 'Closed';
                 statusElement.className = 'badge bg-warning';
-                console.log(`✅ Updated status to: Closed`);
+
             } else {
                 statusElement.textContent = 'Active';
                 statusElement.className = 'badge bg-success';
-                console.log(`✅ Updated status to: Active`);
+
             }
         }
         
@@ -2259,11 +2251,10 @@ function changeBalanceHistory(walletId, balanceId) {
                 const closeAmountElement = closeBalanceElement.querySelector('.text-warning');
                 if (closeAmountElement) {
                     closeAmountElement.textContent = closeBalance;
-                    console.log(`✅ Updated close balance to: ${closeBalance}`);
+
                 }
             } else {
                 closeBalanceElement.style.display = 'none';
-                console.log(`ℹ️ Hiding close balance (isClosed=${isClosed}, closeBalance=${closeBalance})`);
             }
         }
         
@@ -2271,11 +2262,8 @@ function changeBalanceHistory(walletId, balanceId) {
         const balanceCard = document.querySelector(`#balance-history-${walletId}`).closest('.collapse').querySelector('.balance-history-card');
         if (balanceCard) {
             balanceCard.setAttribute('data-current-balance-id', balanceId);
-            console.log(`✅ Updated card data-current-balance-id to: ${balanceId}`);
         }
-        
-        console.log(`✅ Balance history fully updated for wallet ${walletId}`);
-        
+
     } catch (error) {
         console.error('❌ Error changing balance history:', error);
     }
@@ -2284,23 +2272,17 @@ function changeBalanceHistory(walletId, balanceId) {
 // Function to view balance history details
 function viewBalanceHistory(walletId) {
     try {
-        console.log(`🔍 Viewing balance history for wallet ${walletId}`);
-        
         // Get balance ID from dropdown - this should be the currently selected balance
         const dropdown = document.getElementById(`balance-history-${walletId}`);
         let selectedBalanceId = null;
         
         if (dropdown && dropdown.value) {
             selectedBalanceId = dropdown.value;
-            console.log(`✅ Using balance ID from dropdown: ${selectedBalanceId}`);
         } else {
             // Fallback: get the current balance ID from the card's data attribute
-            console.log(`⚠️ No dropdown value, trying fallback for wallet ${walletId}`);
-            
             const balanceCard = document.querySelector(`#balance-history-${walletId}`).closest('.collapse').querySelector('.balance-history-card');
             if (balanceCard) {
                 selectedBalanceId = balanceCard.getAttribute('data-current-balance-id');
-                console.log(`✅ Using current balance ID from card: ${selectedBalanceId}`);
             }
             
             // If still no balance ID, try to get from hidden data elements
@@ -2310,7 +2292,6 @@ function viewBalanceHistory(walletId) {
                     const firstBalanceData = balanceDataContainer.querySelector('.balance-data-item');
                     if (firstBalanceData) {
                         selectedBalanceId = firstBalanceData.getAttribute('data-balance-id');
-                        console.log(`✅ Using first balance ID as fallback: ${selectedBalanceId}`);
                     }
                 }
             }
@@ -2318,15 +2299,12 @@ function viewBalanceHistory(walletId) {
         
         // Validate balance ID
         if (selectedBalanceId && selectedBalanceId !== 'undefined' && selectedBalanceId.trim() !== '') {
-            console.log(`🚀 Redirecting to balance history: /balance-history/${selectedBalanceId}`);
             window.location.href = `/balance-history/${selectedBalanceId}`;
         } else {
-            console.error(`❌ No valid balance ID found for wallet ${walletId}`);
             alert('Unable to load balance history. Please try again.');
         }
         
     } catch (error) {
-        console.error('❌ Error viewing balance history:', error);
         alert('Error loading balance history. Please try again.');
     }
 }
@@ -2396,7 +2374,6 @@ function initializeBalanceHistoryDisplay(walletId) {
     try {
         const dropdown = document.getElementById(`balance-history-${walletId}`);
         if (dropdown && dropdown.value) {
-            console.log(`🔧 Initializing balance history display for wallet ${walletId} with balance ${dropdown.value}`);
             changeBalanceHistory(walletId, dropdown.value);
         }
     } catch (error) {
@@ -2408,12 +2385,11 @@ function initializeBalanceHistoryDisplay(walletId) {
 function initializeAllBalanceHistoryDisplays() {
     try {
         const dropdowns = document.querySelectorAll('select[id^="balance-history-"]');
-        console.log(`🔧 Initializing ${dropdowns.length} balance history displays`);
-        
+
         dropdowns.forEach(dropdown => {
             const walletId = dropdown.id.replace('balance-history-', '');
             if (dropdown.value) {
-                console.log(`✅ Initializing wallet ${walletId} with balance ${dropdown.value}`);
+
                 changeBalanceHistory(walletId, dropdown.value);
             }
         });

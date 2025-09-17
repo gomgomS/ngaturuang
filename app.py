@@ -707,7 +707,6 @@ def calculate_balance_from_transactions(user_id, end_timestamp, start_timestamp=
             if balance_after is not None:
                 total_balance += float(balance_after)
         
-        print(f"💰 [BALANCE] Calculated total balance: {total_balance} from {len(latest_transactions)} wallets")
         return total_balance
         
     except Exception as e:
@@ -845,11 +844,6 @@ def transactions():
         wallets = wallet_repo.list_by_user(user_id)
         categories = category_repo.list_by_user_with_defaults(user_id)  # Include default categories
         
-        # Debug: Print scope data
-        print("🔍 [TRANSACTIONS] Scopes found:", len(scopes))
-        for scope in scopes:
-            print("  - Scope:", scope.get('name', 'No name'), "ID:", scope.get('_id', 'No ID'))
-        
         # Get selected items for display
         selected_scope = None
         selected_category = None
@@ -959,7 +953,6 @@ def accounts():
                 latest_balance = get_latest_wallet_balance(user_id, wallet_id, current_timestamp)
                 # Update the wallet with the latest balance
                 wallet["latest_balance"] = latest_balance
-                print(f"💰 [ACCOUNTS] Wallet {wallet.get('name')}: latest_balance = {latest_balance}")
             else:
                 wallet["latest_balance"] = 0
     
@@ -1032,24 +1025,20 @@ def balance():
         all_wallets = wallet_repo.list_by_user(user_id)
         if all_wallets:
             wallets = all_wallets  # Take all wallets
-            print(f"💰 [BALANCE] Found {len(wallets)} wallets for user")
         else:
             wallets = []
-            print(f"⚠️ [BALANCE] No wallets found for user")
         
         # Ensure the single wallet has actual_balance field initialized
         for wallet in wallets:
             if "actual_balance" not in wallet or wallet["actual_balance"] is None:
                 wallet_id_str = str(wallet.get("_id"))
-                print(f"💰 [BALANCE] Initializing actual_balance for wallet: {wallet.get('name')}")
-                
+
                 # Set default actual_balance to 0 if not exists
                 wallet["actual_balance"] = 0.0
                 
                 # Update in database
                 try:
                     wallet_repo.update_wallet_balance(wallet_id_str, user_id, 0.0)
-                    print(f"✅ [BALANCE] Initialized actual_balance for {wallet.get('name')}")
                 except Exception as e:
                     print(f"❌ [BALANCE] Failed to initialize actual_balance for {wallet.get('name')}: {e}")
         
@@ -1060,9 +1049,7 @@ def balance():
             
             # Get transactions for this wallet ONLY
             wallet_id_str = str(wallet_id)
-            
-            print(f"🔍 Processing wallet: {wallet.get('name')} (ID: {wallet_id_str})")
-            
+
             # Get latest manual balance for this wallet
             latest_manual_balance = None
             try:
@@ -1070,22 +1057,15 @@ def balance():
                 manual_balance_repo = ManualBalanceRepository()
                 latest_manual_balance = manual_balance_repo.get_latest_balance(user_id, wallet_id_str)
                 
-                if latest_manual_balance:
-                    print(f"🔍 [BALANCE] Found latest manual balance: {latest_manual_balance['_id']} (seq: {latest_manual_balance.get('sequence_number', 0)})")
-                else:
-                    print(f"⚠️ [BALANCE] No manual balance found for {wallet.get('name')}")
             except Exception as e:
                 print(f"❌ [BALANCE] Error getting latest manual balance: {e}")
             
             # Get transactions that belong to this specific wallet AND manual balance sequence
             try:
-                print(f"🔍 Querying transactions for wallet {wallet_id_str}")
-                
                 if latest_manual_balance:
                     # Get transactions from the latest manual balance sequence
                     manual_balance_id = str(latest_manual_balance['_id'])
-                    print(f"🔍 [BALANCE] Filtering transactions by manual balance ID: {manual_balance_id}")
-                    
+    
                     transactions = tx_repo.get_transactions_by_manual_balance(
                         user_id, 
                         manual_balance_id, 
@@ -1093,16 +1073,12 @@ def balance():
                     )
                 else:
                     # Fallback: get all transactions for this wallet
-                    print(f"🔍 [BALANCE] No manual balance found, getting all transactions for wallet")
                     transactions = tx_repo.get_transactions_with_filters(
                         user_id, 
                         {"wallet_id": wallet_id_str}, 
                         limit=1000
                     )
-                
-                print(f"🔍 Raw transactions result type: {type(transactions)}")
-                print(f"🔍 Raw transactions result: {transactions}")
-                
+            
                 # Ensure we always have a list, never None
                 if transactions is None:
                     print(f"⚠️ Transactions is None for {wallet.get('name')}, setting to empty list")
@@ -1111,9 +1087,7 @@ def balance():
                     print(f"⚠️ Transactions is not a list for {wallet.get('name')}, converting to list")
                     transactions = list(transactions) if transactions else []
                 
-                print(f"🔍 After validation - transactions type: {type(transactions)}")
-                print(f"🔍 After validation - transactions length: {len(transactions) if transactions else 0}")
-                
+ 
                 # Ensure we only get transactions for this wallet
                 if transactions:
                     # Double-check: filter by wallet_id to be absolutely sure
@@ -1134,12 +1108,9 @@ def balance():
             
             # Debug: Print first few transactions
             if transactions and len(transactions) > 0:
-                print(f"🔍 Sample transactions for {wallet.get('name')}:")
                 for i, tx in enumerate(transactions[:3]):
                     print(f"   {i+1}. Type: {tx.get('type')}, Amount: {tx.get('amount')}, Wallet: {tx.get('wallet_id')}")
-            else:
-                print(f"🔍 No transactions found for {wallet.get('name')}")
-            
+
             # Calculate totals
             total_income = 0  # Initialize variable outside try-catch
             total_expense = 0  # Initialize variable outside try-catch
@@ -1212,8 +1183,7 @@ def balance():
                         starting_balance = float(earliest_balance.get("balance_amount", 0))
                         starting_timestamp = earliest_balance.get("balance_date", 0)
                         
-                        print(f"🔍 [MANUAL_BALANCE] Starting balance for {wallet.get('name')}: {starting_balance} at {starting_timestamp}")
-                        
+
                         # Calculate balance changes from transactions after the starting manual balance
                         balance_changes = 0
                         
@@ -1234,10 +1204,10 @@ def balance():
                                         balance_changes += float(tx.get("amount", 0))
                         
                         expected_balance_from_transactions = starting_balance + balance_changes
-                        print(f"🔍 [MANUAL_BALANCE] Expected balance for {wallet.get('name')}: {expected_balance_from_transactions}")
+
                     else:
                         # Tidak ada manual balance history, hitung dari semua transaksi
-                        print(f"⚠️ [MANUAL_BALANCE] No manual balance history for {wallet.get('name')}, calculating from all transactions")
+
                         balance_changes = 0
                         
                         for tx in transactions:
@@ -1256,7 +1226,6 @@ def balance():
                                         balance_changes += float(tx.get("amount", 0))
                         
                         expected_balance_from_transactions = balance_changes
-                        print(f"🔍 [MANUAL_BALANCE] Expected balance from all transactions for {wallet.get('name')}: {expected_balance_from_transactions}")
             except Exception as e:
                 print(f"❌ [MANUAL_BALANCE] Error calculating expected balance for {wallet.get('name')}: {e}")
                 expected_balance_from_transactions = 0
@@ -1278,8 +1247,6 @@ def balance():
                         sorted_history = sorted(balance_history, key=lambda x: x.get("balance_date", 0))
                         latest_real_balance = sorted_history[-1]  # Yang terbaru
                         latest_balance_timestamp = latest_real_balance.get("balance_date", 0)
-                        
-                        print(f"🔍 [REAL_BALANCE] Latest real balance for {wallet.get('name')}: {latest_real_balance.get('balance_amount', 0)} at {latest_balance_timestamp}")
                         
                         # Calculate balance changes from transactions after the latest real balance
                         balance_changes_after_manual = 0
@@ -1303,10 +1270,9 @@ def balance():
                         
                         # Current balance = manual balance + perubahan setelah real balance terakhir
                         current_balance = manual_balance + balance_changes_after_manual
-                        print(f"🔍 [REAL_BALANCE] Current balance for {wallet.get('name')}: {current_balance}")
+
                     else:
                         # Tidak ada real balance history, hitung dari semua transaksi
-                        print(f"⚠️ [REAL_BALANCE] No real balance history for {wallet.get('name')}, calculating from all transactions")
                         balance_changes_from_all = 0
                         
                         if transactions and isinstance(transactions, list):
@@ -1327,7 +1293,7 @@ def balance():
                         
                         # Current balance = 0 + perubahan dari semua transaksi
                         current_balance = 0 + balance_changes_from_all
-                        print(f"🔍 [REAL_BALANCE] Current balance from all transactions for {wallet.get('name')}: {current_balance}")
+
             except Exception as e:
                 print(f"❌ [REAL_BALANCE] Error calculating current balance for {wallet.get('name')}: {e}")
                 current_balance = manual_balance
@@ -1418,15 +1384,7 @@ def balance():
                         
                         # Ghost transaction = difference between actual manual balance and expected
                         ghost_amount = curr_manual_balance - expected_balance_at_curr
-                        
-                        # DEBUG: Print calculation details
-                        print(f"🔍 Ghost Calculation for {wallet.get('name')}:")
-                        print(f"   Manual Balance {i-1}: {prev_manual_balance:,.0f}")
-                        print(f"   Manual Balance {i}: {curr_manual_balance:,.0f}")
-                        print(f"   Balance Changes Between: {balance_changes_between:,.0f}")
-                        print(f"   Expected Balance: {expected_balance_at_curr:,.0f}")
-                        print(f"   Ghost Amount: {ghost_amount:,.0f}")
-                        
+
                         if abs(ghost_amount) > 0.01:  # Significant difference
                             ghost_type = "positive" if ghost_amount > 0 else "negative"
                             ghost_amount_abs = abs(ghost_amount)
@@ -1999,7 +1957,7 @@ def api_ai_chat():
             # Try Gemini first if API key available
             try:
                 api_key = get_gemini_api_key()
-                print(f"🔍 [API] Gemini API key: {api_key}")
+
                 if api_key:
                     prompt_path = os.path.join(base_dir, "data", "prompt_advicer.ai")
                     prompt_text = ""
@@ -3227,10 +3185,10 @@ def balance_history(manual_balance_id):
 
 if __name__ == "__main__":
     print("🚀 Starting Money Management AI Application...")
-    print("📍 Application will be available at: http://localhost:5002")
+    print("📍 Application will be available at: http://localhost:5006")
     print("💡 Press Ctrl+C to stop the application")
     try:
-        app.run(debug=True, host="0.0.0.0", port=5002)
+        app.run(debug=True, host="0.0.0.0", port=5006)
     except KeyboardInterrupt:
         print("\n👋 Application stopped by user")
     except Exception as e:

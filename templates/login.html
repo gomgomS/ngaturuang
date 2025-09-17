@@ -413,11 +413,7 @@
                 });
                 
                 const data = await response.json();
-                
-                // Debug logging
-                console.log('Login response:', response);
-                console.log('Login data:', data);
-                
+
                 if (response.ok && data.success) {
                     showMessage('Login successful! Redirecting...', 'success');
                     setTimeout(() => {

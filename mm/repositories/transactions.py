@@ -277,7 +277,6 @@ class TransactionRepository(MongoRepository):
                         )
                         
                         if update_result.modified_count > 0:
-                            print(f"✅ [TRANSACTIONS] Migrated transaction {tx['_id']}: manual_balance_id={manual_balance_id}, sequence={next_sequence}")
                             migrated_count += 1
                         else:
                             print(f"⚠️ [TRANSACTIONS] No changes made to transaction {tx['_id']}")

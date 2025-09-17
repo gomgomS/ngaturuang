@@ -15,7 +15,7 @@ class ScopeRepository(MongoRepository):
                 print("  - Scope:", scope.get('name', 'No name'), "ID:", scope.get('_id', 'No ID'))
             return result
         except Exception as e:
-            print("🔍 [SCOPE_REPO] Error fetching scopes:", e)
+            print(" [SCOPE_REPO] Error fetching scopes:", e)
             return []
 
     def find_one(self, query: Dict[str, Any]) -> Optional[Dict[str, Any]]:
