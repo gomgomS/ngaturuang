@@ -2003,6 +2003,8 @@ def api_ai_chat():
             print(f"Error generating json_banks.json: {e}")
         # Build AI-style analysis text based on prompt and json
         ai_text = None
+        ai_provider = None
+        ai_model = None
         try:
             # Read the freshly created JSON
             with open(out_path, "r", encoding="utf-8") as f:
@@ -2021,31 +2023,85 @@ def api_ai_chat():
                             prompt_text = pf.read()
                     except Exception:
                         prompt_text = "You are a financial advisor. Analyze the following JSON."
-                    user_payload = prompt_text + "\n\nJSON dataset:\n" + json.dumps(dataset, ensure_ascii=False)
-                    # Call Gemini via REST
-                    import urllib.request
-                    req = urllib.request.Request(
-                        url=f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key={api_key}",
-                        method="POST",
-                        data=json.dumps({
-                            "contents": [
-                                {
-                                    "role": "user",
-                                    "parts": [{"text": user_payload}]
-                                }
-                            ]
-                        }).encode("utf-8"),
-                        headers={"Content-Type": "application/json"}
+                    user_payload = (
+                        prompt_text
+                        + "\n\nFormat the response in clear Markdown with headings and bullet/numbered lists. Keep it concise.\n"
+                        + "\nJSON dataset:\n"
+                        + json.dumps(dataset, ensure_ascii=False)
                     )
-                    with urllib.request.urlopen(req, timeout=20) as resp:
-                        resp_json = json.loads(resp.read().decode("utf-8"))
-                        cand = (resp_json.get("candidates") or [{}])[0]
-                        cont = cand.get("content") or {}
-                        parts = cont.get("parts") or []
-                        if parts and isinstance(parts, list) and parts[0].get("text"):
-                            ai_text = parts[0]["text"]
+                    # Call Gemini via REST with simple retries on transient errors
+                    import urllib.request, urllib.error, time
+                    request_body = json.dumps({
+                        "contents": [
+                            {
+                                "role": "user",
+                                "parts": [{"text": user_payload}]
+                            }
+                        ]
+                    }).encode("utf-8")
+                    model_id = "gemini-1.5-flash-latest"
+                    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_id}:generateContent?key={api_key}"
+                    headers = {"Content-Type": "application/json"}
+                    for attempt in range(3):
+                        try:
+                            req = urllib.request.Request(url=url, method="POST", data=request_body, headers=headers)
+                            with urllib.request.urlopen(req, timeout=30) as resp:
+                                resp_raw = resp.read().decode("utf-8")
+                                resp_json = json.loads(resp_raw)
+                                cand = (resp_json.get("candidates") or [{}])[0]
+                                cont = cand.get("content") or {}
+                                parts = cont.get("parts") or []
+                                if parts and isinstance(parts, list) and parts[0].get("text"):
+                                    ai_text = parts[0]["text"]
+                                    ai_provider = "Gemini"
+                                    ai_model = model_id
+                                break
+                        except urllib.error.HTTPError as he:
+                            body = he.read().decode("utf-8", errors="ignore") if hasattr(he, 'read') else ''
+                            print(f"Gemini HTTPError {he.code}: {body[:500]}")
+                            if he.code in (429, 500, 502, 503, 504):
+                                time.sleep(2 ** attempt)
+                                continue
+                            else:
+                                raise
+                        except Exception as e:
+                            print(f"Gemini call exception: {e}")
+                            time.sleep(2 ** attempt)
+                            continue
             except Exception as ge:
                 print(f"Gemini call failed: {ge}")
+            # Fallback to OpenAI if available and Gemini didn't return
+            if not ai_text:
+                try:
+                    from config import get_openai_api_key
+                    oai_key = get_openai_api_key()
+                    if oai_key:
+                        prompt_path = os.path.join(base_dir, "data", "prompt_advicer.ai")
+                        try:
+                            with open(prompt_path, "r", encoding="utf-8") as pf:
+                                prompt_text = pf.read()
+                        except Exception:
+                            prompt_text = "You are a financial advisor. Analyze the following JSON."
+                        user_payload = (
+                            prompt_text
+                            + "\n\nFormat the response in clear Markdown with headings and bullet/numbered lists. Keep it concise.\n"
+                            + "\nJSON dataset:\n"
+                            + json.dumps(dataset, ensure_ascii=False)
+                        )
+                        import urllib.request, urllib.error
+                        url = "https://api.openai.com/v1/responses"
+                        headers = {"Content-Type": "application/json", "Authorization": f"Bearer {oai_key}"}
+                        openai_model = "gpt-4o-mini"
+                        body = json.dumps({"model": openai_model, "input": user_payload, "temperature": 0.3}).encode("utf-8")
+                        req = urllib.request.Request(url=url, method="POST", data=body, headers=headers)
+                        with urllib.request.urlopen(req, timeout=30) as resp:
+                            resp_json = json.loads(resp.read().decode("utf-8"))
+                            ai_text = resp_json.get("output_text") or (resp_json.get("choices") or [{}])[0].get("message", {}).get("content")
+                            ai_provider = "OpenAI"
+                            ai_model = openai_model
+                except Exception as oe:
+                    print(f"OpenAI fallback failed: {oe}")
+
             # Selected filters
             selected_categories = {t["category"]["id"]: t["category"]["name"] for t in txs if t.get("category", {}).get("selected")}
             selected_wallets = {t["wallet"]["id"]: t["wallet"]["name"] for t in txs if t.get("wallet", {}).get("selected")}
@@ -2088,16 +2144,19 @@ def api_ai_chat():
 
             if not ai_text:
                 ai_text = (
-                f"Berikut rangkuman berdasarkan data terpilih:\n\n"
-                f"- Kategori terpilih: {cat_names}.\n"
-                f"- Wallet terpilih: {wal_names}.\n"
-                f"- Total pengeluaran kategori terpilih: Rp {cat_expense_total:,.0f}.\n"
-                f"- Wallet (terpilih) — pemasukan: Rp {wallet_income_total:,.0f}, pengeluaran: Rp {wallet_expense_total:,.0f}, neto: Rp {wallet_net:,.0f}.\n"
-                f"- Transaksi overlap (kategori & wallet terpilih): Rp {overlap_total:,.0f}.\n\n"
-                f"Insight: {insights[0]}\n"
-                f"Saran: {advice[0]}\n\n"
-                f"Kamu sudah di jalur yang tepat — tetap disiplin agar keuangan makin kuat!"
-            )
+                    "## Rangkuman Data Terpilih\n\n"
+                    f"- **Kategori terpilih**: {cat_names}.\n"
+                    f"- **Wallet terpilih**: {wal_names}.\n"
+                    f"- **Total pengeluaran kategori terpilih**: Rp {cat_expense_total:,.0f}.\n"
+                    f"- **Wallet (terpilih)** — pemasukan: Rp {wallet_income_total:,.0f}, pengeluaran: Rp {wallet_expense_total:,.0f}, neto: Rp {wallet_net:,.0f}.\n"
+                    f"- **Transaksi overlap (kategori & wallet terpilih)**: Rp {overlap_total:,.0f}.\n\n"
+                    "## Insight & Saran\n\n"
+                    f"- Insight: {insights[0]}\n"
+                    f"- Saran: {advice[0]}\n\n"
+                    "_Tetap disiplin agar keuangan makin kuat!_"
+                )
+                ai_provider = ai_provider or "Local"
+                ai_model = ai_model or "rule-based"
 
             # Append AI message to conversation
             try:
@@ -2114,7 +2173,7 @@ def api_ai_chat():
             print(f"Error building AI analysis text: {e}")
             ai_text = None
 
-        return jsonify({"ok": True, "conversation": conversation, "ai_text": ai_text})
+        return jsonify({"ok": True, "conversation": conversation, "ai_text": ai_text, "ai_provider": ai_provider, "ai_model": ai_model})
     except Exception as e:
         print(f"Error in api_ai_chat: {e}")
         return jsonify({"error": str(e)}), 500

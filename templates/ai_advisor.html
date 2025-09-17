@@ -204,6 +204,46 @@
         position: relative;
         word-wrap: break-word;
     }
+    /* Markdown content tweaks */
+    .message.ai .message-content h1,
+    .message.ai .message-content h2,
+    .message.ai .message-content h3 {
+        margin: 0.25rem 0 0.5rem 0;
+        font-weight: 700;
+        color: var(--text-primary);
+    }
+    .message.ai .message-content h1 { font-size: 1.15rem; }
+    .message.ai .message-content h2 { font-size: 1.05rem; }
+    .message.ai .message-content h3 { font-size: 1rem; }
+    .message.ai .message-content p { margin-bottom: 0.5rem; }
+    .message.ai .message-content ul,
+    .message.ai .message-content ol {
+        margin: 0.25rem 0 0.5rem 0;
+        padding-left: 1.25rem;
+    }
+    .message.ai .message-content li {
+        margin: 0.15rem 0;
+    }
+    .ai-provider-note {
+        margin-top: 0.5rem;
+        font-size: 0.75rem;
+        color: var(--text-muted);
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+    }
+    .ai-provider-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        background: var(--bg-tertiary);
+        border: 1px solid var(--border-color);
+        color: var(--text-secondary);
+        padding: 0.15rem 0.5rem;
+        border-radius: 999px;
+        font-weight: 600;
+        letter-spacing: 0.2px;
+    }
     
     .message.user .message-content {
         background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
@@ -720,6 +760,19 @@
             top: 15%;
             width: 95%;
             max-height: 250px;
+        }
+        /* Bottom-sheet style for helper suggestions on mobile */
+        .helper-suggestions.is-mobile {
+            position: fixed !important;
+            left: 50% !important;
+            transform: translateX(-50%) !important;
+            right: auto !important;
+            top: auto !important;
+            bottom: calc(12px + env(safe-area-inset-bottom, 0px)) !important;
+            width: 95% !important;
+            max-height: 45vh !important;
+            z-index: 2147483647 !important;
+            overscroll-behavior: contain;
         }
         
         .suggestion-header {
@@ -1500,6 +1553,9 @@
 {% endblock %}
 
 {% block scripts %}
+<!-- Markdown + Sanitizer (lightweight CDNs) -->
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.6/dist/purify.min.js"></script>
 <script id="ai-helper-bootstrap" type="application/json">
 {{ {'categories': categories, 'wallets': wallets, 'scopes': scopes} | tojson }}
 </script>
@@ -1583,6 +1639,24 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function positionHelperSuggestions() {
         if (!helperSuggestions || helperSuggestions.style.display !== 'block') return;
+        const isMobile = window.innerWidth <= 768;
+        // Toggle mobile bottom-sheet mode
+        if (isMobile) {
+            helperSuggestions.classList.add('is-mobile');
+            // In mobile mode, rely on CSS bottom-sheet; avoid overriding with caret-based positioning
+            helperSuggestions.style.position = 'fixed';
+            helperSuggestions.style.visibility = 'visible';
+            helperSuggestions.style.display = 'block';
+            helperSuggestions.style.zIndex = '2147483647';
+            helperSuggestions.style.left = '';
+            helperSuggestions.style.right = '';
+            helperSuggestions.style.top = '';
+            helperSuggestions.style.width = '';
+            helperSuggestions.style.maxHeight = '';
+            return;
+        } else {
+            helperSuggestions.classList.remove('is-mobile');
+        }
         const caretRect = getCaretClientRect();
         const anchorRect = caretRect || (tagArea ? tagArea.getBoundingClientRect() : editor.getBoundingClientRect());
         const margin = 8;
@@ -2103,14 +2177,16 @@ document.addEventListener('DOMContentLoaded', function() {
             const data = await res.json();
             hideTypingIndicator();
             const aiResponse = (data && data.ai_text) ? data.ai_text : generateAIResponse(message);
-            addMessage('ai', aiResponse);
+            const provider = (data && data.ai_provider) ? data.ai_provider : null;
+            const model = (data && data.ai_model) ? data.ai_model : null;
+            addMessage('ai', aiResponse, { provider, model });
         } catch (err) {
             hideTypingIndicator();
             addMessage('ai', 'Maaf, terjadi kesalahan menyimpan percakapan.');
         }
      }
     
-    function addMessage(sender, content) {
+    function addMessage(sender, content, meta) {
         const messageDiv = document.createElement('div');
         messageDiv.className = `message ${sender}`;
         
@@ -2121,8 +2197,32 @@ document.addEventListener('DOMContentLoaded', function() {
         const messageContent = document.createElement('div');
         messageContent.className = 'message-content';
         
-        // Process content for category mentions
-        messageContent.innerHTML = processCategoryMentions(content);
+        if (sender === 'ai') {
+            // Render Markdown with sanitization
+            let html = content || '';
+            try {
+                const raw = (window.marked && typeof window.marked.parse === 'function') ? window.marked.parse(content) : content;
+                html = (window.DOMPurify && typeof window.DOMPurify.sanitize === 'function') ? window.DOMPurify.sanitize(raw) : raw;
+            } catch (_) {
+                html = content;
+            }
+            messageContent.innerHTML = html;
+        } else {
+            // User messages: keep mention highlighting
+            messageContent.innerHTML = processCategoryMentions(content);
+        }
+
+        // Provider note
+        if (sender === 'ai' && meta && (meta.provider || meta.model)) {
+            const note = document.createElement('div');
+            note.className = 'ai-provider-note';
+            const badge = document.createElement('span');
+            badge.className = 'ai-provider-badge';
+            const icon = (meta.provider || '').toLowerCase().includes('gemini') ? 'fa-google' : 'fa-brain';
+            badge.innerHTML = `<i class="fas ${icon}"></i>AI by ${meta.provider || 'Local'}${meta.model ? ' · ' + meta.model : ''}`;
+            note.appendChild(badge);
+            messageContent.appendChild(note);
+        }
         
         messageDiv.appendChild(avatar);
         messageDiv.appendChild(messageContent);

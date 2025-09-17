@@ -56,10 +56,3 @@ def ensure_indexes(index_specs: Dict[str, List[Tuple]]):
 
 
 
-def get_gemini_api_key() -> Optional[str]:
-    """Return Gemini API key from environment.
-
-    Env:
-      - GEMINI_API_KEY
-    """
-    return "AIzaSyAG060Fsp6FYWSLYwQh3kcR1RJOL1cnwlA"
