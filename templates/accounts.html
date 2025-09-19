@@ -151,6 +151,70 @@
         margin: 0;
     }
     
+    /* Scope Filter Styles */
+    .scope-filter-container {
+        position: relative;
+        z-index: 1;
+    }
+    
+    .scope-buttons-container {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        align-items: center;
+    }
+    
+    .scope-filter-btn {
+        background: rgba(255, 255, 255, 0.1);
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        color: rgba(255, 255, 255, 0.9);
+        border-radius: 20px;
+        padding: 0.5rem 1rem;
+        font-size: 0.85rem;
+        font-weight: 500;
+        transition: all 0.3s ease;
+        white-space: nowrap;
+    }
+    
+    .scope-filter-btn:hover {
+        background: rgba(255, 255, 255, 0.2);
+        border-color: rgba(255, 255, 255, 0.5);
+        color: white;
+        transform: translateY(-1px);
+    }
+    
+    .scope-filter-btn.active {
+        background: rgba(255, 255, 255, 0.25);
+        border-color: rgba(255, 255, 255, 0.6);
+        color: white;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    }
+    
+    .scope-filter-btn i {
+        font-size: 0.75rem;
+    }
+    
+    /* Account Plus Button Styles */
+    .account-plus-btn {
+        background: rgba(255, 255, 255, 0.2);
+        border: 2px solid rgba(255, 255, 255, 0.4);
+        color: rgba(255, 255, 255, 0.9);
+        transition: all 0.3s ease;
+        z-index: 10;
+        position: relative;
+    }
+    
+    .account-plus-btn:hover {
+        background: rgba(255, 255, 255, 0.3);
+        border-color: rgba(255, 255, 255, 0.6);
+        color: white;
+        transform: scale(1.1);
+    }
+    
+    .account-plus-btn:focus {
+        box-shadow: 0 0 0 0.2rem rgba(255, 255, 255, 0.25);
+    }
+    
          /* Mobile-first responsive design */
      @media (max-width: 768px) {
          .account-card {
@@ -208,6 +272,17 @@
          
          .accounts-header .d-flex > div:last-child {
              align-self: flex-end;
+         }
+         
+         .scope-buttons-container {
+             flex-direction: column;
+             align-items: flex-start;
+             gap: 0.5rem;
+         }
+         
+         .scope-filter-btn {
+             font-size: 0.8rem;
+             padding: 0.4rem 0.8rem;
          }
          
          .stats-card {
@@ -269,6 +344,23 @@
                 </button>
             </div>
         </div>
+        
+        <!-- Scope Filter -->
+        <div class="scope-filter-container mt-3">
+            <div class="d-flex align-items-center gap-2 mb-2">
+                <small class="text-white-50">
+                    <i class="fas fa-filter me-1"></i>Filter by Scope:
+                </small>
+            </div>
+            <div class="scope-buttons-container">
+                <button type="button" class="btn btn-sm btn-outline-light scope-filter-btn active" data-scope="all">
+                    <i class="fas fa-globe me-1"></i>All Scopes
+                </button>
+                <div id="scopeButtonsContainer" class="d-flex flex-wrap gap-2">
+                    <!-- Scope buttons will be populated by JavaScript -->
+                </div>
+            </div>
+        </div>
     </div>
     
     {% if wallets %}
@@ -292,14 +384,17 @@
          <div class="row">
              {% for wallet in wallets %}
              <div class="col-12 col-md-6 col-lg-4 mb-3">
-                 <div class="card account-card h-100" data-wallet-id="{{ wallet._id }}" data-wallet-name="{{ wallet.name }}" style="cursor: pointer;">
+                 <div class="card account-card h-100" data-wallet-id="{{ wallet._id }}" data-wallet-name="{{ wallet.name }}" data-wallet-scopes="{{ (wallet.scopes_with_transactions or [])|join(',') }}" style="cursor: pointer;">
                     <div class="card-body d-flex flex-column p-3">
-                        <!-- Header with type -->
+                        <!-- Header with type and plus icon -->
                         <div class="d-flex justify-content-between align-items-center mb-2">
                             <div class="account-type-badge">
                                 <i class="fas fa-{% if wallet.type == 'bank' %}university{% elif wallet.type == 'ewallet' %}mobile-alt{% elif wallet.type == 'cash' %}money-bill-wave{% elif wallet.type == 'stock' %}chart-line{% elif wallet.type == 'crypto' %}coins{% else %}wallet{% endif %}"></i>
                                 {{ wallet.type or 'other' }}
                             </div>
+                            <button type="button" class="btn btn-sm btn-outline-light account-plus-btn" data-wallet-id="{{ wallet._id }}" data-wallet-name="{{ wallet.name }}" onclick="showAccountTransactionModal(event, '{{ wallet._id }}', '{{ wallet.name }}')" style="width: 32px; height: 32px; padding: 0; border-radius: 50%;">
+                                <i class="fas fa-plus"></i>
+                            </button>
                         </div>
                         
                         <!-- Account name -->
@@ -365,11 +460,19 @@ document.addEventListener('DOMContentLoaded', function() {
     // Initialize accounts balance toggle
     initializeAccountsBalanceToggle();
     
+    // Initialize scope filter
+    initializeScopeFilter();
+    
     // Add any interactive functionality here if needed
     const accountCards = document.querySelectorAll('.account-card');
     
          accountCards.forEach(card => {
-         card.addEventListener('click', function() {
+         card.addEventListener('click', function(e) {
+             // Don't trigger if clicking the plus button
+             if (e.target.closest('.account-plus-btn')) {
+                 return;
+             }
+             
              // Get wallet ID from data attribute
              const walletId = this.getAttribute('data-wallet-id');
              const walletName = this.getAttribute('data-wallet-name');
@@ -453,5 +556,561 @@ function hideAllBalances() {
         element.textContent = '••••••••';
     });
 }
+
+// Scope Filter Functions
+function initializeScopeFilter() {
+    // Use scopes passed from template
+    const scopes = {{ scopes|tojson }};
+    populateScopeButtons(scopes);
+    
+    // Add event listeners to scope filter buttons
+    const scopeButtons = document.querySelectorAll('.scope-filter-btn');
+    scopeButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            const selectedScope = this.getAttribute('data-scope');
+            filterAccountsByScope(selectedScope);
+            
+            // Update active state
+            scopeButtons.forEach(btn => btn.classList.remove('active'));
+            this.classList.add('active');
+        });
+    });
+}
+
+function populateScopeButtons(scopes) {
+    const container = document.getElementById('scopeButtonsContainer');
+    if (!container) return;
+    
+    // Clear existing scope buttons (except "All Scopes")
+    container.innerHTML = '';
+    
+    if (scopes && scopes.length > 0) {
+        scopes.forEach(scope => {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'btn btn-sm btn-outline-light scope-filter-btn';
+            button.setAttribute('data-scope', scope._id);
+            button.innerHTML = `<i class="fas fa-tag me-1"></i>${scope.name}`;
+            
+            // Add click event listener
+            button.addEventListener('click', function() {
+                const selectedScope = this.getAttribute('data-scope');
+                filterAccountsByScope(selectedScope);
+                
+                // Update active state
+                document.querySelectorAll('.scope-filter-btn').forEach(btn => btn.classList.remove('active'));
+                this.classList.add('active');
+            });
+            
+            container.appendChild(button);
+        });
+    } else {
+        // Show message if no scopes available
+        const noScopesMsg = document.createElement('small');
+        noScopesMsg.className = 'text-white-50';
+        noScopesMsg.textContent = 'No scopes available';
+        container.appendChild(noScopesMsg);
+    }
+}
+
+function filterAccountsByScope(scopeId) {
+    const accountCards = document.querySelectorAll('.account-card');
+    
+    if (scopeId === 'all') {
+        // Show all accounts
+        accountCards.forEach(card => {
+            card.style.display = 'block';
+            card.parentElement.style.display = 'block';
+        });
+    } else {
+        // Filter by specific scope - check if this wallet has transactions in this scope
+        accountCards.forEach(card => {
+            const walletScopes = card.getAttribute('data-wallet-scopes');
+            const hasTransactionsInScope = walletScopes && walletScopes.split(',').includes(scopeId);
+            
+            if (hasTransactionsInScope) {
+                // Show this account
+                card.style.display = 'block';
+                card.parentElement.style.display = 'block';
+            } else {
+                // Hide this account
+                card.style.display = 'none';
+                card.parentElement.style.display = 'none';
+            }
+        });
+    }
+    
+    // Update statistics based on visible accounts
+    updateStatisticsForVisibleAccounts();
+}
+
+function updateStatisticsForVisibleAccounts() {
+    const visibleCards = document.querySelectorAll('.account-card:not([style*="display: none"])');
+    const totalAccounts = visibleCards.length;
+    
+    // Update total accounts count
+    const totalAccountsElement = document.querySelector('.stats-value');
+    if (totalAccountsElement) {
+        totalAccountsElement.textContent = totalAccounts;
+    }
+    
+    // Update total balance (only if balances are visible)
+    const isBalanceHidden = localStorage.getItem('accountsBalanceHidden') !== 'false';
+    if (!isBalanceHidden) {
+        let totalBalance = 0;
+        visibleCards.forEach(card => {
+            const balanceElement = card.querySelector('.account-balance[data-wallet-balance]');
+            if (balanceElement) {
+                const balanceText = balanceElement.getAttribute('data-wallet-balance');
+                const balanceValue = parseFloat(balanceText.replace(/[^\d.-]/g, '')) || 0;
+                totalBalance += balanceValue;
+            }
+        });
+        
+        const totalBalanceElement = document.getElementById('accountsTotalBalance');
+        if (totalBalanceElement) {
+            totalBalanceElement.textContent = `Rp ${totalBalance.toLocaleString('id-ID', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+        }
+    }
+}
+
+// Account Transaction Modal Functions
+function showAccountTransactionModal(event, walletId, walletName) {
+    event.stopPropagation(); // Prevent card click
+    
+    // Store the selected wallet info globally
+    window.selectedWalletId = walletId;
+    window.selectedWalletName = walletName;
+    
+    // Get current scope filter
+    const activeScopeButton = document.querySelector('.scope-filter-btn.active');
+    const selectedScopeId = activeScopeButton ? activeScopeButton.getAttribute('data-scope') : 'all';
+    window.selectedScopeId = selectedScopeId;
+    
+    // Update modal title with account name
+    const accountNameElement = document.getElementById('selectedAccountName');
+    if (accountNameElement) {
+        accountNameElement.textContent = walletName;
+    }
+    
+    // Show the modal
+    const modal = new bootstrap.Modal(document.getElementById('accountTransactionModal'));
+    modal.show();
+}
+
+function showAccountAddTransaction() {
+    // Pre-fill scope and wallet
+    const scopeSelect = document.getElementById('account_add_scope_id');
+    const walletSelect = document.getElementById('account_add_wallet_id');
+    
+    if (scopeSelect && window.selectedScopeId && window.selectedScopeId !== 'all') {
+        scopeSelect.value = window.selectedScopeId;
+    }
+    
+    if (walletSelect && window.selectedWalletId) {
+        walletSelect.value = window.selectedWalletId;
+    }
+    
+    // Show the add transaction modal
+    const modal = new bootstrap.Modal(document.getElementById('accountAddTransactionModal'));
+    modal.show();
+}
+
+function showAccountTransfer() {
+    // Pre-fill from wallet
+    const fromWalletSelect = document.getElementById('account_transfer_from_wallet');
+    
+    if (fromWalletSelect && window.selectedWalletId) {
+        fromWalletSelect.value = window.selectedWalletId;
+    }
+    
+    // Show the transfer modal
+    const modal = new bootstrap.Modal(document.getElementById('accountTransferModal'));
+    modal.show();
+}
+
+function showAccountModifiedBalance() {
+    // Pre-fill wallet
+    const walletSelect = document.getElementById('account_modify_wallet_id');
+    
+    if (walletSelect && window.selectedWalletId) {
+        walletSelect.value = window.selectedWalletId;
+    }
+    
+    // Show the modified balance modal
+    const modal = new bootstrap.Modal(document.getElementById('accountModifiedBalanceModal'));
+    modal.show();
+}
+
+// Submit functions for account modals
+function submitAccountTransaction() {
+    const form = document.getElementById('accountAddTransactionForm');
+    const formData = new FormData(form);
+    
+    const data = {
+        scope_id: formData.get('scope_id'),
+        wallet_id: formData.get('wallet_id'),
+        type: formData.get('type'),
+        category_id: formData.get('category_id'),
+        tags: formData.get('tags'),
+        amount: formData.get('amount'),
+        note: formData.get('note'),
+        timestamp: Math.floor(Date.now() / 1000) // Current timestamp
+    };
+    
+    // Process amount and tags
+    if (data.amount) {
+        data.amount = parseInt(data.amount.replace(/\./g, '')) || 0;
+    }
+    if (data.tags) {
+        data.tags = data.tags.split(',').map(t => t.trim()).filter(Boolean);
+    }
+    
+    // Validate required fields
+    if (!data.scope_id || !data.wallet_id || !data.type || !data.amount) {
+        alert('Please fill in all required fields');
+        return;
+    }
+    
+    fetch('/api/transactions/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+    })
+    .then(r => r.json())
+    .then(res => {
+        if (res._id) {
+            alert('Transaction added successfully!');
+            bootstrap.Modal.getInstance(document.getElementById('accountAddTransactionModal')).hide();
+            location.reload();
+        } else {
+            alert('Failed to add transaction: ' + (res.error || 'Unknown error'));
+        }
+    })
+    .catch(() => alert('Failed to add transaction'));
+}
+
+function submitAccountTransfer() {
+    const form = document.getElementById('accountTransferForm');
+    const formData = new FormData(form);
+    
+    const data = {
+        from_wallet_id: formData.get('from_wallet_id'),
+        to_wallet_id: formData.get('to_wallet_id'),
+        amount: formData.get('amount'),
+        admin_fee: formData.get('admin_fee') || '0'
+    };
+    
+    // Process amounts
+    data.amount = parseInt(data.amount.replace(/\./g, '')) || 0;
+    data.admin_fee = parseInt(data.admin_fee.replace(/\./g, '')) || 0;
+    
+    // Validate required fields
+    if (!data.from_wallet_id || !data.to_wallet_id || !data.amount) {
+        alert('Please fill in all required fields');
+        return;
+    }
+    
+    if (data.from_wallet_id === data.to_wallet_id) {
+        alert('Source and destination wallets cannot be the same');
+        return;
+    }
+    
+    fetch('/api/transactions/transfer', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+    })
+    .then(r => r.json())
+    .then(res => {
+        if (res.message) {
+            alert('Transfer completed successfully!');
+            bootstrap.Modal.getInstance(document.getElementById('accountTransferModal')).hide();
+            location.reload();
+        } else {
+            alert('Failed to complete transfer: ' + (res.error || 'Unknown error'));
+        }
+    })
+    .catch(() => alert('Failed to complete transfer'));
+}
+
+function submitAccountModifiedBalance() {
+    const form = document.getElementById('accountModifiedBalanceForm');
+    const formData = new FormData(form);
+    
+    const walletId = formData.get('wallet_id');
+    const newAmount = formData.get('amount');
+    
+    if (!walletId || !newAmount) {
+        alert('Please fill in all required fields');
+        return;
+    }
+    
+    const newBalance = parseInt(newAmount.replace(/\./g, '')) || 0;
+    const selectedOption = document.querySelector(`#account_modify_wallet_id option[value="${walletId}"]`);
+    const currentBalance = parseFloat(selectedOption.getAttribute('data-balance')) || 0;
+    const difference = newBalance - currentBalance;
+    
+    if (difference === 0) {
+        alert('The new balance is the same as current balance. No changes needed.');
+        return;
+    }
+    
+    const data = {
+        wallet_id: walletId,
+        new_balance: newBalance,
+        current_balance: currentBalance,
+        difference: difference,
+        note: `Balance adjustment: ${difference > 0 ? 'Added' : 'Deducted'} IDR ${Math.abs(difference).toLocaleString('id-ID')} to match actual balance`
+    };
+    
+    fetch('/api/transactions/modified-balance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+    })
+    .then(r => r.json())
+    .then(res => {
+        if (res.message) {
+            alert('Balance updated successfully!');
+            bootstrap.Modal.getInstance(document.getElementById('accountModifiedBalanceModal')).hide();
+            location.reload();
+        } else {
+            alert('Failed to update balance: ' + (res.error || 'Unknown error'));
+        }
+    })
+    .catch(() => alert('Failed to update balance'));
+}
 </script>
+
+<!-- Account Transaction Options Modal -->
+<div class="modal fade" id="accountTransactionModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-plus-circle me-2"></i>Quick Actions
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="text-center mb-4">
+                    <i class="fas fa-wallet fa-3x text-primary mb-3"></i>
+                    <h4 id="selectedAccountName">Account Name</h4>
+                    <p class="text-muted">Choose what you want to do with this account</p>
+                </div>
+                
+                <div class="row">
+                    <div class="col-md-4 mb-3">
+                        <button type="button" class="btn btn-outline-primary btn-lg w-100 h-100 d-flex flex-column align-items-center justify-content-center p-4" onclick="showAccountAddTransaction()">
+                            <i class="fas fa-plus-circle fa-2x mb-2"></i>
+                            <span>Add Transaction</span>
+                        </button>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <button type="button" class="btn btn-outline-info btn-lg w-100 h-100 d-flex flex-column align-items-center justify-content-center p-4" onclick="showAccountTransfer()">
+                            <i class="fas fa-exchange-alt fa-2x mb-2"></i>
+                            <span>Transfer</span>
+                        </button>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <button type="button" class="btn btn-outline-warning btn-lg w-100 h-100 d-flex flex-column align-items-center justify-content-center p-4" onclick="showAccountModifiedBalance()">
+                            <i class="fas fa-balance-scale fa-2x mb-2"></i>
+                            <span>Modified Balance</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Account Add Transaction Modal (simplified version) -->
+<div class="modal fade" id="accountAddTransactionModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-plus-circle me-2"></i>Add Transaction
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="accountAddTransactionForm">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="account_add_scope_id" class="form-label">Scope</label>
+                            <select class="form-select" id="account_add_scope_id" name="scope_id" required>
+                                <option value="">Select Scope</option>
+                                {% for scope in scopes %}
+                                <option value="{{ scope._id }}">{{ scope.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="account_add_wallet_id" class="form-label">Saving Space</label>
+                            <select class="form-select" id="account_add_wallet_id" name="wallet_id" required>
+                                <option value="">Select Saving Space</option>
+                                {% for wallet in wallets %}
+                                <option value="{{ wallet._id }}">{{ wallet.name }} ({{ wallet.type or 'bank' }})</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="account_add_type" class="form-label">Transaction Type</label>
+                            <select class="form-select" id="account_add_type" name="type" required>
+                                <option value="">Select Type</option>
+                                <option value="income">Income</option>
+                                <option value="expense">Expense</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="account_add_category_id" class="form-label">Category</label>
+                            <select class="form-select" id="account_add_category_id" name="category_id">
+                                <option value="">Select Category</option>
+                                {% for category in categories %}
+                                {% if category.name == "Transfer" or category.name == "Balance Adjustment" %}
+                                <option value="{{ category._id }}" disabled>{{ category.name }} (by system only)</option>
+                                {% else %}
+                                <option value="{{ category._id }}">{{ category.name }}</option>
+                                {% endif %}
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="account_add_amount" class="form-label">Amount</label>
+                            <div class="input-group">
+                                <span class="input-group-text">IDR</span>
+                                <input type="text" class="form-control" id="account_add_amount" name="amount" required placeholder="1.000.000">
+                            </div>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="account_add_tags" class="form-label">Tags (comma separated)</label>
+                            <input type="text" class="form-control" id="account_add_tags" name="tags" placeholder="food, entertainment, work">
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="account_add_note" class="form-label">Note (optional)</label>
+                        <textarea class="form-control" id="account_add_note" name="note" rows="3" placeholder="Add any notes about this transaction..."></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="submitAccountTransaction()">
+                    <i class="fas fa-check me-1"></i>Add Transaction
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Account Transfer Modal -->
+<div class="modal fade" id="accountTransferModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-exchange-alt me-2"></i>Transfer Money
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="accountTransferForm">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="account_transfer_from_wallet" class="form-label">From Wallet</label>
+                            <select class="form-select" id="account_transfer_from_wallet" name="from_wallet_id" required>
+                                <option value="">Select Source Wallet</option>
+                                {% for wallet in wallets %}
+                                <option value="{{ wallet._id }}">{{ wallet.name }} ({{ wallet.type or 'bank' }})</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="account_transfer_to_wallet" class="form-label">To Wallet</label>
+                            <select class="form-select" id="account_transfer_to_wallet" name="to_wallet_id" required>
+                                <option value="">Select Destination Wallet</option>
+                                {% for wallet in wallets %}
+                                <option value="{{ wallet._id }}">{{ wallet.name }} ({{ wallet.type or 'bank' }})</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="account_transfer_amount" class="form-label">Transfer Amount</label>
+                            <div class="input-group">
+                                <span class="input-group-text">IDR</span>
+                                <input type="text" class="form-control" id="account_transfer_amount" name="amount" required placeholder="1.000.000">
+                            </div>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="account_transfer_fee" class="form-label">Admin Fee (Optional)</label>
+                            <div class="input-group">
+                                <span class="input-group-text">IDR</span>
+                                <input type="text" class="form-control" id="account_transfer_fee" name="admin_fee" placeholder="0">
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-info" onclick="submitAccountTransfer()">
+                    <i class="fas fa-exchange-alt me-1"></i>Transfer Money
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Account Modified Balance Modal -->
+<div class="modal fade" id="accountModifiedBalanceModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-balance-scale me-2"></i>Modified Balance
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="accountModifiedBalanceForm">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="account_modify_wallet_id" class="form-label">Select Saving Space</label>
+                            <select class="form-select" id="account_modify_wallet_id" name="wallet_id" required>
+                                <option value="">Select Saving Space</option>
+                                {% for wallet in wallets %}
+                                <option value="{{ wallet._id }}" data-balance="{{ wallet.latest_balance or 0 }}">{{ wallet.name }} ({{ wallet.type or 'bank' }})</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="account_modify_amount" class="form-label">New Balance Amount</label>
+                            <div class="input-group">
+                                <span class="input-group-text">IDR</span>
+                                <input type="text" class="form-control" id="account_modify_amount" name="amount" required placeholder="1.000.000">
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-warning" onclick="submitAccountModifiedBalance()">
+                    <i class="fas fa-balance-scale me-1"></i>Update Balance
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}

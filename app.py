@@ -997,13 +997,24 @@ def accounts():
     
     user_id = session.get("user_id", "demo_user")
     
-    # Get wallet repository
+    # Get repositories
     wallet_repo = WalletRepository()
+    scope_repo = ScopeRepository()
+    category_repo = CategoryRepository()
     
     # Get all wallets for the user
     wallets = wallet_repo.list_by_user(user_id)
     
-    # Calculate balance from latest transaction for each wallet
+    # Get all scopes for the user
+    scopes = scope_repo.list_by_user(user_id)
+    
+    # Get all categories for the user (including defaults)
+    categories = category_repo.list_by_user_with_defaults(user_id)
+    
+    # Get transaction repository for scope filtering
+    tx_repo = TransactionRepository()
+    
+    # Calculate balance from latest transaction for each wallet and check scope usage
     if wallets:
         current_timestamp = int(datetime.now().timestamp())
         
@@ -1014,13 +1025,30 @@ def accounts():
                 latest_balance = get_latest_wallet_balance(user_id, wallet_id, current_timestamp)
                 # Update the wallet with the latest balance
                 wallet["latest_balance"] = latest_balance
+                
+                # Check which scopes this wallet has transactions in
+                wallet_scopes = set()
+                try:
+                    # Get all transactions for this wallet using filters
+                    wallet_filters = {"wallet_id": wallet_id}
+                    wallet_transactions = tx_repo.get_transactions_with_filters(user_id, wallet_filters, limit=1000)
+                    for tx in wallet_transactions:
+                        if tx.get('scope_id'):
+                            wallet_scopes.add(tx['scope_id'])
+                except Exception as e:
+                    print(f"Error getting wallet transactions: {e}")
+                
+                wallet["scopes_with_transactions"] = list(wallet_scopes)
             else:
                 wallet["latest_balance"] = 0
+                wallet["scopes_with_transactions"] = []
     
-    # Ensure wallets list is passed
+    # Ensure lists are passed
     wallets = wallets or []
+    scopes = scopes or []
+    categories = categories or []
     
-    return render_template("accounts.html", wallets=wallets)
+    return render_template("accounts.html", wallets=wallets, scopes=scopes, categories=categories)
 
 @app.route("/test-data")
 def test_data():
