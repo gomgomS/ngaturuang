@@ -810,6 +810,10 @@ def transactions():
         amount_min = request.args.get("amount_min")
         amount_max = request.args.get("amount_max")
         
+        # Get pagination parameters
+        page = int(request.args.get("page", 1))
+        per_page = int(request.args.get("per_page", 10))  # Default 10 transactions per page
+        
         # Build filters
         filters = {}
         if scope_id:
@@ -831,13 +835,29 @@ def transactions():
         if amount_max:
             filters["amount_max"] = amount_max
         
-        # Get transactions with filters
-        if filters:
-            transactions = tx_repo.get_transactions_with_filters(user_id, filters, limit=200)
-        elif scope_id:
-            transactions = tx_repo.get_transactions_by_scope(user_id, scope_id, limit=200)
-        else:
-            transactions = tx_repo.get_user_transactions_simple(user_id, limit=200)
+        # Get transactions with filters and pagination
+        try:
+            if filters:
+                transactions, total_count = tx_repo.get_transactions_with_filters_paginated(user_id, filters, page, per_page)
+            elif scope_id:
+                transactions, total_count = tx_repo.get_transactions_by_scope_paginated(user_id, scope_id, page, per_page)
+            else:
+                transactions, total_count = tx_repo.get_user_transactions_paginated(user_id, page, per_page)
+        except Exception as e:
+            print(f"Error getting paginated transactions: {e}")
+            # Fallback to non-paginated method
+            if filters:
+                transactions = tx_repo.get_transactions_with_filters(user_id, filters, limit=200)
+            elif scope_id:
+                transactions = tx_repo.get_transactions_by_scope(user_id, scope_id, limit=200)
+            else:
+                transactions = tx_repo.get_user_transactions_simple(user_id, limit=200)
+            total_count = len(transactions)
+        
+        # Calculate pagination info
+        total_pages = (total_count + per_page - 1) // per_page  # Ceiling division
+        has_prev = page > 1
+        has_next = page < total_pages
         
         # Get master data for filters
         scopes = scope_repo.list_by_user(user_id)
@@ -881,6 +901,13 @@ def transactions():
                              wallets=wallets,
                              categories=categories,
                              selected_scope=selected_scope,
+                             # Pagination data
+                             page=page,
+                             per_page=per_page,
+                             total_pages=total_pages,
+                             total_count=total_count,
+                             has_prev=has_prev,
+                             has_next=has_next,
                              selected_category=selected_category,
                              selected_wallet=selected_wallet,
                              current_scope_id=scope_id,
@@ -917,6 +944,40 @@ def transactions():
                              total_income=0,
                              total_expense=0,
                              total_transactions=0)
+
+@app.route("/transactions-type")
+def transactions_type():
+    # Check authentication
+    auth_check = require_login()
+    if auth_check:
+        return auth_check
+    try:
+        user_id = session.get("user_id")
+
+        # Get repositories
+        scope_repo = ScopeRepository()
+        wallet_repo = WalletRepository()
+        category_repo = CategoryRepository()
+
+        # Get data
+        scopes = scope_repo.list_by_user(user_id) or []
+        wallets = wallet_repo.list_by_user(user_id) or []
+        categories = category_repo.list_by_user_with_defaults(user_id) or []
+
+        return render_template(
+            "transaction_type.html",
+            scopes=scopes,
+            wallets=wallets,
+            categories=categories,
+        )
+    except Exception as e:
+        print(f"Error in transactions_type: {e}")
+        return render_template(
+            "transaction_type.html",
+            scopes=[],
+            wallets=[],
+            categories=[],
+        )
 
 @app.route("/goals")
 def goals():

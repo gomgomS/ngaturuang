@@ -32,13 +32,15 @@ class MongoRepository:
             doc["_id"] = str(doc["_id"])
         return doc
 
-    def find_many(self, query: Dict[str, Any], limit: int = 100, sort: Optional[List] = None) -> List[Dict[str, Any]]:
+    def find_many(self, query: Dict[str, Any], limit: int = 100, sort: Optional[List] = None, skip: int = 0) -> List[Dict[str, Any]]:
         """Find banyak dokumen dengan query sederhana"""
         try:          
             cursor = self.collection.find(query)
            
             if sort:
                 cursor = cursor.sort(sort) 
+            if skip:
+                cursor = cursor.skip(skip)
             if limit:
                 cursor = cursor.limit(limit)             
             

@@ -254,22 +254,16 @@
     {% if wallets %}
         <!-- Statistics -->
         <div class="row mb-4">
-            <div class="col-md-4">
+            <div class="col-md-6">
                 <div class="stats-card">
                     <h3 class="stats-value">{{ wallets|length }}</h3>
                     <p class="stats-label">Total Accounts</p>
                 </div>
             </div>
-            <div class="col-md-4">
+            <div class="col-md-6">
                 <div class="stats-card">
                     <h3 class="stats-value">Rp {{ wallets|sum(attribute='latest_balance')|currency }}</h3>
                     <p class="stats-label">Total Balance</p>
-                </div>
-            </div>
-            <div class="col-md-4">
-                <div class="stats-card">
-                    <h3 class="stats-value">{{ wallets|selectattr('is_active')|list|length }}</h3>
-                    <p class="stats-label">Active Accounts</p>
                 </div>
             </div>
         </div>
@@ -280,17 +274,12 @@
              <div class="col-12 col-md-6 col-lg-4 mb-3">
                  <div class="card account-card h-100" data-wallet-id="{{ wallet._id }}" data-wallet-name="{{ wallet.name }}" style="cursor: pointer;">
                     <div class="card-body d-flex flex-column p-3">
-                        <!-- Header with type and status -->
+                        <!-- Header with type -->
                         <div class="d-flex justify-content-between align-items-center mb-2">
                             <div class="account-type-badge">
                                 <i class="fas fa-{% if wallet.type == 'bank' %}university{% elif wallet.type == 'ewallet' %}mobile-alt{% elif wallet.type == 'cash' %}money-bill-wave{% elif wallet.type == 'stock' %}chart-line{% elif wallet.type == 'crypto' %}coins{% else %}wallet{% endif %}"></i>
                                 {{ wallet.type or 'other' }}
                             </div>
-                            {% if wallet.is_active %}
-                                <span class="badge bg-success" style="font-size: 0.65rem;">Active</span>
-                            {% else %}
-                                <span class="badge bg-secondary" style="font-size: 0.65rem;">Inactive</span>
-                            {% endif %}
                         </div>
                         
                         <!-- Account name -->

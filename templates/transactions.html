@@ -465,62 +465,10 @@
 
     <div class="row">
         <div class="col-12">
-            <div class="text-center mb-5">
-                
-                <!-- Main Action Buttons -->
-                <div class="row justify-content-center">
-                    <div class="col-md-4 col-sm-6 mb-3">
-                        <div class="card h-100 action-card content-card" onclick="showAddTransaction()">
-                            <div class="card-body text-center p-4">
-                                <div class="action-icon mb-3">
-                                    <i class="fas fa-plus-circle fa-3x text-primary"></i>
-                                </div>
-                                <h5 class="card-title">Add Transaction</h5>
-                                <p class="card-text text-muted">Create new income or expense transaction</p>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="col-md-4 col-sm-6 mb-3">
-                        <div class="card h-100 action-card content-card" onclick="showTransactionHistory()">
-                            <div class="card-body text-center p-4">
-                                <div class="action-icon mb-3">
-                                    <i class="fas fa-history fa-3x text-success"></i>
-                                </div>
-                                <h5 class="card-title">Transaction History</h5>
-                                <p class="card-text text-muted">View and filter all your transactions</p>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="col-md-3 col-sm-6 mb-3">
-                        <div class="card h-100 action-card content-card" onclick="showTransfer()">
-                            <div class="card-body text-center p-4">
-                                <div class="action-icon mb-3">
-                                    <i class="fas fa-exchange-alt fa-3x text-info"></i>
-                                </div>
-                                <h5 class="card-title">Transfer</h5>
-                                <p class="card-text text-muted">Transfer money between your wallets</p>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="col-md-3 col-sm-6 mb-3">
-                        <div class="card h-100 action-card content-card" onclick="showModifiedBalance()">
-                            <div class="card-body text-center p-4">
-                                <div class="action-icon mb-3">
-                                    <i class="fas fa-balance-scale fa-3x text-warning"></i>
-                                </div>
-                                <h5 class="card-title">Modified Balance</h5>
-                                <p class="card-text text-muted">Adjust wallet balance to match actual amount</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
+
 
             <!-- Transaction History Section (Hidden by default) -->
-            <div id="transactionHistorySection" style="display: none;">
+            <div id="transactionHistorySection">
                 <!-- Mobile Header with Wallet Selector and Search -->
                 <div class="d-lg-none mb-3">
                     <div class="d-flex align-items-center p-3 bg-light rounded" style="margin-left: 3.5rem;">
@@ -538,7 +486,7 @@
                             <button class="btn btn-outline-primary btn-sm me-2" data-bs-toggle="modal" data-bs-target="#searchFilterModal">
                                 <i class="fas fa-search"></i>
                             </button>
-                            <button class="btn btn-outline-secondary btn-sm" onclick="hideTransactionHistory()">
+                            <button class="btn btn-outline-secondary btn-sm" onclick="window.location.href='/transactions-type'">
                                 <i class="fas fa-arrow-left"></i>
                             </button>
                             </div>
@@ -548,7 +496,7 @@
                 <!-- Desktop Header -->
                 <div class="d-none d-lg-flex justify-content-between align-items-center mb-4">
                     <h3 class="h4 mb-0">Transaction History</h3>
-                    <button class="btn btn-outline-secondary" onclick="hideTransactionHistory()">
+                    <button class="btn btn-outline-secondary" onclick="window.location.href='/transactions-type'">
                         <i class="fas fa-arrow-left"></i> Back to Menu
                                 </button>
             </div>
@@ -790,254 +738,114 @@
                         <p class="text-muted">Try adjusting your filters or add a new transaction.</p>
                     </div>
                     {% endif %}
-                </div>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Add Transaction Modal -->
-<div class="modal fade" id="addTransactionModal" tabindex="-1">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Add New Transaction</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <!-- Progress Bar -->
-                <div class="progress mb-4" style="height: 8px;">
-                    <div class="progress-bar" id="transactionProgress" role="progressbar" style="width: 16.66%"></div>
-                </div>
-                
-                <!-- Step 1: Scope Selection -->
-                <div id="step1" class="step-content">
-                    <div class="text-center mb-4">
-                        <i class="fas fa-folder-open fa-3x text-primary mb-3"></i>
-                        <h4>Select Scope</h4>
-                        <p class="text-muted">Choose the scope for this transaction</p>
-                    </div>
-                    <div class="row justify-content-center">
-                        <div class="col-md-8">
-                            <select class="form-select form-select-lg" id="add_scope_id" name="scope_id" required>
-                                <option value="">Select Scope</option>
-                                {% for scope in scopes %}
-                                <option value="{{ scope._id }}">{{ scope.name }}</option>
-                                {% endfor %}
-                            </select>
-                            <!-- Debug: Show scope count -->
-                            <div class="mt-2">
-                                <small class="text-muted">Debug: Found {{ scopes|length }} scopes</small>
-                            </div>
+                    
+                    <!-- Pagination Controls -->
+                    {% if total_pages and total_pages >= 1 %}
+                    {% set page_args = request.args.copy() %}
+                    {% set _ = page_args.pop('page', None) %}
+                    <div class="d-flex flex-column flex-md-row justify-content-between align-items-center mt-4 gap-3">
+                        <div class="text-muted text-center text-md-start">
+                            Showing {{ ((page or 1) - 1) * (per_page or 10) + 1 }} to {{ ((page or 1) - 1) * (per_page or 10) + transactions|length }} of {{ total_count or 0 }} transactions
                         </div>
-                    </div>
-                </div>
-
-                <!-- Step 2: Saving Space Selection -->
-                <div id="step2" class="step-content" style="display: none;">
-                    <div class="text-center mb-4">
-                        <i class="fas fa-wallet fa-3x text-success mb-3"></i>
-                        <h4>Select Saving Space</h4>
-                        <p class="text-muted">Choose which wallet this transaction affects</p>
-                    </div>
-                    <div class="row justify-content-center">
-                        <div class="col-md-8">
-                            <select class="form-select form-select-lg" id="add_wallet_id" name="wallet_id" required>
-                                <option value="">Select Saving Space</option>
-                                {% for wallet in wallets %}
-                                {% if wallet.actual_balance and wallet.actual_balance > 0 %}
-                                <option value="{{ wallet._id }}">{{ wallet.name }} ({{ wallet.type or 'bank' }}) - Balance: IDR {{ "{:,.0f}".format(wallet.actual_balance) }}</option>
-                                {% else %}
-                                <option value="{{ wallet._id }}" disabled>{{ wallet.name }} ({{ wallet.type or 'bank' }}) - Balance: IDR 0 (Add balance first)</option>
+                        
+                        <!-- Page Size Selector -->
+                        <div class="d-flex align-items-center gap-2">
+                            <label for="perPageSelect" class="form-label mb-0 text-muted small">Show:</label>
+                            <select id="perPageSelect" class="form-select form-select-sm" style="width: auto;" onchange="changePageSize(this.value)">
+                                <option value="5" {% if (per_page or 10) == 5 %}selected{% endif %}>5</option>
+                                <option value="10" {% if (per_page or 10) == 10 %}selected{% endif %}>10</option>
+                                <option value="20" {% if (per_page or 10) == 20 %}selected{% endif %}>20</option>
+                                <option value="50" {% if (per_page or 10) == 50 %}selected{% endif %}>50</option>
+                                <option value="100" {% if (per_page or 10) == 100 %}selected{% endif %}>100</option>
+                            </select>
+                            <span class="text-muted small">per page</span>
+                        </div>
+                        {% if total_pages > 1 %}
+                        <nav aria-label="Transaction pagination" class="d-flex justify-content-center">
+                            <ul class="pagination pagination-sm mb-0 flex-wrap justify-content-center">
+                                <!-- Previous Button -->
+                                <li class="page-item {% if not (has_prev or false) %}disabled{% endif %}">
+                                    {% if has_prev or false %}
+                                    <a class="page-link" href="{{ url_for('transactions', page=(page or 1)-1, **page_args) }}">
+                                        <i class="fas fa-chevron-left"></i> <span class="d-none d-sm-inline">Previous</span>
+                                    </a>
+                                    {% else %}
+                                    <span class="page-link" tabindex="-1" aria-disabled="true">
+                                        <i class="fas fa-chevron-left"></i> <span class="d-none d-sm-inline">Previous</span>
+                                    </span>
+                                    {% endif %}
+                                </li>
+                                
+                                <!-- Page Numbers -->
+                                {% set start_page = [1, (page or 1) - 2]|max %}
+                                {% set end_page = [total_pages or 1, (page or 1) + 2]|min %}
+                                {% set mobile_start_page = [1, (page or 1) - 1]|max %}
+                                {% set mobile_end_page = [total_pages or 1, (page or 1) + 1]|min %}
+                                
+                                {% if start_page > 1 %}
+                                <li class="page-item">
+                                    <a class="page-link" href="{{ url_for('transactions', page=1, **page_args) }}">1</a>
+                                </li>
+                                {% if start_page > 2 %}
+                                <li class="page-item disabled">
+                                    <span class="page-link">...</span>
+                                </li>
                                 {% endif %}
-                                {% endfor %}
-                            </select>
-                            <div class="mt-2 text-center">
-                                <small class="text-muted">
-                                    <i class="fas fa-info-circle me-1"></i>
-                                    Wallets with 0 balance are disabled. 
-                                    <a href="/balance" class="text-primary">Go to Balance page</a> to add funds.
-                                </small>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Step 3: Transaction Type -->
-                <div id="step3" class="step-content" style="display: none;">
-                    <div class="text-center mb-4">
-                        <i class="fas fa-exchange-alt fa-3x text-info mb-3"></i>
-                        <h4>Transaction Type</h4>
-                        <p class="text-muted">Is this income or expense?</p>
-                    </div>
-                    <div class="row justify-content-center">
-                        <div class="col-md-8">
-                            <div class="d-grid gap-3">
-                                <button type="button" class="btn btn-outline-success btn-lg" onclick="selectTransactionType('income')">
-                                    <i class="fas fa-plus-circle me-2"></i>Income
-                                </button>
-                                <button type="button" class="btn btn-outline-danger btn-lg" onclick="selectTransactionType('expense')">
-                                    <i class="fas fa-minus-circle me-2"></i>Expense
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Step 4: Category and Tags -->
-                <div id="step4" class="step-content" style="display: none;">
-                    <div class="text-center mb-4">
-                        <i class="fas fa-tags fa-3x text-warning mb-3"></i>
-                        <h4>Category & Tags</h4>
-                        <p class="text-muted">Categorize and tag your transaction</p>
-                        <small class="text-info">
-                            <i class="fas fa-info-circle me-1"></i>
-                            Sequence number will be automatically assigned based on the latest manual balance
-                        </small>
-                    </div>
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label for="add_category_id" class="form-label">Category</label>
-                            <select class="form-select" id="add_category_id" name="category_id">
-                                <option value="">Select Category</option>
-                                {% for category in categories %}
-                                {% if category.name == "Transfer" or category.name == "Balance Adjustment" %}
-                                <option value="{{ category._id }}" disabled>{{ category.name }} (by system only)</option>
-                                {% else %}
-                                <option value="{{ category._id }}">{{ category.name }}</option>
                                 {% endif %}
+                                
+                                {% for page_num in range(start_page, end_page + 1) %}
+                                <li class="page-item {% if page_num == (page or 1) %}active{% endif %} d-none d-md-inline-block">
+                                    <a class="page-link" href="{{ url_for('transactions', page=page_num, **page_args) }}">
+                                        {{ page_num }}
+                                    </a>
+                                </li>
                                 {% endfor %}
-                            </select>
+                                
+                                <!-- Mobile: show fewer page numbers -->
+                                {% for page_num in range(mobile_start_page, mobile_end_page + 1) %}
+                                <li class="page-item {% if page_num == (page or 1) %}active{% endif %} d-inline-block d-md-none">
+                                    <a class="page-link" href="{{ url_for('transactions', page=page_num, **page_args) }}">
+                                        {{ page_num }}
+                                    </a>
+                                </li>
+                                {% endfor %}
+                                
+                                {% if end_page < (total_pages or 1) %}
+                                {% if end_page < (total_pages or 1) - 1 %}
+                                <li class="page-item disabled">
+                                    <span class="page-link">...</span>
+                                </li>
+                                {% endif %}
+                                <li class="page-item">
+                                    <a class="page-link" href="{{ url_for('transactions', page=total_pages or 1, **page_args) }}">{{ total_pages or 1 }}</a>
+                                </li>
+                                {% endif %}
+                                
+                                <!-- Next Button -->
+                                <li class="page-item {% if not (has_next or false) %}disabled{% endif %}">
+                                    {% if has_next or false %}
+                                    <a class="page-link" href="{{ url_for('transactions', page=(page or 1)+1, **page_args) }}">
+                                        <span class="d-none d-sm-inline">Next</span> <i class="fas fa-chevron-right"></i>
+                                    </a>
+                                {% else %}
+                                    <span class="page-link" tabindex="-1" aria-disabled="true">
+                                        <span class="d-none d-sm-inline">Next</span> <i class="fas fa-chevron-right"></i>
+                                    </span>
+                                {% endif %}
+                                </li>
+                            </ul>
+                        </nav>
+                        {% endif %}
                         </div>
-                        <div class="col-md-6 mb-3">
-                            <label for="add_tags" class="form-label">Tags (comma separated)</label>
-                            <input type="text" class="form-control" id="add_tags" name="tags" placeholder="food, entertainment, work">
+                    {% endif %}
                         </div>
                     </div>
                 </div>
-
-                <!-- Step 5: Amount -->
-                <div id="step5" class="step-content" style="display: none;">
-                    <div class="text-center mb-4">
-                        <i class="fas fa-money-bill-wave fa-3x text-success mb-3"></i>
-                        <h4>Transaction Amount</h4>
-                        <p class="text-muted">Enter the amount for this transaction</p>
                     </div>
-                    <div class="row justify-content-center">
-                        <div class="col-md-8">
-                            <!-- Balance Information -->
-                            <div class="alert alert-info mb-3" id="balanceInfo" style="display: none;">
-                                <i class="fas fa-wallet me-2"></i>
-                                <strong>Available Balance:</strong> <span id="availableBalance">IDR 0</span>
-                                <br>
-                                <small class="text-muted">For expense transactions, amount cannot exceed available balance</small>
+                            </div>
                             </div>
                             
-                            <!-- Balance Warning (Red) -->
-                            <div class="alert alert-danger mb-3" id="balanceWarning" style="display: none;">
-                                <i class="fas fa-exclamation-triangle me-2"></i>
-                                <strong>Insufficient Balance!</strong>
-                                <br>
-                                <span id="balanceWarningText">Amount exceeds available balance</span>
-                            </div>
-                            
-                            <div class="input-group input-group-lg">
-                                <span class="input-group-text">IDR</span>
-                                <input type="text" class="form-control form-control-lg text-center" id="add_amount" name="amount" required placeholder="1.000.000">
-                            </div>
-                            <small class="form-text text-muted">Format: 1.000.000 (gunakan titik sebagai separator ribuan)</small>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Step 6: Date Confirmation -->
-                <div id="step6" class="step-content" style="display: none;">
-                    <div class="text-center mb-4">
-                        <i class="fas fa-calendar-check fa-3x text-primary mb-3"></i>
-                        <h4>Date Confirmation</h4>
-                        <p class="text-muted">Just to make sure, this transaction happened recently, right?</p>
-                    </div>
-                    <div class="row justify-content-center">
-                        <div class="col-md-8">
-                            <div class="d-grid gap-3">
-                                <button type="button" class="btn btn-outline-primary btn-lg" onclick="confirmRecentTransaction()">
-                                    <i class="fas fa-check me-2"></i>Yes, it's recent
-                                </button>
-                                <button type="button" class="btn btn-outline-secondary btn-lg" onclick="showDatePicker()">
-                                    <i class="fas fa-calendar me-2"></i>No, pick different date
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Step 7: Note and Submit -->
-                <div id="step7" class="step-content" style="display: none;">
-                    <div class="text-center mb-4">
-                        <i class="fas fa-sticky-note fa-3x text-info mb-3"></i>
-                        <h4>Final Note</h4>
-                        <p class="text-muted">Add any additional notes (optional)</p>
-                    </div>
-                    <div class="row justify-content-center">
-                        <div class="col-md-8">
-                            <textarea class="form-control" id="add_note" name="note" rows="4" placeholder="Add any notes about this transaction..."></textarea>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Hidden form for submission -->
-                <form id="addTransactionForm" style="display: none;">
-                    <input type="hidden" id="add_type" name="type">
-                    <input type="hidden" id="add_timestamp" name="timestamp">
-                </form>
-            </div>
-            <div class="modal-footer">
-                <!-- Selection Summary -->
-                <div id="selectionSummary" class="alert alert-info mb-3 w-100" style="display: none;">
-                    <h6 class="mb-2"><i class="fas fa-info-circle me-2"></i>Selected Options:</h6>
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div id="summaryScope" class="mb-1" style="display: none;">
-                                <strong>Scope:</strong> <span id="summaryScopeValue">-</span>
-                            </div>
-                            <div id="summaryWallet" class="mb-1" style="display: none;">
-                                <strong>Saving Space:</strong> <span id="summaryWalletValue">-</span>
-                            </div>
-                            <div id="summaryType" class="mb-1" style="display: none;">
-                                <strong>Type:</strong> <span id="summaryTypeValue">-</span>
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div id="summaryCategory" class="mb-1" style="display: none;">
-                                <strong>Category:</strong> <span id="summaryCategoryValue">-</span>
-                            </div>
-                            <div id="summaryTags" class="mb-1" style="display: none;">
-                                <strong>Tags:</strong> <span id="summaryTagsValue">-</span>
-                            </div>
-                            <div id="summaryAmount" class="mb-1" style="display: none;">
-                                <strong>Amount:</strong> <span id="summaryAmountValue">-</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="d-flex gap-2">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="button" class="btn btn-secondary" id="prevBtn" onclick="previousStep()" style="display: none;">
-                        <i class="fas fa-arrow-left me-1"></i>Previous
-                    </button>
-                    <button type="button" class="btn btn-primary" id="nextBtn" onclick="nextStep()">
-                        Next<i class="fas fa-arrow-right ms-1"></i>
-                    </button>
-                    <button type="button" class="btn btn-success" id="submitBtn" onclick="submitTransaction()" style="display: none;">
-                        <i class="fas fa-check me-1"></i>Submit Transaction
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
+ 
 
 <!-- Edit Transaction Modal -->
 <div class="modal fade" id="editModal" tabindex="-1">
@@ -1122,6 +930,14 @@
   </div>
 
 <script>
+// Function to change page size
+function changePageSize(newPerPage) {
+    const url = new URL(window.location);
+    url.searchParams.set('per_page', newPerPage);
+    url.searchParams.set('page', '1'); // Reset to page 1 when changing page size
+    window.location.href = url.toString();
+}
+
 // Auto-submit form when filter changes
 document.addEventListener('DOMContentLoaded', function() {
     const filterSelects = ['scope_id', 'category_id', 'wallet_id', 'type'];
@@ -1896,6 +1712,8 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
+
+
 // Filter by wallet function
 function filterByWallet(walletId) {
     const url = new URL(window.location);
@@ -2311,171 +2129,9 @@ function displayTransactionDetails(tx) {
 
 </script>
 
-<!-- Modified Balance Modal -->
-<div class="modal fade" id="modifiedBalanceModal" tabindex="-1">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">
-                    <i class="fas fa-balance-scale me-2"></i>Modified Balance
-                </h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <div class="text-center mb-4">
-                    <i class="fas fa-balance-scale fa-3x text-warning mb-3"></i>
-                    <h4>Adjust Wallet Balance</h4>
-                    <p class="text-muted">Set the actual balance of your wallet. The difference will be recorded as a transaction.</p>
-                </div>
-                
-                <form id="modifiedBalanceForm">
-                    <div class="row justify-content-center">
-                        <div class="col-md-8 mb-4">
-                            <label for="modify_wallet_id" class="form-label">Select Saving Space</label>
-                            <select class="form-select form-select-lg" id="modify_wallet_id" name="wallet_id" required>
-                                <option value="">Select Saving Space</option>
-                                {% for wallet in wallets %}
-                                <option value="{{ wallet._id }}" data-balance="{{ wallet.actual_balance or 0 }}">
-                                    {{ wallet.name }} ({{ wallet.type or 'bank' }})
-                                </option>
-                                {% endfor %}
-                            </select>
-                            <!-- Current Balance Display -->
-                            <div class="mt-2" id="currentBalanceDisplay" style="display: none;">
-                                <div class="alert alert-info mb-0">
-                                    <i class="fas fa-wallet me-2"></i>
-                                    <strong>Current Balance:</strong> <span id="currentBalanceAmount">IDR 0</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="row justify-content-center">
-                        <div class="col-md-8 mb-4">
-                            <label for="modify_amount" class="form-label">New Balance Amount</label>
-                            <div class="input-group input-group-lg">
-                                <span class="input-group-text">IDR</span>
-                                <input type="text" class="form-control form-control-lg text-center" id="modify_amount" name="amount" required placeholder="1.000.000">
-                            </div>
-                            <small class="form-text text-muted">Format: 1.000.000 (gunakan titik sebagai separator ribuan)</small>
-                        </div>
-                    </div>
-                    
-                    <!-- Balance Difference Display -->
-                    <div class="row justify-content-center">
-                        <div class="col-md-8">
-                            <div class="alert alert-info" id="balanceDifferenceInfo" style="display: none;">
-                                <i class="fas fa-info-circle me-2"></i>
-                                <strong>Balance Difference:</strong> <span id="balanceDifferenceAmount">IDR 0</span>
-                                <br>
-                                <small class="text-muted">This amount will be recorded as a transaction</small>
-                            </div>
-                        </div>
-                    </div>
-                </form>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-warning" onclick="submitModifiedBalance()">
-                    <i class="fas fa-balance-scale me-1"></i>Update Balance
-                </button>
-            </div>
-        </div>
-    </div>
-</div>
+ 
 
-<!-- Transfer Modal -->
-<div class="modal fade" id="transferModal" tabindex="-1">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">
-                    <i class="fas fa-exchange-alt me-2"></i>Transfer Money
-                </h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <div class="text-center mb-4">
-                    <i class="fas fa-exchange-alt fa-3x text-info mb-3"></i>
-                    <h4>Transfer Between Wallets</h4>
-                    <p class="text-muted">Move money from one wallet to another with optional admin fee.</p>
-                </div>
-                
-                <form id="transferForm">
-                    <div class="row justify-content-center">
-                        <div class="col-md-5 col-sm-6 mb-4">
-                            <label for="transfer_from_wallet" class="form-label">From Wallet</label>
-                            <select class="form-select form-select-lg" id="transfer_from_wallet" name="from_wallet_id" required>
-                                <option value="">Select Source Wallet</option>
-                                {% for wallet in wallets %}
-                                {% if wallet.actual_balance and wallet.actual_balance > 0 %}
-                                <option value="{{ wallet._id }}" data-balance="{{ wallet.actual_balance or 0 }}">
-                                    {{ wallet.name }} ({{ wallet.type or 'bank' }})
-                                </option>
-                                {% else %}
-                                <option value="{{ wallet._id }}" disabled data-balance="0">
-                                    {{ wallet.name }} ({{ wallet.type or 'bank' }}) - Insufficient funds
-                                </option>
-                                {% endif %}
-                                {% endfor %}
-                            </select>
-                            <!-- Current Balance Display -->
-                            <div class="mt-2" id="fromWalletBalanceDisplay" style="display: none;">
-                                <div class="alert alert-light mb-0">
-                                    <i class="fas fa-wallet me-2"></i>
-                                    <strong>Current Balance:</strong> <span id="fromWalletBalance">IDR 0</span>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div class="col-md-5 col-sm-6 mb-4">
-                            <label for="transfer_to_wallet" class="form-label">To Wallet</label>
-                            <select class="form-select form-select-lg" id="transfer_to_wallet" name="to_wallet_id" required>
-                                <option value="">Select Destination Wallet</option>
-                                {% for wallet in wallets %}
-                                <option value="{{ wallet._id }}">
-                                    {{ wallet.name }} ({{ wallet.type or 'bank' }})
-                                </option>
-                                {% endfor %}
-                            </select>
-                        </div>
-                    </div>
-                    
-                    <div class="row justify-content-center">
-                        <div class="col-md-10 mb-4">
-                            <label for="transfer_amount" class="form-label">Transfer Amount</label>
-                            <div class="input-group input-group-lg">
-                                <span class="input-group-text">IDR</span>
-                                <input type="text" class="form-control form-control-lg text-center" id="transfer_amount" name="amount" required placeholder="1.000.000">
-                            </div>
-                            <small class="form-text text-muted">Format: 1.000.000 (gunakan titik sebagai separator ribuan)</small>
-                        </div>
-                    </div>
-                    
-                    <div class="row justify-content-center">
-                        <div class="col-md-10 mb-4">
-                            <label for="transfer_fee" class="form-label">Admin Fee (Optional)</label>
-                            <div class="input-group input-group-lg">
-                                <span class="input-group-text">IDR</span>
-                                <input type="text" class="form-control form-control-lg text-center" id="transfer_fee" name="admin_fee" placeholder="0">
-                            </div>
-                            <small class="form-text text-muted">Optional admin fee for the transfer</small>
-                        </div>
-                    </div>
-                    
-
-
-                </form>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-info" onclick="submitTransfer()">
-                    <i class="fas fa-exchange-alt me-1"></i>Transfer Money
-                </button>
-            </div>
-        </div>
-    </div>
-</div>
+ 
 
 <!-- Transaction Details Modal -->
 <div class="modal fade" id="transactionDetailsModal" tabindex="-1" aria-labelledby="transactionDetailsModalLabel" aria-hidden="true">

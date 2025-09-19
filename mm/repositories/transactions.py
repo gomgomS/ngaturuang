@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 import time
 from bson import ObjectId
 from mm.repositories.base import MongoRepository
@@ -885,5 +885,121 @@ class TransactionRepository(MongoRepository):
             return transaction or {}
         except Exception:
             return {}
+
+    def get_user_transactions_paginated(self, user_id: str, page: int = 1, per_page: int = 20) -> Tuple[List[Dict[str, Any]], int]:
+        """Get user transactions with pagination"""
+        try:
+            skip = (page - 1) * per_page
+            
+            # Get total count
+            total_count = self.collection.count_documents({"user_id": user_id})
+            
+            # Get paginated transactions
+            query = {"user_id": user_id}
+            transactions = self.find_many(query, limit=per_page, sort=[("timestamp", -1)], skip=skip)
+            
+            # Format transactions
+            transactions = self._format_transactions(transactions)
+            
+            return transactions, total_count
+        except Exception as e:
+            print(f"Error in get_user_transactions_paginated: {e}")
+            return [], 0
+
+    def get_transactions_by_scope_paginated(self, user_id: str, scope_id: str, page: int = 1, per_page: int = 20) -> Tuple[List[Dict[str, Any]], int]:
+        """Get transactions by scope with pagination"""
+        try:
+            skip = (page - 1) * per_page
+            
+            # Get total count
+            total_count = self.collection.count_documents({"user_id": user_id, "scope_id": scope_id})
+            
+            # Get paginated transactions
+            query = {"user_id": user_id, "scope_id": scope_id}
+            transactions = self.find_many(query, limit=per_page, sort=[("timestamp", -1)], skip=skip)
+            
+            # Format transactions
+            transactions = self._format_transactions(transactions)
+            
+            return transactions, total_count
+        except Exception as e:
+            print(f"Error in get_transactions_by_scope_paginated: {e}")
+            return [], 0
+
+    def get_transactions_with_filters_paginated(self, user_id: str, filters: Dict[str, Any] = None, page: int = 1, per_page: int = 20) -> Tuple[List[Dict[str, Any]], int]:
+        """Get transactions with filters and pagination"""
+        try:
+            skip = (page - 1) * per_page
+            
+            # Build query
+            query = {"user_id": user_id}
+            if filters:
+                if filters.get("scope_id"):
+                    query["scope_id"] = filters["scope_id"]
+                if filters.get("category_id"):
+                    query["category_id"] = filters["category_id"]
+                if filters.get("wallet_id"):
+                    query["wallet_id"] = filters["wallet_id"]
+                if filters.get("type"):
+                    query["type"] = filters["type"]
+                if filters.get("tags") and isinstance(filters["tags"], list):
+                    query["tags"] = {"$in": filters["tags"]}
+                if filters.get("date_from") or filters.get("date_to"):
+                    date_query = {}
+                    if filters.get("date_from"):
+                        date_query["$gte"] = int(filters["date_from"])
+                    if filters.get("date_to"):
+                        date_query["$lte"] = int(filters["date_to"])
+                    if date_query:
+                        query["timestamp"] = date_query
+                if filters.get("amount_min") or filters.get("amount_max"):
+                    amount_query = {}
+                    if filters.get("amount_min"):
+                        amount_query["$gte"] = float(filters["amount_min"])
+                    if filters.get("amount_max"):
+                        amount_query["$lte"] = float(filters["amount_max"])
+                    if amount_query:
+                        query["amount"] = amount_query
+            
+            # Get total count
+            total_count = self.collection.count_documents(query)
+            
+            # Get paginated transactions
+            transactions = self.find_many(query, limit=per_page, sort=[("timestamp", -1)], skip=skip)
+            
+            # Format transactions
+            transactions = self._format_transactions(transactions)
+            
+            return transactions, total_count
+        except Exception as e:
+            print(f"Error in get_transactions_with_filters_paginated: {e}")
+            return [], 0
+
+    def _format_transactions(self, transactions: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Format transactions for display"""
+        if not transactions:
+            return []
+        
+        for tx in transactions:
+            # Set default values
+            tx.setdefault("amount", 0)
+            tx.setdefault("type", "expense")
+            tx.setdefault("note", "")
+            tx.setdefault("scope_id", "")
+            tx.setdefault("wallet_id", "")
+            tx.setdefault("category_id", "")
+            tx.setdefault("fk_real_balance_id", "")
+            tx.setdefault("tags", [])
+            tx.setdefault("balance_before", 0)
+            tx.setdefault("balance_after", 0)
+            
+            # Format timestamp
+            if "timestamp" in tx:
+                try:
+                    tx["formatted_time"] = datetime.fromtimestamp(tx["timestamp"]).strftime("%Y-%m-%d %H:%M:%S")
+                except (ValueError, TypeError):
+                    tx["formatted_time"] = "Invalid Time"
+        
+        return transactions
 
 

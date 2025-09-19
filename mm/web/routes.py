@@ -161,6 +161,27 @@ def init_web_routes(app):
                              total_expense=total_expense,
                              total_transactions=total_transactions)
 
+    @app.route("/transactions-type")
+    def transactions_type():
+        user_id = session.get("user_id", "demo_user")
+
+        # Get repositories
+        scope_repo = ScopeRepository()
+        wallet_repo = WalletRepository()
+        category_repo = CategoryRepository()
+
+        # Get data
+        scopes = scope_repo.list_by_user(user_id) or []
+        wallets = wallet_repo.list_by_user(user_id) or []
+        categories = category_repo.list_by_user(user_id) or []
+
+        return render_template(
+            "transaction_type.html",
+            scopes=scopes,
+            wallets=wallets,
+            categories=categories,
+        )
+
     @app.route("/goals")
     def goals():
         return render_template("goals.html")
@@ -177,7 +198,7 @@ def init_web_routes(app):
         # Get data
         scopes = scope_repo.list_by_user(user_id)
         wallets = wallet_repo.list_by_user(user_id)
-        categories = category_repo.list_by_user(user_id)
+        categories = category_repo.list_by_user_with_defaults(user_id)
         
         # Ensure lists are passed
         scopes = scopes or []

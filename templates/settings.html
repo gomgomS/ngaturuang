@@ -362,13 +362,6 @@
                                                 title="Edit">
                                             <i class="fas fa-edit"></i>
                                         </button>
-                                        <button class="btn btn-outline-info btn-sm edit-balance-btn" 
-                                                data-wallet-id="{{ wallet._id }}" 
-                                                data-wallet-name="{{ wallet.name }}" 
-                                                data-wallet-balance="{{ wallet.manual_balance or 0 }}" 
-                                                title="Edit Balance">
-                                            <i class="fas fa-balance-scale"></i>
-                                        </button>
                                         <button class="btn btn-outline-danger btn-sm delete-wallet-btn" 
                                                 data-wallet-id="{{ wallet._id }}" 
                                                 title="Delete">
@@ -570,63 +563,14 @@
     </div>
 </div>
 
-<!-- Edit Balance Modal -->
-<div class="modal fade" id="editBalanceModal" tabindex="-1">
-    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
-        <div class="modal-content border-0 shadow" style="border-radius: 20px;">
-            <div class="modal-header border-0" style="background: linear-gradient(135deg, #ffc107 0%, #fd7e14 100%); border-radius: 20px 20px 0 0; color: white;">
-                <h5 class="modal-title">
-                    <i class="fas fa-balance-scale me-2"></i>Edit Manual Balance
-                </h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body p-4">
-                <form id="editBalanceForm">
-                    <input type="hidden" id="edit_wallet_id" name="wallet_id">
-                    
-                    <div class="mb-4">
-                        <label for="edit_wallet_name" class="form-label fw-medium">Saving Space</label>
-                        <input type="text" class="form-control form-control-lg" id="edit_wallet_name" readonly style="border-radius: 10px;">
-                    </div>
-                    
-                    <div class="mb-4">
-                        <label for="edit_manual_balance" class="form-label fw-medium">Manual Balance</label>
-                        <div class="input-group input-group-lg">
-                            <span class="input-group-text bg-light" style="border-radius: 10px 0 0 10px;">IDR</span>
-                            <input type="number" 
-                                   class="form-control" 
-                                   id="edit_manual_balance" 
-                                   name="manual_balance" 
-                                   step="0.01" 
-                                   min="0" 
-                                   required
-                                   placeholder="0.00"
-                                   style="border-radius: 0 10px 10px 0;">
-                        </div>
-                        <div class="form-text mt-2">
-                            <i class="fas fa-info-circle me-1"></i>
-                            Enter the current balance in your saving space (excluding transactions)
-                        </div>
-                    </div>
-                </form>
-            </div>
-            <div class="modal-footer border-0 p-4">
-                <div class="d-flex gap-2 w-100">
-                    <button type="button" class="btn btn-secondary flex-fill" data-bs-dismiss="modal" style="border-radius: 10px;">Cancel</button>
-                    <button type="button" class="btn btn-action flex-fill" onclick="saveBalance()" style="background: linear-gradient(135deg, #ffc107 0%, #fd7e14 100%);">
-                        <i class="fas fa-save me-1"></i>Save Balance
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
 
 
 
 <script>
 // Scope Functions
 function editScope(scopeId, name, description) {
+    console.log('editScope called with:', scopeId, name, description);
+    
     // Clear form first
     document.getElementById('scopeForm').reset();
     
@@ -634,6 +578,12 @@ function editScope(scopeId, name, description) {
     document.getElementById('scope_id').value = scopeId;
     document.getElementById('scope_name').value = name;
     document.getElementById('scope_description').value = description;
+    
+    console.log('Form values set:', {
+        id: document.getElementById('scope_id').value,
+        name: document.getElementById('scope_name').value,
+        description: document.getElementById('scope_description').value
+    });
     
     // Change modal title
     document.getElementById('scopeModalTitle').innerHTML = '<i class="fas fa-edit me-2"></i>Edit Scope';
@@ -858,9 +808,11 @@ document.addEventListener('DOMContentLoaded', function() {
     // Scope edit buttons
     document.querySelectorAll('.edit-scope-btn').forEach(btn => {
         btn.addEventListener('click', function() {
+            console.log('Scope edit button clicked');
             const scopeId = this.dataset.scopeId;
             const scopeName = this.dataset.scopeName;
             const scopeDescription = this.dataset.scopeDescription;
+            console.log('Scope data:', scopeId, scopeName, scopeDescription);
             editScope(scopeId, scopeName, scopeDescription);
         });
     });
@@ -876,22 +828,15 @@ document.addEventListener('DOMContentLoaded', function() {
     // Wallet edit buttons
     document.querySelectorAll('.edit-wallet-btn').forEach(btn => {
         btn.addEventListener('click', function() {
+            console.log('Wallet edit button clicked');
             const walletId = this.dataset.walletId;
             const walletName = this.dataset.walletName;
             const walletType = this.dataset.walletType;
+            console.log('Wallet data:', walletId, walletName, walletType);
             editSavingSpace(walletId, walletName, walletType);
         });
     });
     
-    // Wallet balance edit buttons
-    document.querySelectorAll('.edit-balance-btn').forEach(btn => {
-        btn.addEventListener('click', function() {
-            const walletId = this.dataset.walletId;
-            const walletName = this.dataset.walletName;
-            const walletBalance = parseFloat(this.dataset.walletBalance);
-            editBalance(walletId, walletName, walletBalance);
-        });
-    });
     
     // Wallet delete buttons
     document.querySelectorAll('.delete-wallet-btn').forEach(btn => {
@@ -904,10 +849,12 @@ document.addEventListener('DOMContentLoaded', function() {
     // Category edit buttons
     document.querySelectorAll('.edit-category-btn').forEach(btn => {
         btn.addEventListener('click', function() {
+            console.log('Category edit button clicked');
             const categoryId = this.dataset.categoryId;
             const categoryName = this.dataset.categoryName;
             const categoryDescription = this.dataset.categoryDescription;
             const isSystem = this.dataset.categoryIsSystem === 'true';
+            console.log('Category data:', categoryId, categoryName, categoryDescription, isSystem);
             editCategory(categoryId, categoryName, categoryDescription, isSystem);
         });
     });
@@ -921,27 +868,38 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
     
-    // Reset modal forms when opened for new items
+    // Add event listeners for "Add" buttons to reset forms
+    document.querySelectorAll('[data-bs-toggle="modal"]').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const targetModal = this.getAttribute('data-bs-target');
+            if (targetModal) {
+                const modal = document.querySelector(targetModal);
+                if (modal) {
+                    const form = modal.querySelector('form');
+                    if (form) {
+                        form.reset();
+                        const hiddenInput = form.querySelector('input[type="hidden"]');
+                        if (hiddenInput) hiddenInput.value = '';
+                    }
+                    
+                    // Reset modal title to "Add New"
+                    const title = modal.querySelector('.modal-title');
+                    if (targetModal === '#scopeModal') {
+                        title.innerHTML = '<i class="fas fa-folder me-2"></i>Add New Scope';
+                    } else if (targetModal === '#savingSpaceModal') {
+                        title.innerHTML = '<i class="fas fa-piggy-bank me-2"></i>Add New Saving Space';
+                    } else if (targetModal === '#categoryModal') {
+                        title.innerHTML = '<i class="fas fa-tags me-2"></i>Add New Category';
+                    }
+                }
+            }
+        });
+    });
+    
+    // Reset modal forms when opened for new items (only when triggered by add buttons)
     const modals = ['scopeModal', 'savingSpaceModal', 'categoryModal'];
     modals.forEach(modalId => {
         const modal = document.getElementById(modalId);
-        modal.addEventListener('show.bs.modal', function(event) {
-            // Only reset if it's not triggered by edit button
-            if (!event.relatedTarget || !event.relatedTarget.classList.contains('edit-scope-btn') && 
-                !event.relatedTarget.classList.contains('edit-wallet-btn') && 
-                !event.relatedTarget.classList.contains('edit-category-btn')) {
-                const form = this.querySelector('form');
-                form.reset();
-                const hiddenInput = form.querySelector('input[type="hidden"]');
-                if (hiddenInput) hiddenInput.value = '';
-                
-                // Reset modal title
-                const title = this.querySelector('.modal-title');
-                if (modalId === 'scopeModal') title.innerHTML = '<i class="fas fa-folder me-2"></i>Add New Scope';
-                else if (modalId === 'savingSpaceModal') title.innerHTML = '<i class="fas fa-piggy-bank me-2"></i>Add New Saving Space';
-                else if (modalId === 'categoryModal') title.innerHTML = '<i class="fas fa-tags me-2"></i>Add New Category';
-            }
-        });
         
         // Reset form when modal is hidden
         modal.addEventListener('hidden.bs.modal', function() {
@@ -959,59 +917,6 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 });
 
-// Balance Functions
-function editBalance(walletId, walletName, currentBalance) {
-    // Populate modal
-    document.getElementById('edit_wallet_id').value = walletId;
-    document.getElementById('edit_wallet_name').value = walletName;
-    document.getElementById('edit_manual_balance').value = currentBalance || 0;
-    
-    // Show modal
-    const modal = new bootstrap.Modal(document.getElementById('editBalanceModal'));
-    modal.show();
-}
-
-async function saveBalance() {
-    const walletId = document.getElementById('edit_wallet_id').value;
-    const manualBalance = parseFloat(document.getElementById('edit_manual_balance').value);
-    
-    if (isNaN(manualBalance) || manualBalance < 0) {
-        alert('Please enter a valid balance amount');
-        return;
-    }
-    
-    try {
-        const response = await fetch(`/api/wallets/${walletId}/balance`, {
-            method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                manual_balance: manualBalance
-            })
-        });
-        
-        if (response.ok) {
-            const result = await response.json();
-            alert('Balance updated successfully!');
-            
-            // Close modal
-            const modal = bootstrap.Modal.getInstance(document.getElementById('editBalanceModal'));
-            modal.hide();
-            
-            // Reload page to show updated data
-            setTimeout(() => {
-                location.reload();
-            }, 1000);
-        } else {
-            const error = await response.json();
-            alert(error.error || 'Failed to update balance');
-        }
-    } catch (error) {
-        console.error('Error updating balance:', error);
-        alert('Error updating balance. Please try again.');
-    }
-}
 </script>
 {% endblock %}
 
