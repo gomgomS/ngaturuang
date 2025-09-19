@@ -645,8 +645,13 @@
                     <div class="stats-icon">
                         <i class="fas fa-wallet"></i>
                                 </div>
-                    <h5 class="stats-label">Total Balance</h5>
-                    <h3 class="stats-value">Rp {{ "{:,.0f}".format((total_balance|default(0))|float) }}</h3>
+                    <div class="d-flex align-items-center justify-content-center gap-2 mb-2">
+                        <h5 class="stats-label mb-0">Total Balance</h5>
+                        <button type="button" class="btn btn-sm btn-outline-primary p-1" id="dashboardToggleBalance" style="width: 24px; height: 24px; padding: 0; border-radius: 50%;">
+                            <i class="fas fa-eye-slash" id="dashboardBalanceToggleIcon"></i>
+                        </button>
+                    </div>
+                    <h3 class="stats-value" id="dashboardBalanceDisplay">••••••••</h3>
                     <!-- Comparison info (yesterday for specific day, previous month for specific month) -->
                     <div id="balanceComparisonInfo" class="yesterday-balance-info" style="display: none;">
                         <div class="yesterday-balance-text">
@@ -982,6 +987,7 @@ document.addEventListener('DOMContentLoaded', function() {
         initializeMonthFilter();
         initializeDayFilter();
         initializeCurrentButton();
+        initializeDashboardBalanceToggle();
     }, 100);
     
     // Prevent zoom and pan gestures on mobile
@@ -1490,15 +1496,22 @@ function showLoadingState() {
 
 function updateDashboardData(data) {
     // Update total balance
-    const totalBalanceElement = document.querySelector('.stats-value');
+    const totalBalanceElement = document.getElementById('dashboardBalanceDisplay');
     if (totalBalanceElement && data.total_balance !== undefined) {
-        if (data.total_balance === "-") {
-            totalBalanceElement.textContent = "-";
+        // Check if balance is currently hidden (default to hidden)
+        const isBalanceHidden = localStorage.getItem('balanceHidden') !== 'false';
+        
+        if (isBalanceHidden) {
+            totalBalanceElement.textContent = '••••••••';
         } else {
-            totalBalanceElement.textContent = `Rp ${data.total_balance.toLocaleString('id-ID', {
-                minimumFractionDigits: 0,
-                maximumFractionDigits: 0
-            })}`;
+            if (data.total_balance === "-") {
+                totalBalanceElement.textContent = "-";
+            } else {
+                totalBalanceElement.textContent = `Rp ${data.total_balance.toLocaleString('id-ID', {
+                    minimumFractionDigits: 0,
+                    maximumFractionDigits: 0
+                })}`;
+            }
         }
     }
     
@@ -1916,8 +1929,42 @@ function showErrorState(message) {
             }
         }, 5000);
     }
-    
+}
 
+// Dashboard Balance Toggle Functions
+function initializeDashboardBalanceToggle() {
+    const toggleBalance = document.getElementById('dashboardToggleBalance');
+    const balanceDisplay = document.getElementById('dashboardBalanceDisplay');
+    const balanceToggleIcon = document.getElementById('dashboardBalanceToggleIcon');
+    
+    if (toggleBalance && balanceDisplay && balanceToggleIcon) {
+        // Check if balance is hidden from localStorage (default to hidden)
+        const isBalanceHidden = localStorage.getItem('balanceHidden') !== 'false';
+        
+        if (!isBalanceHidden) {
+            // User has explicitly chosen to show balance
+            const originalBalance = '{{ "{:,.0f}".format((total_balance|default(0))|float) }}';
+            balanceDisplay.textContent = `Rp ${originalBalance}`;
+            balanceToggleIcon.className = 'fas fa-eye';
+        }
+        
+        toggleBalance.addEventListener('click', function() {
+            const isCurrentlyHidden = balanceDisplay.textContent === '••••••••';
+            
+            if (isCurrentlyHidden) {
+                // Show balance - get the original balance from the data
+                const originalBalance = '{{ "{:,.0f}".format((total_balance|default(0))|float) }}';
+                balanceDisplay.textContent = `Rp ${originalBalance}`;
+                balanceToggleIcon.className = 'fas fa-eye';
+                localStorage.setItem('balanceHidden', 'false');
+            } else {
+                // Hide balance
+                balanceDisplay.textContent = '••••••••';
+                balanceToggleIcon.className = 'fas fa-eye-slash';
+                localStorage.setItem('balanceHidden', 'true');
+            }
+        });
+    }
 }
 </script>
 

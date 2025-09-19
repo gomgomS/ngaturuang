@@ -229,13 +229,14 @@
                     
                     <!-- Total Balance Display -->
                     <div class="text-end">
-                        <small class="text-white-50 d-block">Total Balance</small>
-                        <div class="text-white fw-bold">
-                            {% if total_balance %}
-                                {{ "Rp {:,.0f}".format(total_balance|float) }}
-                            {% else %}
-                                Rp 0
-                            {% endif %}
+                        <div class="d-flex align-items-center justify-content-end gap-2 mb-1">
+                            <small class="text-white-50">Total Balance</small>
+                            <button type="button" class="btn btn-sm btn-outline-light p-1" id="toggleBalance" style="width: 24px; height: 24px; padding: 0; border-radius: 50%;">
+                                <i class="fas fa-eye-slash" id="balanceToggleIcon"></i>
+                            </button>
+                        </div>
+                        <div class="text-white fw-bold" id="balanceDisplay">
+                            ••••••••
                         </div>
                     </div>
                 </div>
@@ -385,6 +386,46 @@
                 sidebar.style.position = 'relative';
                 sidebar.style.width = '250px';
                 sidebar.style.height = 'auto';
+            }
+            
+            // Balance toggle functionality
+            const toggleBalance = document.getElementById('toggleBalance');
+            const balanceDisplay = document.getElementById('balanceDisplay');
+            const balanceToggleIcon = document.getElementById('balanceToggleIcon');
+            
+            if (toggleBalance && balanceDisplay && balanceToggleIcon) {
+                // Check if balance is hidden from localStorage (default to hidden)
+                const isBalanceHidden = localStorage.getItem('balanceHidden') !== 'false';
+                
+                if (!isBalanceHidden) {
+                    // User has explicitly chosen to show balance
+                    {% if total_balance %}
+                        balanceDisplay.textContent = '{{ "Rp {:,.0f}".format(total_balance|float) }}';
+                    {% else %}
+                        balanceDisplay.textContent = 'Rp 0';
+                    {% endif %}
+                    balanceToggleIcon.className = 'fas fa-eye';
+                }
+                
+                toggleBalance.addEventListener('click', function() {
+                    const isCurrentlyHidden = balanceDisplay.textContent === '••••••••';
+                    
+                    if (isCurrentlyHidden) {
+                        // Show balance
+                        {% if total_balance %}
+                            balanceDisplay.textContent = '{{ "Rp {:,.0f}".format(total_balance|float) }}';
+                        {% else %}
+                            balanceDisplay.textContent = 'Rp 0';
+                        {% endif %}
+                        balanceToggleIcon.className = 'fas fa-eye';
+                        localStorage.setItem('balanceHidden', 'false');
+                    } else {
+                        // Hide balance
+                        balanceDisplay.textContent = '••••••••';
+                        balanceToggleIcon.className = 'fas fa-eye-slash';
+                        localStorage.setItem('balanceHidden', 'true');
+                    }
+                });
             }
         });
     </script>

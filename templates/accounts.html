@@ -200,6 +200,16 @@
              font-size: 0.9rem;
          }
          
+         .accounts-header .d-flex {
+             flex-direction: column;
+             align-items: flex-start;
+             gap: 1rem;
+         }
+         
+         .accounts-header .d-flex > div:last-child {
+             align-self: flex-end;
+         }
+         
          .stats-card {
              padding: 1rem;
              margin-bottom: 0.75rem;
@@ -247,8 +257,18 @@
 <div class="container-fluid">
     <!-- Header -->
     <div class="accounts-header">
-        <h1><i class="fas fa-wallet me-3"></i>My Accounts</h1>
-        <p>Manage and view all your financial accounts and wallets</p>
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <h1><i class="fas fa-wallet me-3"></i>My Accounts</h1>
+                <p>Manage and view all your financial accounts and wallets</p>
+            </div>
+            <div class="d-flex align-items-center gap-2">
+                <small class="text-white-50">Hide Balances</small>
+                <button type="button" class="btn btn-sm btn-outline-light p-1" id="accountsToggleBalance" style="width: 32px; height: 32px; padding: 0; border-radius: 50%;">
+                    <i class="fas fa-eye-slash" id="accountsBalanceToggleIcon"></i>
+                </button>
+            </div>
+        </div>
     </div>
     
     {% if wallets %}
@@ -262,7 +282,7 @@
             </div>
             <div class="col-md-6">
                 <div class="stats-card">
-                    <h3 class="stats-value">Rp {{ wallets|sum(attribute='latest_balance')|currency }}</h3>
+                    <h3 class="stats-value" id="accountsTotalBalance">••••••••</h3>
                     <p class="stats-label">Total Balance</p>
                 </div>
             </div>
@@ -286,8 +306,8 @@
                         <h6 class="account-name mb-2">{{ wallet.name }}</h6>
                          
                         <!-- Balance -->
-                        <div class="account-balance mb-2">
-                            Rp {{ wallet.latest_balance|currency if wallet.latest_balance else '0' }}
+                        <div class="account-balance mb-2" data-wallet-balance="{{ wallet.latest_balance|currency if wallet.latest_balance else '0' }}">
+                            ••••••••
                         </div>
                         
                         <!-- Click indicator -->
@@ -342,6 +362,9 @@
 document.addEventListener('DOMContentLoaded', function() {
     console.log('Accounts page loaded');
     
+    // Initialize accounts balance toggle
+    initializeAccountsBalanceToggle();
+    
     // Add any interactive functionality here if needed
     const accountCards = document.querySelectorAll('.account-card');
     
@@ -358,5 +381,77 @@ document.addEventListener('DOMContentLoaded', function() {
          });
      });
 });
+
+// Accounts Balance Toggle Functions
+function initializeAccountsBalanceToggle() {
+    const toggleBalance = document.getElementById('accountsToggleBalance');
+    const balanceToggleIcon = document.getElementById('accountsBalanceToggleIcon');
+    const totalBalanceElement = document.getElementById('accountsTotalBalance');
+    const walletBalanceElements = document.querySelectorAll('.account-balance[data-wallet-balance]');
+    
+    if (toggleBalance && balanceToggleIcon && totalBalanceElement) {
+        // Check if balance is hidden from localStorage (default to hidden)
+        const isBalanceHidden = localStorage.getItem('accountsBalanceHidden') !== 'false';
+        
+        if (!isBalanceHidden) {
+            // User has explicitly chosen to show balance
+            showAllBalances();
+            balanceToggleIcon.className = 'fas fa-eye';
+        }
+        
+        toggleBalance.addEventListener('click', function() {
+            const isCurrentlyHidden = totalBalanceElement.textContent === '••••••••';
+            
+            if (isCurrentlyHidden) {
+                // Show all balances
+                showAllBalances();
+                balanceToggleIcon.className = 'fas fa-eye';
+                localStorage.setItem('accountsBalanceHidden', 'false');
+            } else {
+                // Hide all balances
+                hideAllBalances();
+                balanceToggleIcon.className = 'fas fa-eye-slash';
+                localStorage.setItem('accountsBalanceHidden', 'true');
+            }
+        });
+    }
+}
+
+function showAllBalances() {
+    // Show total balance
+    const totalBalanceElement = document.getElementById('accountsTotalBalance');
+    if (totalBalanceElement) {
+        // Calculate total from all wallets
+        const walletBalances = document.querySelectorAll('.account-balance[data-wallet-balance]');
+        let total = 0;
+        walletBalances.forEach(element => {
+            const balanceText = element.getAttribute('data-wallet-balance');
+            const balanceValue = parseFloat(balanceText.replace(/[^\d.-]/g, '')) || 0;
+            total += balanceValue;
+        });
+        totalBalanceElement.textContent = `Rp ${total.toLocaleString('id-ID', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+    }
+    
+    // Show individual wallet balances
+    const walletBalanceElements = document.querySelectorAll('.account-balance[data-wallet-balance]');
+    walletBalanceElements.forEach(element => {
+        const balanceText = element.getAttribute('data-wallet-balance');
+        element.textContent = `Rp ${balanceText}`;
+    });
+}
+
+function hideAllBalances() {
+    // Hide total balance
+    const totalBalanceElement = document.getElementById('accountsTotalBalance');
+    if (totalBalanceElement) {
+        totalBalanceElement.textContent = '••••••••';
+    }
+    
+    // Hide individual wallet balances
+    const walletBalanceElements = document.querySelectorAll('.account-balance[data-wallet-balance]');
+    walletBalanceElements.forEach(element => {
+        element.textContent = '••••••••';
+    });
+}
 </script>
 {% endblock %}
