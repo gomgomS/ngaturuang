@@ -2,106 +2,237 @@
 
 {% block head %}
 <style>
+/* Mobile-First Design */
 .action-card {
     cursor: pointer;
     transition: all 0.3s ease;
     border: 2px solid transparent;
+    min-height: 140px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
+
 .action-card:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+    transform: translateY(-3px);
+    box-shadow: 0 8px 20px rgba(0,0,0,0.12);
     border-color: #007bff;
 }
+
 .action-card:hover .action-icon i {
-    transform: scale(1.1);
+    transform: scale(1.05);
 }
-.action-icon i { transition: transform 0.3s ease; }
+
+.action-icon i { 
+    transition: transform 0.3s ease; 
+    font-size: 2.5rem;
+}
+
 .content-card {
-    background: rgba(255, 255, 255, 0.9);
+    background: rgba(255, 255, 255, 0.95);
     border: none;
-    border-radius: 20px;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+    border-radius: 16px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+    backdrop-filter: blur(10px);
 }
+
 .transactions-header {
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     color: white;
-    padding: 2rem;
-    border-radius: 20px;
-    margin-bottom: 2rem;
+    padding: 1.5rem;
+    border-radius: 16px;
+    margin-bottom: 1.5rem;
     position: relative;
     overflow: hidden;
 }
-.transactions-header::before { content: ''; position: absolute; inset: 0; opacity: 0.3; }
+
+.transactions-header::before { 
+    content: ''; 
+    position: absolute; 
+    inset: 0; 
+    opacity: 0.3; 
+    background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grain" width="100" height="100" patternUnits="userSpaceOnUse"><circle cx="25" cy="25" r="1" fill="white" opacity="0.1"/><circle cx="75" cy="75" r="1" fill="white" opacity="0.1"/><circle cx="50" cy="10" r="0.5" fill="white" opacity="0.1"/></pattern></defs><rect width="100" height="100" fill="url(%23grain)"/></svg>');
+}
+
+/* Mobile Optimizations */
+@media (max-width: 768px) {
+    .container {
+        padding: 1rem;
+    }
+    
+    .transactions-header {
+        padding: 1rem;
+        margin-bottom: 1rem;
+    }
+    
+    .transactions-header h1 {
+        font-size: 1.5rem;
+        margin-bottom: 0.5rem;
+    }
+    
+    .transactions-header p {
+        font-size: 0.9rem;
+        margin-bottom: 0;
+    }
+    
+    .action-card {
+        min-height: 120px;
+        margin-bottom: 1rem;
+    }
+    
+    .action-icon i {
+        font-size: 2rem;
+    }
+    
+    .action-card .card-body {
+        padding: 1rem;
+    }
+    
+    .action-card h5 {
+        font-size: 1rem;
+        margin-bottom: 0.5rem;
+    }
+    
+    .action-card p {
+        font-size: 0.85rem;
+        margin-bottom: 0;
+    }
+    
+    .row {
+        margin: 0 -0.5rem;
+    }
+    
+    .col-md-4, .col-md-3, .col-sm-6 {
+        padding: 0 0.5rem;
+    }
+}
+
+/* Touch-friendly interactions */
+.action-card:active {
+    transform: scale(0.98);
+    transition: transform 0.1s ease;
+}
+
+/* Better spacing for mobile */
+@media (max-width: 576px) {
+    .action-card {
+        min-height: 100px;
+    }
+    
+    .action-icon i {
+        font-size: 1.8rem;
+    }
+    
+    .action-card h5 {
+        font-size: 0.9rem;
+    }
+    
+    .action-card p {
+        font-size: 0.8rem;
+    }
+}
+
+/* Quick tips styling */
+.quick-tips {
+    background: rgba(108, 117, 125, 0.1);
+    border-radius: 12px;
+    padding: 1rem;
+    margin-top: 1.5rem;
+    text-align: center;
+    font-size: 0.9rem;
+    color: #6c757d;
+}
+
+@media (max-width: 768px) {
+    .quick-tips {
+        margin-top: 1rem;
+        padding: 0.75rem;
+        font-size: 0.85rem;
+    }
+}
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="container py-4">
-    <div class="transactions-header mb-4">
-        <h1 class="h3 mb-1">Transactions</h1>
-        <p class="mb-0">Choose what you want to do</p>
+<div class="container py-3">
+    <!-- Header Section -->
+    <div class="transactions-header text-end">
+        <div class="d-flex align-items-center justify-content-end mb-2">
+            <i class="fas fa-coins me-2" style="font-size: 1.5rem;"></i>
+            <h1 class="h3 mb-0">Transactions</h1>
+        </div>
+        <p class="mb-0 opacity-75">Choose what you want to do</p>
     </div>
+    
 
-    <div class="row justify-content-center">
-        <div class="col-md-4 col-sm-6 mb-3">
+    <!-- Action Cards Grid -->
+    <div class="row g-3">
+        <!-- Add Transaction -->
+        <div class="col-12 col-sm-6 col-lg-4">
             <a class="text-decoration-none" href="#" onclick="showAddTransaction(); return false;">
                 <div class="card h-100 action-card content-card">
-                    <div class="card-body text-center p-4">
-                        <div class="action-icon mb-3">
-                            <i class="fas fa-plus-circle fa-3x text-primary"></i>
+                    <div class="card-body text-center p-3">
+                        <div class="action-icon mb-2">
+                            <i class="fas fa-plus-circle text-primary"></i>
                         </div>
-                        <h5 class="card-title">Add Transaction</h5>
-                        <p class="card-text text-muted">Create new income or expense transaction</p>
+                        <h5 class="card-title mb-1">Add Transaction</h5>
+                        <p class="card-text text-muted small mb-0">Create new income or expense</p>
                     </div>
                 </div>
             </a>
         </div>
 
-        <div class="col-md-4 col-sm-6 mb-3">
+        <!-- Transaction History -->
+        <div class="col-12 col-sm-6 col-lg-4">
             <a class="text-decoration-none" href="/transactions">
                 <div class="card h-100 action-card content-card">
-                    <div class="card-body text-center p-4">
-                        <div class="action-icon mb-3">
-                            <i class="fas fa-history fa-3x text-success"></i>
+                    <div class="card-body text-center p-3">
+                        <div class="action-icon mb-2">
+                            <i class="fas fa-history text-success"></i>
                         </div>
-                        <h5 class="card-title">Transaction History</h5>
-                        <p class="card-text text-muted">View and filter all your transactions</p>
+                        <h5 class="card-title mb-1">Transaction History</h5>
+                        <p class="card-text text-muted small mb-0">View and filter transactions</p>
                     </div>
                 </div>
             </a>
         </div>
 
-        <div class="col-md-3 col-sm-6 mb-3">
+        <!-- Transfer -->
+        <div class="col-12 col-sm-6 col-lg-4">
             <a class="text-decoration-none" href="#" onclick="showTransfer(); return false;">
                 <div class="card h-100 action-card content-card">
-                    <div class="card-body text-center p-4">
-                        <div class="action-icon mb-3">
-                            <i class="fas fa-exchange-alt fa-3x text-info"></i>
+                    <div class="card-body text-center p-3">
+                        <div class="action-icon mb-2">
+                            <i class="fas fa-exchange-alt text-info"></i>
                         </div>
-                        <h5 class="card-title">Transfer</h5>
-                        <p class="card-text text-muted">Transfer money between your wallets</p>
+                        <h5 class="card-title mb-1">Transfer</h5>
+                        <p class="card-text text-muted small mb-0">Move money between wallets</p>
                     </div>
                 </div>
             </a>
         </div>
 
-        <div class="col-md-3 col-sm-6 mb-3">
+        <!-- Modified Balance -->
+        <div class="col-12 col-sm-6 col-lg-4">
             <a class="text-decoration-none" href="#" onclick="showModifiedBalance(); return false;">
                 <div class="card h-100 action-card content-card">
-                    <div class="card-body text-center p-4">
-                        <div class="action-icon mb-3">
-                            <i class="fas fa-balance-scale fa-3x text-warning"></i>
+                    <div class="card-body text-center p-3">
+                        <div class="action-icon mb-2">
+                            <i class="fas fa-balance-scale text-warning"></i>
                         </div>
-                        <h5 class="card-title">Modified Balance</h5>
-                        <p class="card-text text-muted">Adjust wallet balance to match actual amount</p>
+                        <h5 class="card-title mb-1">Modified Balance</h5>
+                        <p class="card-text text-muted small mb-0">Adjust wallet balance</p>
                     </div>
                 </div>
             </a>
         </div>
     </div>
     
-    <!-- Quick tips -->
-    <div class="text-center text-muted small mt-3">Select an action to proceed</div>
+    <!-- Quick Tips -->
+    <div class="quick-tips">
+        <i class="fas fa-lightbulb me-2"></i>
+        Select an action above to proceed
+    </div>
 </div>
 
 {% endblock %}

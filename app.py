@@ -3274,14 +3274,6 @@ def balance_history(manual_balance_id):
         print(f"Error in balance_history: {e}")
         return "Error loading balance history", 500
 
-if __name__ == "__main__":
-    print("🚀 Starting Money Management AI Application...")
-    print("📍 Application will be available at: http://localhost:5006")
-    print("💡 Press Ctrl+C to stop the application")
-    try:
-        app.run(debug=True, host="0.0.0.0", port=5006)
-    except KeyboardInterrupt:
-        print("\n👋 Application stopped by user")
-    except Exception as e:
-        print(f"❌ Error starting application: {e}")
+# Flask CLI will handle running the application
+# The start.sh script sets FLASK_APP=app.py and runs flask run
 

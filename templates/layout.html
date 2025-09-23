@@ -193,50 +193,248 @@
                 transform: none !important;
             }
         }
+        
+        /* Quick Transaction Modal Enhancements */
+        .modal-fullscreen-sm-down {
+            max-width: 100%;
+        }
+        
+        @media (max-width: 575.98px) {
+            .modal-fullscreen-sm-down {
+                margin: 0;
+                max-width: none;
+            }
+            
+            .modal-fullscreen-sm-down .modal-content {
+                border-radius: 0 !important;
+                min-height: 100vh;
+            }
+            
+            .modal-fullscreen-sm-down .modal-header {
+                border-radius: 0 !important;
+            }
+            
+            .modal-fullscreen-sm-down .modal-footer {
+                border-radius: 0 !important;
+            }
+        }
+        
+        /* Enhanced form interactions */
+        .form-control:focus, .form-select:focus {
+            border-color: #667eea !important;
+            box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25) !important;
+            transform: translateY(-1px);
+        }
+        
+        .form-control:hover, .form-select:hover {
+            border-color: #adb5bd;
+            transform: translateY(-1px);
+        }
+        
+        /* Button hover effects */
+        #saveQuickTransaction:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(40, 167, 69, 0.4) !important;
+        }
+        
+        .btn-outline-secondary:hover {
+            transform: translateY(-1px);
+        }
+        
+        /* Mobile touch targets */
+        @media (max-width: 768px) {
+            .form-control, .form-select {
+                min-height: 50px;
+                font-size: 16px; /* Prevents zoom on iOS */
+            }
+            
+            .btn {
+                /* min-height: 50px; */
+                font-size: 16px;
+            }
+            
+            .modal-body {
+                padding: 1.5rem !important;
+            }
+            
+            .modal-header {
+                padding: 1.25rem !important;
+            }
+            
+            .modal-footer {
+                padding: 1.25rem 1.5rem !important;
+            }
+        }
+        
+        /* Loading state for form */
+        .form-loading {
+            opacity: 0.6;
+            pointer-events: none;
+        }
+        
+        .form-loading::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 20px;
+            height: 20px;
+            margin: -10px 0 0 -10px;
+            border: 2px solid #667eea;
+            border-radius: 50%;
+            border-top-color: transparent;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        /* Enhanced Sidebar Header Styles */
+        .sidebar-brand:hover {
+            transform: translateY(-1px);
+            transition: all 0.3s ease;
+        }
+        
+        .sidebar-brand .fa-coins {
+            animation: coinSpin 3s ease-in-out infinite;
+        }
+        
+        @keyframes coinSpin {
+            0%, 100% { transform: rotateY(0deg); }
+            50% { transform: rotateY(180deg); }
+        }
+        
+        /* User Info Card Enhancements */
+        .sidebar .border-white-25 {
+            border-color: rgba(255, 255, 255, 0.15) !important;
+        }
+        
+        #toggleBalance:hover {
+            background: rgba(255, 255, 255, 0.1) !important;
+            border-color: rgba(255, 255, 255, 0.5) !important;
+            transform: scale(1.1);
+        }
+        
+        #closeSidebar:hover {
+            background: rgba(255, 255, 255, 0.1) !important;
+            border-color: rgba(255, 255, 255, 0.5) !important;
+            transform: scale(1.1);
+        }
+        
+        /* Mobile Responsiveness for Sidebar Header */
+        @media (max-width: 575.98px) {
+            .sidebar-brand h5 {
+                font-size: 1.2rem !important;
+            }
+            
+            .sidebar-brand small {
+                font-size: 0.75rem !important;
+            }
+            
+            .sidebar-brand .me-3 div {
+                width: 40px !important;
+                height: 40px !important;
+            }
+            
+            .sidebar-brand .fa-coins {
+                font-size: 1rem !important;
+            }
+            
+            #closeSidebar {
+                width: 35px !important;
+                height: 35px !important;
+            }
+        }
+        
+        /* Enhanced User Profile Avatar */
+        .sidebar .fa-user {
+            transition: all 0.3s ease;
+        }
+        
+        .sidebar .fa-user:hover {
+            transform: scale(1.1);
+        }
+        
+        /* Balance Display Enhancements */
+        #balanceDisplay {
+            transition: all 0.3s ease;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        #balanceDisplay:hover {
+            transform: translateY(-1px);
+        }
     </style>
     
     {% block head %}{% endblock %}
 </head>
 <body class="bg-light">
-    <!-- Mobile Toggle Button -->
+    <!-- Mobile Toggle Buttons -->
     <div class="d-lg-none position-fixed top-0 start-0 p-3" style="z-index: 1050;">
-        <button class="btn btn-action" id="sidebarToggle" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border: none; color: white; border-radius: 15px; box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2); transition: opacity 0.3s ease;">
-            <i class="fas fa-bars"></i>
-        </button>
+        <div class="d-flex flex-column gap-2">
+            <button class="btn btn-action" id="sidebarToggle" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border: none; color: white; border-radius: 15px; box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2); transition: opacity 0.3s ease;">
+                <i class="fas fa-bars"></i>
+            </button>
+            <button class="btn btn-action" id="quickAddTransaction" style="background: linear-gradient(135deg, #28a745 0%, #20c997 100%); border: none; color: white; border-radius: 15px; box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2); transition: all 0.3s ease;">
+                <i class="fas fa-plus"></i>
+            </button>
+        </div>
     </div>
 
     <!-- Sidebar -->
     <div class="d-flex">
         <div class="sidebar bg-dark text-white" id="sidebar" style="width: 250px; min-height: 100vh; transition: transform 0.3s ease;">
             <div class="p-3">
+                <!-- Enhanced Header -->
                 <div class="d-flex align-items-center justify-content-between mb-4">
                     <div class="d-flex align-items-center sidebar-brand">
-                        <i class="fas fa-coins me-2"></i>
-                        <h5 class="mb-0 text-white">Uangly</h5>
+                        <div class="me-3">
+                            <div style="width: 45px; height: 45px; background: rgba(255, 255, 255, 0.15); border-radius: 50%; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(10px);">
+                                <i class="fas fa-coins fa-lg" style="color: #ffd700;"></i>
+                            </div>
+                        </div>
+                        <div>
+                            <h5 class="mb-0 text-white fw-bold" style="font-size: 1.4rem;">Uangly</h5>
+                            <small class="text-white-50" style="font-size: 0.8rem;">Money Management</small>
+                        </div>
                     </div>
-                    <button class="btn btn-outline-light btn-sm d-lg-none" id="closeSidebar">
+                    <button class="btn btn-outline-light btn-sm d-lg-none" id="closeSidebar" style="border-radius: 50%; width: 40px; height: 40px; padding: 0; border: 2px solid rgba(255,255,255,0.3); transition: all 0.3s ease;">
                         <i class="fas fa-times"></i>
                     </button>
                 </div>
                 
-                <!-- Username Display -->
-                <div class="d-flex justify-content-between align-items-start mb-3 balance-username-container">
-                    <!-- Username Display -->
-                    <div class="text-start">
-                        <small class="text-white-50">Welcome,</small>
-                        <div class="text-white fw-bold">{{ username or 'User' }}</div>
+                <!-- Enhanced User Info Card -->
+                <div class="mb-4" style="background: rgba(255, 255, 255, 0.1); border-radius: 20px; padding: 1.25rem; backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.1);">
+                    <!-- User Profile Section -->
+                    <div class="d-flex align-items-center mb-3">
+                        <div class="me-3">
+                            <div style="width: 50px; height: 50px; background: linear-gradient(135deg, #ffd700 0%, #ffed4e 100%); border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 5px 15px rgba(255, 215, 0, 0.3);">
+                                <i class="fas fa-user fa-lg" style="color: #333;"></i>
+                            </div>
+                        </div>
+                        <div class="flex-grow-1">
+                            <div class="text-white-50" style="font-size: 0.85rem; margin-bottom: 0.25rem;">Welcome back,</div>
+                            <div class="text-white fw-bold" style="font-size: 1.1rem;">{{ username or 'User' }}</div>
+                        </div>
                     </div>
                     
-                    <!-- Total Balance Display -->
-                    <div class="text-end">
-                        <div class="d-flex align-items-center justify-content-end gap-2 mb-1">
-                            <small class="text-white-50">Total Balance</small>
-                            <button type="button" class="btn btn-sm btn-outline-light p-1" id="toggleBalance" style="width: 24px; height: 24px; padding: 0; border-radius: 50%;">
-                                <i class="fas fa-eye-slash" id="balanceToggleIcon"></i>
+                    <!-- Balance Section -->
+                    <div class="border-top border-white-25 pt-3">
+                        <div class="d-flex align-items-center justify-content-between mb-2">
+                            <div class="d-flex align-items-center">
+                                <i class="fas fa-wallet me-2 text-white-50" style="font-size: 0.9rem;"></i>
+                                <span class="text-white-50" style="font-size: 0.9rem; font-weight: 500;">Total Balance</span>
+                            </div>
+                            <button type="button" class="btn btn-sm btn-outline-light" id="toggleBalance" style="border-radius: 50%; width: 32px; height: 32px; padding: 0; border: 2px solid rgba(255,255,255,0.3); transition: all 0.3s ease;">
+                                <i class="fas fa-eye-slash" id="balanceToggleIcon" style="font-size: 0.8rem;"></i>
                             </button>
                         </div>
-                        <div class="text-white fw-bold" id="balanceDisplay">
+                        <div class="text-white fw-bold" id="balanceDisplay" style="font-size: 1.3rem; letter-spacing: 0.5px;">
                             ••••••••
+                        </div>
+                        <div class="text-white-50" style="font-size: 0.75rem; margin-top: 0.25rem;">
+                            <i class="fas fa-shield-alt me-1"></i>Secured & Encrypted
                         </div>
                     </div>
                 </div>
@@ -298,6 +496,137 @@
                     <small>&copy; 2025 Uangly. Built with ❤️ by taroleague</small>
                 </div>
             </footer>
+        </div>
+    </div>
+
+    <!-- Quick Add Transaction Modal -->
+    <div class="modal fade" id="quickTransactionModal" tabindex="-1" aria-labelledby="quickTransactionModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-fullscreen-sm-down modal-lg">
+            <div class="modal-content" style="border-radius: 20px; border: none; box-shadow: 0 20px 60px rgba(0,0,0,0.3);">
+                <div class="modal-header" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border-radius: 20px 20px 0 0; padding: 1.5rem; border: none;">
+                    <div class="d-flex align-items-center">
+                        <div class="me-3">
+                            <div style="width: 50px; height: 50px; background: rgba(255,255,255,0.2); border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+                                <i class="fas fa-plus fa-lg"></i>
+                            </div>
+                        </div>
+                        <div>
+                            <h5 class="modal-title mb-0" id="quickTransactionModalLabel" style="font-weight: 600; font-size: 1.3rem;">
+                                Quick Add Transaction
+                            </h5>
+                            <small class="opacity-75">Add your transaction in seconds</small>
+                        </div>
+                    </div>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close" style="opacity: 0.8;"></button>
+                </div>
+                <div class="modal-body" style="padding: 2rem; background: #f8f9fa;">
+                    <form id="quickTransactionForm">
+                        <!-- Transaction Type & Amount - Most Important -->
+                        <div class="row mb-4">
+                            <div class="col-12 mb-3">
+                                <label for="transactionType" class="form-label fw-semibold" style="color: #495057; font-size: 1rem;">
+                                    <i class="fas fa-exchange-alt me-2 text-primary"></i>Transaction Type
+                                </label>
+                                <select class="form-select form-select-lg" id="transactionType" name="type" required style="border-radius: 15px; border: 2px solid #e9ecef; padding: 0.75rem 1rem; font-size: 1.1rem; transition: all 0.3s ease;">
+                                    <option value="">Choose transaction type</option>
+                                    <option value="income">💰 Income</option>
+                                    <option value="expense">💸 Expense</option>
+                                </select>
+                            </div>
+                            <div class="col-12 mb-3">
+                                <label for="transactionAmount" class="form-label fw-semibold" style="color: #495057; font-size: 1rem;">
+                                    <i class="fas fa-money-bill-wave me-2 text-success"></i>Amount
+                                </label>
+                                <div class="input-group input-group-lg">
+                                    <span class="input-group-text" style="background: linear-gradient(135deg, #28a745 0%, #20c997 100%); color: white; border: none; border-radius: 15px 0 0 15px; font-weight: 600;">Rp</span>
+                                    <input type="number" class="form-control" id="transactionAmount" name="amount" placeholder="Enter amount" min="0" step="0.01" required style="border-radius: 0 15px 15px 0; border: 2px solid #e9ecef; padding: 0.75rem 1rem; font-size: 1.1rem; transition: all 0.3s ease;">
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Scope & Wallet -->
+                        <div class="row mb-4">
+                            <div class="col-12 col-md-6 mb-3">
+                                <label for="transactionScope" class="form-label fw-semibold" style="color: #495057; font-size: 1rem;">
+                                    <i class="fas fa-tag me-2 text-info"></i>Scope
+                                </label>
+                                <select class="form-select" id="transactionScope" name="scope_id" required style="border-radius: 15px; border: 2px solid #e9ecef; padding: 0.75rem 1rem; font-size: 1rem; transition: all 0.3s ease;">
+                                    <option value="">Select scope</option>
+                                    <!-- Scopes will be loaded dynamically -->
+                                </select>
+                            </div>
+                            <div class="col-12 col-md-6 mb-3">
+                                <label for="transactionWallet" class="form-label fw-semibold" style="color: #495057; font-size: 1rem;">
+                                    <i class="fas fa-wallet me-2 text-warning"></i>Wallet
+                                </label>
+                                <select class="form-select" id="transactionWallet" name="wallet_id" required style="border-radius: 15px; border: 2px solid #e9ecef; padding: 0.75rem 1rem; font-size: 1rem; transition: all 0.3s ease;">
+                                    <option value="">Select wallet</option>
+                                    <!-- Wallets will be loaded dynamically -->
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <!-- Category -->
+                        <div class="row mb-4">
+                            <div class="col-12 mb-3">
+                                <label for="transactionCategory" class="form-label fw-semibold" style="color: #495057; font-size: 1rem;">
+                                    <i class="fas fa-list me-2 text-secondary"></i>Category
+                                </label>
+                                <select class="form-select" id="transactionCategory" name="category_id" style="border-radius: 15px; border: 2px solid #e9ecef; padding: 0.75rem 1rem; font-size: 1rem; transition: all 0.3s ease;">
+                                    <option value="">Select category (optional)</option>
+                                    <!-- Categories will be loaded dynamically -->
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <!-- Description -->
+                        <div class="row mb-4">
+                            <div class="col-12 mb-3">
+                                <label for="transactionDescription" class="form-label fw-semibold" style="color: #495057; font-size: 1rem;">
+                                    <i class="fas fa-comment me-2 text-primary"></i>Description
+                                </label>
+                                <input type="text" class="form-control" id="transactionDescription" name="description" placeholder="What is this transaction for?" style="border-radius: 15px; border: 2px solid #e9ecef; padding: 0.75rem 1rem; font-size: 1rem; transition: all 0.3s ease;">
+                            </div>
+                        </div>
+                        
+                        <!-- Date & Tags -->
+                        <div class="row mb-4">
+                            <div class="col-12 col-md-6 mb-3">
+                                <label for="transactionDate" class="form-label fw-semibold" style="color: #495057; font-size: 1rem;">
+                                    <i class="fas fa-calendar me-2 text-info"></i>Date & Time
+                                </label>
+                                <input type="datetime-local" class="form-control" id="transactionDate" name="timestamp" style="border-radius: 15px; border: 2px solid #e9ecef; padding: 0.75rem 1rem; font-size: 1rem; transition: all 0.3s ease;">
+                            </div>
+                            <div class="col-12 col-md-6 mb-3">
+                                <label for="transactionTags" class="form-label fw-semibold" style="color: #495057; font-size: 1rem;">
+                                    <i class="fas fa-hashtag me-2 text-success"></i>Tags
+                                </label>
+                                <input type="text" class="form-control" id="transactionTags" name="tags" placeholder="food, entertainment, work" style="border-radius: 15px; border: 2px solid #e9ecef; padding: 0.75rem 1rem; font-size: 1rem; transition: all 0.3s ease;">
+                            </div>
+                        </div>
+                        
+                        <!-- Note -->
+                        <div class="row mb-4">
+                            <div class="col-12 mb-3">
+                                <label for="transactionNote" class="form-label fw-semibold" style="color: #495057; font-size: 1rem;">
+                                    <i class="fas fa-sticky-note me-2 text-warning"></i>Note (Optional)
+                                </label>
+                                <textarea class="form-control" id="transactionNote" name="note" rows="3" placeholder="Any additional notes about this transaction..." style="border-radius: 15px; border: 2px solid #e9ecef; padding: 0.75rem 1rem; font-size: 1rem; transition: all 0.3s ease; resize: none;"></textarea>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer" style="padding: 1.5rem 2rem; background: white; border-radius: 0 0 20px 20px; border: none;">
+                    <div class="d-flex gap-3 w-100">
+                        <button type="button" class="btn btn-outline-secondary flex-fill" data-bs-dismiss="modal" style="border-radius: 15px; padding: 0.75rem 1.5rem; font-weight: 600; border: 2px solid #6c757d;">
+                            <i class="fas fa-times me-2"></i>Cancel
+                        </button>
+                        <button type="button" class="btn btn-success flex-fill" id="saveQuickTransaction" style="border-radius: 15px; padding: 0.75rem 1.5rem; font-weight: 600; background: linear-gradient(135deg, #28a745 0%, #20c997 100%); border: none; box-shadow: 0 5px 15px rgba(40, 167, 69, 0.3);">
+                            <i class="fas fa-save me-2"></i>Save Transaction
+                        </button>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -427,6 +756,260 @@
                     }
                 });
             }
+        });
+        
+        // Quick Transaction Modal Functionality
+        const quickAddTransactionBtn = document.getElementById('quickAddTransaction');
+        const quickTransactionModal = new bootstrap.Modal(document.getElementById('quickTransactionModal'));
+        const quickTransactionForm = document.getElementById('quickTransactionForm');
+        const saveQuickTransactionBtn = document.getElementById('saveQuickTransaction');
+        
+        // Load wallets and categories when modal is shown
+        document.getElementById('quickTransactionModal').addEventListener('show.bs.modal', function() {
+            loadWalletsAndCategories();
+            loadSavedFormData();
+        });
+        
+        // Save form data when modal is hidden
+        document.getElementById('quickTransactionModal').addEventListener('hide.bs.modal', function() {
+            saveFormData();
+        });
+        
+        // Open modal when plus button is clicked
+        quickAddTransactionBtn.addEventListener('click', function() {
+            quickTransactionModal.show();
+        });
+        
+        // Set default date to current date/time
+        function setDefaultDate() {
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const day = String(now.getDate()).padStart(2, '0');
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            
+            const dateTimeString = `${year}-${month}-${day}T${hours}:${minutes}`;
+            document.getElementById('transactionDate').value = dateTimeString;
+        }
+        
+        // Load scopes, wallets and categories
+        async function loadWalletsAndCategories() {
+            try {
+                // Load scopes
+                const scopesResponse = await fetch('/api/scopes/');
+                const scopes = await scopesResponse.json();
+                
+                const scopeSelect = document.getElementById('transactionScope');
+                scopeSelect.innerHTML = '<option value="">Select Scope</option>';
+                scopes.forEach(scope => {
+                    const option = document.createElement('option');
+                    option.value = scope._id;
+                    option.textContent = scope.name;
+                    scopeSelect.appendChild(option);
+                });
+                
+                // Load wallets
+                const walletsResponse = await fetch('/api/wallets/');
+                const wallets = await walletsResponse.json();
+                
+                const walletSelect = document.getElementById('transactionWallet');
+                walletSelect.innerHTML = '<option value="">Select Wallet</option>';
+                wallets.forEach(wallet => {
+                    const option = document.createElement('option');
+                    option.value = wallet._id;
+                    option.textContent = `${wallet.name} (${wallet.type || 'bank'})`;
+                    walletSelect.appendChild(option);
+                });
+                
+                // Load categories
+                const categoriesResponse = await fetch('/api/categories/');
+                const categories = await categoriesResponse.json();
+                
+                const categorySelect = document.getElementById('transactionCategory');
+                categorySelect.innerHTML = '<option value="">Select Category</option>';
+                categories.forEach(category => {
+                    const option = document.createElement('option');
+                    option.value = category._id;
+                    // Skip system categories like Transfer and Balance Adjustment
+                    if (category.name === "Transfer" || category.name === "Balance Adjustment") {
+                        option.textContent = `${category.name} (by system only)`;
+                        option.disabled = true;
+                    } else {
+                        option.textContent = category.name;
+                    }
+                    categorySelect.appendChild(option);
+                });
+                
+                // Set default date if not already set
+                if (!document.getElementById('transactionDate').value) {
+                    setDefaultDate();
+                }
+                
+            } catch (error) {
+                console.error('Error loading scopes, wallets and categories:', error);
+            }
+        }
+        
+        // Save form data to localStorage
+        function saveFormData() {
+            const formData = {
+                type: document.getElementById('transactionType').value,
+                amount: document.getElementById('transactionAmount').value,
+                scope_id: document.getElementById('transactionScope').value,
+                wallet_id: document.getElementById('transactionWallet').value,
+                category_id: document.getElementById('transactionCategory').value,
+                description: document.getElementById('transactionDescription').value,
+                note: document.getElementById('transactionNote').value,
+                timestamp: document.getElementById('transactionDate').value,
+                tags: document.getElementById('transactionTags').value
+            };
+            
+            localStorage.setItem('quickTransactionFormData', JSON.stringify(formData));
+        }
+        
+        // Load saved form data from localStorage
+        function loadSavedFormData() {
+            const savedData = localStorage.getItem('quickTransactionFormData');
+            if (savedData) {
+                try {
+                    const formData = JSON.parse(savedData);
+                    
+                    document.getElementById('transactionType').value = formData.type || '';
+                    document.getElementById('transactionAmount').value = formData.amount || '';
+                    document.getElementById('transactionScope').value = formData.scope_id || '';
+                    document.getElementById('transactionWallet').value = formData.wallet_id || '';
+                    document.getElementById('transactionCategory').value = formData.category_id || '';
+                    document.getElementById('transactionDescription').value = formData.description || '';
+                    document.getElementById('transactionNote').value = formData.note || '';
+                    document.getElementById('transactionDate').value = formData.timestamp || '';
+                    document.getElementById('transactionTags').value = formData.tags || '';
+                } catch (error) {
+                    console.error('Error loading saved form data:', error);
+                }
+            } else {
+                // Set default date if no saved data
+                setDefaultDate();
+            }
+        }
+        
+        // Clear form data
+        function clearFormData() {
+            localStorage.removeItem('quickTransactionFormData');
+            quickTransactionForm.reset();
+            setDefaultDate();
+        }
+        
+        // Save transaction
+        saveQuickTransactionBtn.addEventListener('click', async function() {
+            const formData = new FormData(quickTransactionForm);
+            const transactionData = {};
+            
+            // Convert FormData to object
+            for (let [key, value] of formData.entries()) {
+                if (key === 'tags') {
+                    transactionData[key] = value ? value.split(',').map(tag => tag.trim()).filter(tag => tag) : [];
+                } else if (key === 'timestamp') {
+                    transactionData[key] = value ? Math.floor(new Date(value).getTime() / 1000) : Math.floor(Date.now() / 1000);
+                } else {
+                    transactionData[key] = value;
+                }
+            }
+            
+            // Validate required fields
+            if (!transactionData.type || !transactionData.amount || !transactionData.scope_id || !transactionData.wallet_id) {
+                showNotification('Please fill in all required fields (Type, Amount, Scope, Wallet)', 'warning');
+                return;
+            }
+            
+            // Add loading state
+            const originalText = saveQuickTransactionBtn.innerHTML;
+            saveQuickTransactionBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Saving...';
+            saveQuickTransactionBtn.disabled = true;
+            quickTransactionForm.classList.add('form-loading');
+            
+            try {
+                const response = await fetch('/api/transactions/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(transactionData)
+                });
+                
+                if (response.ok) {
+                    // Clear form data after successful save
+                    clearFormData();
+                    quickTransactionModal.hide();
+                    
+                    // Show success message
+                    showNotification('Transaction saved successfully! 🎉', 'success');
+                    
+                    // Refresh page to show new transaction
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 1000);
+                    
+                } else {
+                    const errorData = await response.json();
+                    showNotification('Error saving transaction: ' + (errorData.error || 'Unknown error'), 'error');
+                }
+                
+            } catch (error) {
+                console.error('Error saving transaction:', error);
+                showNotification('Error saving transaction. Please try again.', 'error');
+            } finally {
+                // Remove loading state
+                saveQuickTransactionBtn.innerHTML = originalText;
+                saveQuickTransactionBtn.disabled = false;
+                quickTransactionForm.classList.remove('form-loading');
+            }
+        });
+        
+        // Enhanced notification system
+        function showNotification(message, type = 'info') {
+            const alertDiv = document.createElement('div');
+            alertDiv.className = `alert alert-${type === 'error' ? 'danger' : type} alert-dismissible fade show position-fixed`;
+            alertDiv.style.cssText = `
+                top: 20px; 
+                right: 20px; 
+                z-index: 1060; 
+                min-width: 300px; 
+                max-width: 90vw;
+                border-radius: 15px;
+                box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+                border: none;
+            `;
+            
+            const icon = type === 'success' ? 'fa-check-circle' : 
+                        type === 'warning' ? 'fa-exclamation-triangle' : 
+                        type === 'error' ? 'fa-times-circle' : 'fa-info-circle';
+            
+            alertDiv.innerHTML = `
+                <div class="d-flex align-items-center">
+                    <i class="fas ${icon} me-3 fa-lg"></i>
+                    <div class="flex-grow-1">${message}</div>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            `;
+            
+            document.body.appendChild(alertDiv);
+            
+            // Auto remove after 4 seconds
+            setTimeout(() => {
+                if (alertDiv.parentNode) {
+                    alertDiv.parentNode.removeChild(alertDiv);
+                }
+            }, 4000);
+        }
+        
+        // Add hover effect to plus button
+        quickAddTransactionBtn.addEventListener('mouseenter', function() {
+            this.style.transform = 'scale(1.1)';
+        });
+        
+        quickAddTransactionBtn.addEventListener('mouseleave', function() {
+            this.style.transform = 'scale(1)';
         });
     </script>
     
