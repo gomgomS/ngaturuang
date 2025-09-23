@@ -3003,7 +3003,7 @@ def list_categories():
     try:
         user_id = session.get("user_id", "demo_user")
         repo = CategoryRepository()
-        data = repo.list_by_user(user_id)
+        data = repo.list_by_user_with_defaults(user_id)
         return jsonify(data)
     except Exception as e:
         print(f"Error in list_categories: {e}")
