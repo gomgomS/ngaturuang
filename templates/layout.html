@@ -168,6 +168,9 @@
                 left: 0;
                 z-index: 1040;
                 transform: translateX(-100%);
+                /* Allow sidebar content to scroll on mobile */
+                overflow-y: auto;
+                -webkit-overflow-scrolling: touch;
             }
             
             .sidebar.show {
@@ -184,6 +187,13 @@
             body.sidebar-open #sidebarToggle {
                 opacity: 0;
                 pointer-events: none;
+            }
+            
+            /* Override page-specific body fixed styles when sidebar is open */
+            body.sidebar-open {
+                position: static !important;
+                height: auto !important;
+                overflow: hidden; /* prevent background scroll while allowing sidebar scroll */
             }
         }
         
