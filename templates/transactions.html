@@ -612,6 +612,106 @@
                     
                     <!-- Mobile Card View -->
                     <div class="d-lg-none">
+                        <!-- Mobile Pagination - Above transactions -->
+                        {% if total_pages and total_pages >= 1 %}
+                        {% set page_args = request.args.copy() %}
+                        {% set _ = page_args.pop('page', None) %}
+                        <div class="d-flex flex-column flex-md-row justify-content-between align-items-center mb-4 gap-3">
+                            <div class="text-muted text-center text-md-start">
+                                Showing {{ ((page or 1) - 1) * (per_page or 10) + 1 }} to {{ ((page or 1) - 1) * (per_page or 10) + transactions|length }} of {{ total_count or 0 }} transactions
+                            </div>
+                            
+                            <!-- Page Size Selector -->
+                            <div class="d-flex align-items-center gap-2">
+                                <label for="perPageSelect" class="form-label mb-0 text-muted small">Show:</label>
+                                <select id="perPageSelect" class="form-select form-select-sm" style="width: auto;" onchange="changePageSize(this.value)">
+                                    <option value="5" {% if (per_page or 10) == 5 %}selected{% endif %}>5</option>
+                                    <option value="10" {% if (per_page or 10) == 10 %}selected{% endif %}>10</option>
+                                    <option value="20" {% if (per_page or 10) == 20 %}selected{% endif %}>20</option>
+                                    <option value="50" {% if (per_page or 10) == 50 %}selected{% endif %}>50</option>
+                                    <option value="100" {% if (per_page or 10) == 100 %}selected{% endif %}>100</option>
+                                </select>
+                                <span class="text-muted small">per page</span>
+                            </div>
+                            {% if total_pages > 1 %}
+                            <nav aria-label="Transaction pagination" class="d-flex justify-content-center">
+                                <ul class="pagination pagination-sm mb-0 flex-wrap justify-content-center">
+                                    <!-- Previous Button -->
+                                    <li class="page-item {% if not (has_prev or false) %}disabled{% endif %}">
+                                        {% if has_prev or false %}
+                                        <a class="page-link" href="{{ url_for('transactions', page=(page or 1)-1, **page_args) }}">
+                                            <i class="fas fa-chevron-left"></i> <span class="d-none d-sm-inline">Previous</span>
+                                        </a>
+                                    {% else %}
+                                        <span class="page-link" tabindex="-1" aria-disabled="true">
+                                            <i class="fas fa-chevron-left"></i> <span class="d-none d-sm-inline">Previous</span>
+                                        </span>
+                                    {% endif %}
+                                    </li>
+                                    
+                                    <!-- Page Numbers -->
+                                    {% set start_page = [1, (page or 1) - 2]|max %}
+                                    {% set end_page = [total_pages or 1, (page or 1) + 2]|min %}
+                                    {% set mobile_start_page = [1, (page or 1) - 1]|max %}
+                                    {% set mobile_end_page = [total_pages or 1, (page or 1) + 1]|min %}
+                                    
+                                    {% if start_page > 1 %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="{{ url_for('transactions', page=1, **page_args) }}">1</a>
+                                    </li>
+                                    {% if start_page > 2 %}
+                                    <li class="page-item disabled">
+                                        <span class="page-link">...</span>
+                                    </li>
+                                    {% endif %}
+                                    {% endif %}
+                                    
+                                    {% for page_num in range(start_page, end_page + 1) %}
+                                    <li class="page-item {% if page_num == (page or 1) %}active{% endif %} d-none d-md-inline-block">
+                                        <a class="page-link" href="{{ url_for('transactions', page=page_num, **page_args) }}">
+                                            {{ page_num }}
+                                        </a>
+                                    </li>
+                                    {% endfor %}
+                                    
+                                    <!-- Mobile: show fewer page numbers -->
+                                    {% for page_num in range(mobile_start_page, mobile_end_page + 1) %}
+                                    <li class="page-item {% if page_num == (page or 1) %}active{% endif %} d-inline-block d-md-none">
+                                        <a class="page-link" href="{{ url_for('transactions', page=page_num, **page_args) }}">
+                                            {{ page_num }}
+                                        </a>
+                                    </li>
+                                    {% endfor %}
+                                    
+                                    {% if end_page < (total_pages or 1) %}
+                                    {% if end_page < (total_pages or 1) - 1 %}
+                                    <li class="page-item disabled">
+                                        <span class="page-link">...</span>
+                                    </li>
+                                    {% endif %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="{{ url_for('transactions', page=total_pages or 1, **page_args) }}">{{ total_pages or 1 }}</a>
+                                    </li>
+                                    {% endif %}
+                                    
+                                    <!-- Next Button -->
+                                    <li class="page-item {% if not (has_next or false) %}disabled{% endif %}">
+                                        {% if has_next or false %}
+                                        <a class="page-link" href="{{ url_for('transactions', page=(page or 1)+1, **page_args) }}">
+                                            <span class="d-none d-sm-inline">Next</span> <i class="fas fa-chevron-right"></i>
+                                        </a>
+                                    {% else %}
+                                        <span class="page-link" tabindex="-1" aria-disabled="true">
+                                            <span class="d-none d-sm-inline">Next</span> <i class="fas fa-chevron-right"></i>
+                                        </span>
+                                    {% endif %}
+                                    </li>
+                                </ul>
+                            </nav>
+                            {% endif %}
+                        </div>
+                        {% endif %}
+                        
                         {% for tx in transactions %}
                         <div class="card mb-3 transaction-card">
                             <div class="card-body p-3">
@@ -739,105 +839,6 @@
                     </div>
                     {% endif %}
                     
-                    <!-- Pagination Controls -->
-                    {% if total_pages and total_pages >= 1 %}
-                    {% set page_args = request.args.copy() %}
-                    {% set _ = page_args.pop('page', None) %}
-                    <div class="d-flex flex-column flex-md-row justify-content-between align-items-center mt-4 gap-3">
-                        <div class="text-muted text-center text-md-start">
-                            Showing {{ ((page or 1) - 1) * (per_page or 10) + 1 }} to {{ ((page or 1) - 1) * (per_page or 10) + transactions|length }} of {{ total_count or 0 }} transactions
-                </div>
-                
-                        <!-- Page Size Selector -->
-                        <div class="d-flex align-items-center gap-2">
-                            <label for="perPageSelect" class="form-label mb-0 text-muted small">Show:</label>
-                            <select id="perPageSelect" class="form-select form-select-sm" style="width: auto;" onchange="changePageSize(this.value)">
-                                <option value="5" {% if (per_page or 10) == 5 %}selected{% endif %}>5</option>
-                                <option value="10" {% if (per_page or 10) == 10 %}selected{% endif %}>10</option>
-                                <option value="20" {% if (per_page or 10) == 20 %}selected{% endif %}>20</option>
-                                <option value="50" {% if (per_page or 10) == 50 %}selected{% endif %}>50</option>
-                                <option value="100" {% if (per_page or 10) == 100 %}selected{% endif %}>100</option>
-                            </select>
-                            <span class="text-muted small">per page</span>
-                            </div>
-                        {% if total_pages > 1 %}
-                        <nav aria-label="Transaction pagination" class="d-flex justify-content-center">
-                            <ul class="pagination pagination-sm mb-0 flex-wrap justify-content-center">
-                                <!-- Previous Button -->
-                                <li class="page-item {% if not (has_prev or false) %}disabled{% endif %}">
-                                    {% if has_prev or false %}
-                                    <a class="page-link" href="{{ url_for('transactions', page=(page or 1)-1, **page_args) }}">
-                                        <i class="fas fa-chevron-left"></i> <span class="d-none d-sm-inline">Previous</span>
-                                    </a>
-                                {% else %}
-                                    <span class="page-link" tabindex="-1" aria-disabled="true">
-                                        <i class="fas fa-chevron-left"></i> <span class="d-none d-sm-inline">Previous</span>
-                                    </span>
-                                {% endif %}
-                                </li>
-                                
-                                <!-- Page Numbers -->
-                                {% set start_page = [1, (page or 1) - 2]|max %}
-                                {% set end_page = [total_pages or 1, (page or 1) + 2]|min %}
-                                {% set mobile_start_page = [1, (page or 1) - 1]|max %}
-                                {% set mobile_end_page = [total_pages or 1, (page or 1) + 1]|min %}
-                                
-                                {% if start_page > 1 %}
-                                <li class="page-item">
-                                    <a class="page-link" href="{{ url_for('transactions', page=1, **page_args) }}">1</a>
-                                </li>
-                                {% if start_page > 2 %}
-                                <li class="page-item disabled">
-                                    <span class="page-link">...</span>
-                                </li>
-                                {% endif %}
-                                {% endif %}
-                                
-                                {% for page_num in range(start_page, end_page + 1) %}
-                                <li class="page-item {% if page_num == (page or 1) %}active{% endif %} d-none d-md-inline-block">
-                                    <a class="page-link" href="{{ url_for('transactions', page=page_num, **page_args) }}">
-                                        {{ page_num }}
-                                    </a>
-                                </li>
-                                {% endfor %}
-                                
-                                <!-- Mobile: show fewer page numbers -->
-                                {% for page_num in range(mobile_start_page, mobile_end_page + 1) %}
-                                <li class="page-item {% if page_num == (page or 1) %}active{% endif %} d-inline-block d-md-none">
-                                    <a class="page-link" href="{{ url_for('transactions', page=page_num, **page_args) }}">
-                                        {{ page_num }}
-                                    </a>
-                                </li>
-                                {% endfor %}
-                                
-                                {% if end_page < (total_pages or 1) %}
-                                {% if end_page < (total_pages or 1) - 1 %}
-                                <li class="page-item disabled">
-                                    <span class="page-link">...</span>
-                                </li>
-                                {% endif %}
-                                <li class="page-item">
-                                    <a class="page-link" href="{{ url_for('transactions', page=total_pages or 1, **page_args) }}">{{ total_pages or 1 }}</a>
-                                </li>
-                                {% endif %}
-                                
-                                <!-- Next Button -->
-                                <li class="page-item {% if not (has_next or false) %}disabled{% endif %}">
-                                    {% if has_next or false %}
-                                    <a class="page-link" href="{{ url_for('transactions', page=(page or 1)+1, **page_args) }}">
-                                        <span class="d-none d-sm-inline">Next</span> <i class="fas fa-chevron-right"></i>
-                                    </a>
-                                {% else %}
-                                    <span class="page-link" tabindex="-1" aria-disabled="true">
-                                        <span class="d-none d-sm-inline">Next</span> <i class="fas fa-chevron-right"></i>
-                                    </span>
-                                {% endif %}
-                                </li>
-                            </ul>
-                        </nav>
-                        {% endif %}
-                            </div>
-                    {% endif %}
                         </div>
                     </div>
                 </div>

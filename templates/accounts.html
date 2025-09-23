@@ -222,6 +222,7 @@
         flex-wrap: wrap;
         gap: 0.5rem;
         align-items: center;
+        justify-content: flex-end;
     }
     
     .scope-filter-btn {
@@ -326,17 +327,23 @@
          
          .accounts-header .d-flex {
              flex-direction: column;
-             align-items: flex-start;
+             align-items: stretch;
              gap: 1rem;
          }
          
-         .accounts-header .d-flex > div:last-child {
-             align-self: flex-end;
+         .accounts-header .d-flex > div:first-child {
+             align-self: center;
+             margin-bottom: 0.5rem;
+         }
+         
+         .scope-filter-container {
+             align-self: center;
+             width: 100%;
          }
          
          .scope-buttons-container {
-             flex-direction: column;
-             align-items: flex-start;
+             justify-content: center;
+             flex-wrap: wrap;
              gap: 0.5rem;
          }
          
@@ -391,34 +398,32 @@
 {% block content %}
 <div class="container-fluid">
     <!-- Header -->
-    <!-- Compact Mobile Header -->
-<div class="accounts-header py-2">
-    <!-- Top row: title + hide balances -->
-    <div class="d-flex justify-content-between align-items-center">
-      <div class="d-flex align-items-center gap-2">
-        <i class="fas fa-wallet"></i>
-        <h2 class="h6 mb-0">My Accounts</h2>
-      </div>
-  
-      <div class="d-flex align-items-center gap-2">
-        <div class="scope-buttons-scroller pe-1">
-            <div class="d-inline-flex gap-2">
-              <button type="button" class="btn btn-xs btn-outline-light scope-filter-btn active" data-scope="all">
-                <i class="fas fa-globe me-1"></i>All
-              </button>
-              <div id="scopeButtonsContainer" class="d-inline-flex gap-2">
-                <!-- populated by JS -->
-              </div>
+    <!-- Header -->
+    <div class="accounts-header">
+        <!-- Top row: title + scope filters -->
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <div class="d-flex align-items-center gap-2">
+                <i class="fas fa-wallet"></i>
+                <h1 class="h4 mb-0">My Accounts</h1>
+            </div>
+            
+            <div class="scope-filter-container">
+                <div class="scope-buttons-container">
+                    <button type="button" class="btn btn-sm btn-outline-light scope-filter-btn active" data-scope="all">
+                        <i class="fas fa-globe me-1"></i>All
+                    </button>
+                    <div id="scopeButtonsContainer" class="d-inline-flex gap-2">
+                        <!-- populated by JS -->
+                    </div>
+                </div>
             </div>
         </div>
-      </div>
+        
+        <!-- Subtext -->
+        <p class="text-white-50 mb-0">
+            Manage and view all accounts & wallets
+        </p>
     </div>
-  
-    <!-- Subtext (muted, single line on mobile) -->
-    <p class="text-white-50 mt-1 mb-2 small text-truncate">
-      Manage and view all accounts & wallets
-    </p>
-</div>
   
     {% if wallets %}
         <!-- Statistics -->
