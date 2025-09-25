@@ -111,7 +111,7 @@
         margin-bottom: 2rem;
         text-align: center;
         position: relative;
-        overflow: hidden;
+        overflow: visible;
     }
     
     .accounts-header::before {
@@ -214,7 +214,7 @@
     /* Scope Filter Styles */
     .scope-filter-container {
         position: relative;
-        z-index: 1;
+        z-index: 1020;
     }
     
     .scope-buttons-container {
@@ -223,6 +223,111 @@
         gap: 0.5rem;
         align-items: center;
         justify-content: flex-end;
+        position: relative;
+    }
+    
+    .scope-buttons-container .d-inline-flex {
+        display: flex !important;
+        flex-wrap: wrap !important;
+        gap: 0.5rem !important;
+    }
+    
+    .scope-dropdown-container {
+        position: relative;
+        display: inline-block;
+        z-index: 1021;
+    }
+    
+    .scope-dropdown-toggle {
+        background: rgba(255, 255, 255, 0.1);
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        color: rgba(255, 255, 255, 0.9);
+        border-radius: 20px;
+        padding: 0.5rem 1rem;
+        font-size: 0.85rem;
+        font-weight: 500;
+        transition: all 0.3s ease;
+        white-space: nowrap;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .scope-dropdown-toggle:hover {
+        background: rgba(255, 255, 255, 0.2);
+        border-color: rgba(255, 255, 255, 0.5);
+        color: white;
+        transform: translateY(-1px);
+    }
+    
+    .scope-dropdown-toggle.active {
+        background: rgba(255, 255, 255, 0.25);
+        border-color: rgba(255, 255, 255, 0.6);
+        color: white;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    }
+    
+    .scope-dropdown-toggle i {
+        font-size: 0.75rem;
+        transition: transform 0.3s ease;
+    }
+    
+    .scope-dropdown-toggle.active i {
+        transform: rotate(180deg);
+    }
+    
+    .scope-dropdown-menu {
+        position: absolute;
+        top: calc(100% + 0.5rem);
+        right: 0;
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+        padding: 0.5rem;
+        min-width: 200px;
+        z-index: 1022;
+        opacity: 0;
+        visibility: hidden;
+        transform: translateY(-10px);
+        transition: all 0.3s ease;
+        border: 1px solid rgba(0, 0, 0, 0.1);
+    }
+    
+    .scope-dropdown-menu.show {
+        opacity: 1;
+        visibility: visible;
+        transform: translateY(0);
+    }
+    
+    .scope-dropdown-item {
+        display: block;
+        width: 100%;
+        padding: 0.75rem 1rem;
+        border: none;
+        background: none;
+        text-align: left;
+        color: #333;
+        border-radius: 8px;
+        transition: all 0.2s ease;
+        font-size: 0.85rem;
+        font-weight: 500;
+    }
+    
+    .scope-dropdown-item:hover {
+        background: rgba(102, 126, 234, 0.1);
+        color: #667eea;
+    }
+    
+    .scope-dropdown-item.active {
+        background: rgba(102, 126, 234, 0.15);
+        color: #667eea;
+        font-weight: 600;
+    }
+    
+    .scope-dropdown-item i {
+        margin-right: 0.5rem;
+        font-size: 0.75rem;
     }
     
     .scope-filter-btn {
@@ -347,6 +452,29 @@
              gap: 0.5rem;
          }
          
+         .scope-buttons-container .d-flex {
+             flex-wrap: wrap !important;
+             justify-content: center !important;
+         }
+         
+         .scope-dropdown-container {
+             width: 100%;
+         }
+         
+         .scope-dropdown-toggle {
+             width: 100%;
+             justify-content: center;
+             font-size: 0.8rem;
+             padding: 0.4rem 0.8rem;
+         }
+         
+         .scope-dropdown-menu {
+             right: 0;
+             left: 0;
+             min-width: auto;
+             width: 100%;
+         }
+         
          .scope-filter-btn {
              font-size: 0.8rem;
              padding: 0.4rem 0.8rem;
@@ -409,11 +537,20 @@
             
             <div class="scope-filter-container">
                 <div class="scope-buttons-container">
-                    <button type="button" class="btn btn-sm btn-outline-light scope-filter-btn active" data-scope="all">
-                        <i class="fas fa-globe me-1"></i>All
-                    </button>
-                    <div id="scopeButtonsContainer" class="d-inline-flex gap-2">
-                        <!-- populated by JS -->
+                    <div class="scope-dropdown-container">
+                        <button type="button" class="scope-dropdown-toggle" id="scopeDropdownToggle">
+                            <i class="fas fa-globe me-1"></i>
+                            <span id="selectedScopeText">All</span>
+                            <i class="fas fa-chevron-down"></i>
+                        </button>
+                        <div class="scope-dropdown-menu" id="scopeDropdownMenu">
+                            <button type="button" class="scope-dropdown-item active" data-scope="all">
+                                <i class="fas fa-globe"></i>All
+                            </button>
+                            <div id="scopeDropdownItems">
+                                <!-- populated by JS -->
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -639,54 +776,103 @@ function hideAllBalances() {
 function initializeScopeFilter() {
     // Use scopes passed from template
     const scopes = {{ scopes|tojson }};
-    populateScopeButtons(scopes);
+    populateScopeDropdown(scopes);
     
-    // Add event listeners to scope filter buttons
-    const scopeButtons = document.querySelectorAll('.scope-filter-btn');
-    scopeButtons.forEach(button => {
-        button.addEventListener('click', function() {
+    // Add event listeners to scope dropdown
+    const dropdownToggle = document.getElementById('scopeDropdownToggle');
+    const dropdownMenu = document.getElementById('scopeDropdownMenu');
+    
+    // Toggle dropdown
+    dropdownToggle.addEventListener('click', function(e) {
+        e.stopPropagation();
+        toggleScopeDropdown();
+    });
+    
+    // Close dropdown when clicking outside
+    document.addEventListener('click', function(e) {
+        if (!dropdownToggle.contains(e.target) && !dropdownMenu.contains(e.target)) {
+            closeScopeDropdown();
+        }
+    });
+    
+    // Add event listeners to scope dropdown items
+    const scopeItems = document.querySelectorAll('.scope-dropdown-item');
+    scopeItems.forEach(item => {
+        item.addEventListener('click', function() {
             const selectedScope = this.getAttribute('data-scope');
-            filterAccountsByScope(selectedScope);
-            
-            // Update active state
-            scopeButtons.forEach(btn => btn.classList.remove('active'));
-            this.classList.add('active');
+            const scopeName = this.textContent.trim();
+            selectScope(selectedScope, scopeName);
         });
     });
 }
 
-function populateScopeButtons(scopes) {
-    const container = document.getElementById('scopeButtonsContainer');
+function toggleScopeDropdown() {
+    const dropdownToggle = document.getElementById('scopeDropdownToggle');
+    const dropdownMenu = document.getElementById('scopeDropdownMenu');
+    
+    dropdownToggle.classList.toggle('active');
+    dropdownMenu.classList.toggle('show');
+}
+
+function closeScopeDropdown() {
+    const dropdownToggle = document.getElementById('scopeDropdownToggle');
+    const dropdownMenu = document.getElementById('scopeDropdownMenu');
+    
+    dropdownToggle.classList.remove('active');
+    dropdownMenu.classList.remove('show');
+}
+
+function selectScope(scopeId, scopeName) {
+    // Update selected scope text
+    const selectedScopeText = document.getElementById('selectedScopeText');
+    selectedScopeText.textContent = scopeName;
+    
+    // Update active state
+    const scopeItems = document.querySelectorAll('.scope-dropdown-item');
+    scopeItems.forEach(item => item.classList.remove('active'));
+    
+    const selectedItem = document.querySelector(`[data-scope="${scopeId}"]`);
+    if (selectedItem) {
+        selectedItem.classList.add('active');
+    }
+    
+    // Filter accounts
+    filterAccountsByScope(scopeId);
+    
+    // Close dropdown
+    closeScopeDropdown();
+}
+
+function populateScopeDropdown(scopes) {
+    const container = document.getElementById('scopeDropdownItems');
     if (!container) return;
     
-    // Clear existing scope buttons (except "All Scopes")
+    // Clear existing scope items
     container.innerHTML = '';
     
     if (scopes && scopes.length > 0) {
         scopes.forEach(scope => {
-            const button = document.createElement('button');
-            button.type = 'button';
-            button.className = 'btn btn-sm btn-outline-light scope-filter-btn';
-            button.setAttribute('data-scope', scope._id);
-            button.innerHTML = `<i class="fas fa-tag me-1"></i>${scope.name}`;
+            const item = document.createElement('button');
+            item.type = 'button';
+            item.className = 'scope-dropdown-item';
+            item.setAttribute('data-scope', scope._id);
+            item.innerHTML = `<i class="fas fa-tag"></i>${scope.name}`;
             
             // Add click event listener
-            button.addEventListener('click', function() {
+            item.addEventListener('click', function() {
                 const selectedScope = this.getAttribute('data-scope');
-                filterAccountsByScope(selectedScope);
-                
-                // Update active state
-                document.querySelectorAll('.scope-filter-btn').forEach(btn => btn.classList.remove('active'));
-                this.classList.add('active');
+                const scopeName = this.textContent.trim();
+                selectScope(selectedScope, scopeName);
             });
             
-            container.appendChild(button);
+            container.appendChild(item);
         });
     } else {
         // Show message if no scopes available
-        const noScopesMsg = document.createElement('small');
-        noScopesMsg.className = 'text-white-50';
+        const noScopesMsg = document.createElement('div');
+        noScopesMsg.className = 'scope-dropdown-item text-muted';
         noScopesMsg.textContent = 'No scopes available';
+        noScopesMsg.style.pointerEvents = 'none';
         container.appendChild(noScopesMsg);
     }
 }
