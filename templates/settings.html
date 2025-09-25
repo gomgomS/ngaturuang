@@ -250,8 +250,8 @@
     <!-- Header -->
     <div class="settings-header">
         <div class="welcome-text">
-            <h1><i class="fas fa-cog me-2"></i>Settings</h1>
-            <p>Manage your financial categories, saving spaces, and scopes</p>
+            <h1><i class="fas fa-cog me-2"></i><span data-translate="settings.title">Settings</span></h1>
+            <p data-translate="settings.subtitle">Manage your financial categories, saving spaces, and scopes</p>
         </div>
         
         <!-- Tab Navigation -->
@@ -259,17 +259,17 @@
             <ul class="nav nav-tabs" id="settingsTabs" role="tablist">
                 <li class="nav-item" role="presentation">
                     <button class="nav-link active" id="scopes-tab" data-bs-toggle="tab" data-bs-target="#scopes" type="button" role="tab">
-                        <i class="fas fa-folder me-2"></i>Scopes
+                        <i class="fas fa-folder me-2"></i><span data-translate="settings.scopes">Scopes</span>
                     </button>
                 </li>
                 <li class="nav-item" role="presentation">
                     <button class="nav-link" id="wallets-tab" data-bs-toggle="tab" data-bs-target="#wallets" type="button" role="tab">
-                        <i class="fas fa-piggy-bank me-2"></i>Saving Spaces
+                        <i class="fas fa-piggy-bank me-2"></i><span data-translate="settings.saving_spaces">Saving Spaces</span>
                     </button>
                 </li>
                 <li class="nav-item" role="presentation">
                     <button class="nav-link" id="categories-tab" data-bs-toggle="tab" data-bs-target="#categories" type="button" role="tab">
-                        <i class="fas fa-tags me-2"></i>Categories
+                        <i class="fas fa-tags me-2"></i><span data-translate="settings.categories">Categories</span>
                     </button>
                 </li>
             </ul>
@@ -283,10 +283,10 @@
             <div class="card content-card">
                 <div class="card-header d-flex justify-content-between align-items-center">
                     <h5 class="mb-0">
-                        <i class="fas fa-folder me-2"></i>Scopes Management
+                        <i class="fas fa-folder me-2"></i><span data-translate="settings.scopes_management">Scopes Management</span>
                     </h5>
                     <button class="btn btn-action" data-bs-toggle="modal" data-bs-target="#scopeModal">
-                        <i class="fas fa-plus me-1"></i>Add Scope
+                        <i class="fas fa-plus me-1"></i><span data-translate="settings.add_scope">Add Scope</span>
                     </button>
                 </div>
                 <div class="card-body p-0">
@@ -297,19 +297,19 @@
                                 <div class="d-flex justify-content-between align-items-center">
                                     <div class="flex-grow-1">
                                         <h6 class="mb-1 fw-medium">{{ scope.name }}</h6>
-                                        <small class="text-muted">{{ scope.description or 'No description' }}</small>
+                                        <small class="text-muted">{{ scope.description or '' }}<span data-translate="settings.no_description" style="display: none;">No description</span></small>
                                     </div>
                                     <div class="action-buttons">
                                         <button class="btn btn-outline-primary btn-sm edit-scope-btn" 
                                                 data-scope-id="{{ scope._id }}" 
                                                 data-scope-name="{{ scope.name }}" 
                                                 data-scope-description="{{ scope.description or '' }}" 
-                                                title="Edit Scope">
+                                                title="Edit Scope" data-translate="settings.edit">
                                             <i class="fas fa-edit"></i>
                                         </button>
                                         <button class="btn btn-outline-danger btn-sm delete-scope-btn" 
                                                 data-scope-id="{{ scope._id }}" 
-                                                title="Delete Scope">
+                                                title="Delete Scope" data-translate="settings.delete">
                                             <i class="fas fa-trash"></i>
                                         </button>
                                     </div>
@@ -320,8 +320,8 @@
                     {% else %}
                         <div class="text-center py-5">
                             <i class="fas fa-folder fa-3x text-muted mb-3"></i>
-                            <h6 class="text-muted mb-2">No scopes created yet</h6>
-                            <p class="text-muted mb-0">Create your first scope to organize your finances</p>
+                            <h6 class="text-muted mb-2" data-translate="settings.no_scopes_created">No scopes created yet</h6>
+                            <p class="text-muted mb-0" data-translate="settings.create_first_scope">Create your first scope to organize your finances</p>
                         </div>
                     {% endif %}
                 </div>
@@ -333,10 +333,10 @@
             <div class="card content-card">
                 <div class="card-header d-flex justify-content-between align-items-center">
                     <h5 class="mb-0">
-                        <i class="fas fa-piggy-bank me-2"></i>Saving Spaces
+                        <i class="fas fa-piggy-bank me-2"></i><span data-translate="settings.saving_spaces_management">Saving Spaces</span>
                     </h5>
                     <button class="btn btn-action" data-bs-toggle="modal" data-bs-target="#savingSpaceModal">
-                        <i class="fas fa-plus me-1"></i>Add Saving Space
+                        <i class="fas fa-plus me-1"></i><span data-translate="settings.add_saving_space">Add Saving Space</span>
                     </button>
                 </div>
                 <div class="card-body p-0">
@@ -359,12 +359,12 @@
                                                 data-wallet-id="{{ wallet._id }}" 
                                                 data-wallet-name="{{ wallet.name }}" 
                                                 data-wallet-type="{{ wallet.type or 'bank' }}" 
-                                                title="Edit">
+                                                title="Edit" data-translate="settings.edit">
                                             <i class="fas fa-edit"></i>
                                         </button>
                                         <button class="btn btn-outline-danger btn-sm delete-wallet-btn" 
                                                 data-wallet-id="{{ wallet._id }}" 
-                                                title="Delete">
+                                                title="Delete" data-translate="settings.delete">
                                             <i class="fas fa-trash"></i>
                                         </button>
                                     </div>
@@ -375,8 +375,8 @@
                     {% else %}
                         <div class="text-center py-5">
                             <i class="fas fa-piggy-bank fa-3x text-muted mb-3"></i>
-                            <h6 class="text-muted mb-2">No saving spaces created yet</h6>
-                            <p class="text-muted mb-0">Create your first saving space to track your money</p>
+                            <h6 class="text-muted mb-2" data-translate="settings.no_saving_spaces_created">No saving spaces created yet</h6>
+                            <p class="text-muted mb-0" data-translate="settings.create_first_saving_space">Create your first saving space to track your money</p>
                         </div>
                     {% endif %}
                 </div>
@@ -388,10 +388,10 @@
             <div class="card content-card">
                 <div class="card-header d-flex justify-content-between align-items-center">
                     <h5 class="mb-0">
-                        <i class="fas fa-tags me-2"></i>Categories
+                        <i class="fas fa-tags me-2"></i><span data-translate="settings.categories_management">Categories</span>
                     </h5>
                     <button class="btn btn-action" data-bs-toggle="modal" data-bs-target="#categoryModal">
-                        <i class="fas fa-plus me-1"></i>Add Category
+                        <i class="fas fa-plus me-1"></i><span data-translate="settings.add_category">Add Category</span>
                     </button>
                 </div>
                 <div class="card-body p-0">
@@ -404,10 +404,10 @@
                                         <div class="d-flex align-items-center gap-2 mb-1">
                                             <h6 class="mb-0 fw-medium">{{ category.name }}</h6>
                                             {% if category.is_system %}
-                                                <span class="badge bg-info">System</span>
+                                                <span class="badge bg-info" data-translate="settings.system">System</span>
                                             {% endif %}
                                         </div>
-                                        <small class="text-muted">{{ category.description or 'No description' }}</small>
+                                        <small class="text-muted">{{ category.description or '' }}<span data-translate="settings.no_description" style="display: none;">No description</span></small>
                                     </div>
                                     {% if not category.is_system %}
                                     <div class="action-buttons">
@@ -416,13 +416,13 @@
                                                 data-category-name="{{ category.name }}" 
                                                 data-category-description="{{ category.description or '' }}" 
                                                 data-category-is-system="{{ 'true' if category.is_system else 'false' }}" 
-                                                title="Edit">
+                                                title="Edit" data-translate="settings.edit">
                                             <i class="fas fa-edit"></i>
                                         </button>
                                         <button class="btn btn-outline-danger btn-sm delete-category-btn" 
                                                 data-category-id="{{ category._id }}" 
                                                 data-category-is-system="{{ 'true' if category.is_system else 'false' }}" 
-                                                title="Delete">
+                                                title="Delete" data-translate="settings.delete">
                                             <i class="fas fa-trash"></i>
                                         </button>
                                     </div>
@@ -434,8 +434,8 @@
                     {% else %}
                         <div class="text-center py-5">
                             <i class="fas fa-tags fa-3x text-muted mb-3"></i>
-                            <h6 class="text-muted mb-2">No categories created yet</h6>
-                            <p class="text-muted mb-0">Create your first category to organize transactions</p>
+                            <h6 class="text-muted mb-2" data-translate="settings.no_categories_created">No categories created yet</h6>
+                            <p class="text-muted mb-0" data-translate="settings.create_first_category">Create your first category to organize transactions</p>
                         </div>
                     {% endif %}
                 </div>
@@ -450,7 +450,7 @@
         <div class="modal-content border-0 shadow" style="border-radius: 20px;">
             <div class="modal-header border-0" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 20px 20px 0 0; color: white;">
                 <h5 class="modal-title" id="scopeModalTitle">
-                    <i class="fas fa-folder me-2"></i>Add New Scope
+                    <i class="fas fa-folder me-2"></i><span data-translate="settings.add_new_scope">Add New Scope</span>
                 </h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
@@ -458,20 +458,20 @@
                 <form id="scopeForm">
                     <input type="hidden" id="scope_id" name="_id">
                     <div class="mb-4">
-                        <label for="scope_name" class="form-label fw-medium">Scope Name *</label>
-                        <input type="text" class="form-control form-control-lg" id="scope_name" name="name" required placeholder="Enter scope name" style="border-radius: 10px;">
+                        <label for="scope_name" class="form-label fw-medium" data-translate="settings.scope_name_required">Scope Name *</label>
+                        <input type="text" class="form-control form-control-lg" id="scope_name" name="name" required placeholder="Enter scope name" data-translate="settings.enter_scope_name" style="border-radius: 10px;">
                     </div>
                     <div class="mb-4">
-                        <label for="scope_description" class="form-label fw-medium">Description</label>
-                        <textarea class="form-control" id="scope_description" name="description" rows="4" placeholder="Enter scope description (optional)" style="border-radius: 10px;"></textarea>
+                        <label for="scope_description" class="form-label fw-medium" data-translate="settings.description">Description</label>
+                        <textarea class="form-control" id="scope_description" name="description" rows="4" placeholder="Enter scope description (optional)" data-translate="settings.enter_description_optional" style="border-radius: 10px;"></textarea>
                     </div>
                 </form>
             </div>
             <div class="modal-footer border-0 p-4">
                 <div class="d-flex gap-2 w-100">
-                    <button type="button" class="btn btn-secondary flex-fill" data-bs-dismiss="modal" style="border-radius: 10px;">Cancel</button>
+                    <button type="button" class="btn btn-secondary flex-fill" data-bs-dismiss="modal" style="border-radius: 10px;" data-translate="settings.cancel">Cancel</button>
                     <button type="button" class="btn btn-action flex-fill" onclick="submitScope()">
-                        <i class="fas fa-save me-1"></i>Save Scope
+                        <i class="fas fa-save me-1"></i><span data-translate="settings.save_scope">Save Scope</span>
                     </button>
                 </div>
             </div>
@@ -485,7 +485,7 @@
         <div class="modal-content border-0 shadow" style="border-radius: 20px;">
             <div class="modal-header border-0" style="background: linear-gradient(135deg, #28a745 0%, #20c997 100%); border-radius: 20px 20px 0 0; color: white;">
                 <h5 class="modal-title" id="savingSpaceModalTitle">
-                    <i class="fas fa-piggy-bank me-2"></i>Add New Saving Space
+                    <i class="fas fa-piggy-bank me-2"></i><span data-translate="settings.add_new_saving_space">Add New Saving Space</span>
                 </h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
@@ -493,34 +493,34 @@
                 <form id="savingSpaceForm">
                     <input type="hidden" id="wallet_id" name="_id">
                     <div class="mb-4">
-                        <label for="wallet_name" class="form-label fw-medium">Saving Space Name *</label>
-                        <input type="text" class="form-control form-control-lg" id="wallet_name" name="name" required placeholder="Enter saving space name" style="border-radius: 10px;">
+                        <label for="wallet_name" class="form-label fw-medium" data-translate="settings.saving_space_name_required">Saving Space Name *</label>
+                        <input type="text" class="form-control form-control-lg" id="wallet_name" name="name" required placeholder="Enter saving space name" data-translate="settings.enter_saving_space_name" style="border-radius: 10px;">
                     </div>
                     <div class="mb-4">
-                        <label for="wallet_type" class="form-label fw-medium">Type *</label>
+                        <label for="wallet_type" class="form-label fw-medium" data-translate="settings.type_required">Type *</label>
                         <select class="form-select form-select-lg" id="wallet_type" name="type" required style="border-radius: 10px;">
-                            <option value="">Select type...</option>
-                            <option value="bank">Bank</option>
-                            <option value="ewallet">E-Wallet</option>
-                            <option value="saham">Saham</option>
-                            <option value="crypto">Crypto</option>
-                            <option value="mutual_fund">Mutual Fund</option>
-                            <option value="reksadana">Reksadana</option>
-                            <option value="obligasi">Obligasi</option>
-                            <option value="deposito">Deposito</option>
-                            <option value="emas">Emas</option>
-                            <option value="properti">Properti</option>
-                            <option value="cash">Cash</option>
-                            <option value="other">Other</option>
+                            <option value="" data-translate="settings.select_type">Select type...</option>
+                            <option value="bank" data-translate="settings.bank">Bank</option>
+                            <option value="ewallet" data-translate="settings.ewallet">E-Wallet</option>
+                            <option value="saham" data-translate="settings.saham">Saham</option>
+                            <option value="crypto" data-translate="settings.crypto">Crypto</option>
+                            <option value="mutual_fund" data-translate="settings.mutual_fund">Mutual Fund</option>
+                            <option value="reksadana" data-translate="settings.reksadana">Reksadana</option>
+                            <option value="obligasi" data-translate="settings.obligasi">Obligasi</option>
+                            <option value="deposito" data-translate="settings.deposito">Deposito</option>
+                            <option value="emas" data-translate="settings.emas">Emas</option>
+                            <option value="properti" data-translate="settings.properti">Properti</option>
+                            <option value="cash" data-translate="settings.cash">Cash</option>
+                            <option value="other" data-translate="settings.other">Other</option>
                         </select>
                     </div>
                 </form>
             </div>
             <div class="modal-footer border-0 p-4">
                 <div class="d-flex gap-2 w-100">
-                    <button type="button" class="btn btn-secondary flex-fill" data-bs-dismiss="modal" style="border-radius: 10px;">Cancel</button>
+                    <button type="button" class="btn btn-secondary flex-fill" data-bs-dismiss="modal" style="border-radius: 10px;" data-translate="settings.cancel">Cancel</button>
                     <button type="button" class="btn btn-action flex-fill" onclick="submitSavingSpace()" style="background: linear-gradient(135deg, #28a745 0%, #20c997 100%);">
-                        <i class="fas fa-save me-1"></i>Save Saving Space
+                        <i class="fas fa-save me-1"></i><span data-translate="settings.save_saving_space">Save Saving Space</span>
                     </button>
                 </div>
             </div>
@@ -534,7 +534,7 @@
         <div class="modal-content border-0 shadow" style="border-radius: 20px;">
             <div class="modal-header border-0" style="background: linear-gradient(135deg, #17a2b8 0%, #6f42c1 100%); border-radius: 20px 20px 0 0; color: white;">
                 <h5 class="modal-title" id="categoryModalTitle">
-                    <i class="fas fa-tags me-2"></i>Add New Category
+                    <i class="fas fa-tags me-2"></i><span data-translate="settings.add_new_category">Add New Category</span>
                 </h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
@@ -542,20 +542,20 @@
                 <form id="categoryForm">
                     <input type="hidden" id="category_id" name="_id">
                     <div class="mb-4">
-                        <label for="category_name" class="form-label fw-medium">Category Name *</label>
-                        <input type="text" class="form-control form-control-lg" id="category_name" name="name" required placeholder="Enter category name" style="border-radius: 10px;">
+                        <label for="category_name" class="form-label fw-medium" data-translate="settings.category_name_required">Category Name *</label>
+                        <input type="text" class="form-control form-control-lg" id="category_name" name="name" required placeholder="Enter category name" data-translate="settings.enter_category_name" style="border-radius: 10px;">
                     </div>
                     <div class="mb-4">
-                        <label for="category_description" class="form-label fw-medium">Description</label>
-                        <textarea class="form-control" id="category_description" name="description" rows="4" placeholder="Enter category description (optional)" style="border-radius: 10px;"></textarea>
+                        <label for="category_description" class="form-label fw-medium" data-translate="settings.description">Description</label>
+                        <textarea class="form-control" id="category_description" name="description" rows="4" placeholder="Enter category description (optional)" data-translate="settings.enter_category_description_optional" style="border-radius: 10px;"></textarea>
                     </div>
                 </form>
             </div>
             <div class="modal-footer border-0 p-4">
                 <div class="d-flex gap-2 w-100">
-                    <button type="button" class="btn btn-secondary flex-fill" data-bs-dismiss="modal" style="border-radius: 10px;">Cancel</button>
+                    <button type="button" class="btn btn-secondary flex-fill" data-bs-dismiss="modal" style="border-radius: 10px;" data-translate="settings.cancel">Cancel</button>
                     <button type="button" class="btn btn-action flex-fill" onclick="submitCategory()" style="background: linear-gradient(135deg, #17a2b8 0%, #6f42c1 100%);">
-                        <i class="fas fa-save me-1"></i>Save Category
+                        <i class="fas fa-save me-1"></i><span data-translate="settings.save_category">Save Category</span>
                     </button>
                 </div>
             </div>
@@ -586,7 +586,10 @@ function editScope(scopeId, name, description) {
     });
     
     // Change modal title
-    document.getElementById('scopeModalTitle').innerHTML = '<i class="fas fa-edit me-2"></i>Edit Scope';
+    const translations = window.translations && window.translations[window.currentLanguage] 
+        ? window.translations[window.currentLanguage].settings 
+        : {};
+    document.getElementById('scopeModalTitle').innerHTML = `<i class="fas fa-edit me-2"></i>${translations.edit_scope || 'Edit Scope'}`;
     
     // Show modal
     new bootstrap.Modal(document.getElementById('scopeModal')).show();
@@ -612,37 +615,48 @@ function submitScope() {
     })
     .then(response => response.json())
     .then(data => {
+        const translations = window.translations && window.translations[window.currentLanguage] 
+            ? window.translations[window.currentLanguage].settings 
+            : {};
+        
         if (data._id || data.message) {
-            alert(scopeId ? 'Scope updated successfully!' : 'Scope created successfully!');
+            alert(scopeId ? (translations.scope_updated || 'Scope updated successfully!') : (translations.scope_created || 'Scope created successfully!'));
             bootstrap.Modal.getInstance(document.getElementById('scopeModal')).hide();
             location.reload();
         } else {
-            alert('Failed to save scope');
+            alert(translations.failed_save_scope || 'Failed to save scope');
         }
     })
     .catch(error => {
         console.error('Error:', error);
-        alert('Failed to save scope');
+        const translations = window.translations && window.translations[window.currentLanguage] 
+            ? window.translations[window.currentLanguage].settings 
+            : {};
+        alert(translations.failed_save_scope || 'Failed to save scope');
     });
 }
 
 function deleteScope(scopeId) {
-    if (confirm('Are you sure you want to delete this scope?')) {
+    const translations = window.translations && window.translations[window.currentLanguage] 
+        ? window.translations[window.currentLanguage].settings 
+        : {};
+    
+    if (confirm(translations.delete_scope_confirm || 'Are you sure you want to delete this scope?')) {
         fetch(`/api/scopes/${scopeId}`, {
             method: 'DELETE'
         })
         .then(response => response.json())
         .then(data => {
             if (data.message) {
-                alert('Scope deleted successfully!');
+                alert(translations.scope_deleted || 'Scope deleted successfully!');
                 location.reload();
             } else {
-                alert('Failed to delete scope');
+                alert(translations.failed_delete_scope || 'Failed to delete scope');
             }
         })
         .catch(error => {
             console.error('Error:', error);
-            alert('Failed to delete scope');
+            alert(translations.failed_delete_scope || 'Failed to delete scope');
         });
     }
 }
@@ -658,7 +672,10 @@ function editSavingSpace(walletId, name, type) {
     document.getElementById('wallet_type').value = type;
     
     // Change modal title
-    document.getElementById('savingSpaceModalTitle').innerHTML = '<i class="fas fa-edit me-2"></i>Edit Saving Space';
+    const translations = window.translations && window.translations[window.currentLanguage] 
+        ? window.translations[window.currentLanguage].settings 
+        : {};
+    document.getElementById('savingSpaceModalTitle').innerHTML = `<i class="fas fa-edit me-2"></i>${translations.edit_saving_space || 'Edit Saving Space'}`;
     
     // Show modal
     new bootstrap.Modal(document.getElementById('savingSpaceModal')).show();
@@ -684,37 +701,48 @@ function submitSavingSpace() {
     })
     .then(response => response.json())
     .then(data => {
+        const translations = window.translations && window.translations[window.currentLanguage] 
+            ? window.translations[window.currentLanguage].settings 
+            : {};
+        
         if (data._id || data.message) {
-            alert(walletId ? 'Saving space updated successfully!' : 'Saving space created successfully!');
+            alert(walletId ? (translations.saving_space_updated || 'Saving space updated successfully!') : (translations.saving_space_created || 'Saving space created successfully!'));
             bootstrap.Modal.getInstance(document.getElementById('savingSpaceModal')).hide();
             location.reload();
         } else {
-            alert('Failed to save saving space');
+            alert(translations.failed_save_saving_space || 'Failed to save saving space');
         }
     })
     .catch(error => {
         console.error('Error:', error);
-        alert('Failed to save saving space');
+        const translations = window.translations && window.translations[window.currentLanguage] 
+            ? window.translations[window.currentLanguage].settings 
+            : {};
+        alert(translations.failed_save_saving_space || 'Failed to save saving space');
     });
 }
 
 function deleteSavingSpace(walletId) {
-    if (confirm('Are you sure you want to delete this saving space?')) {
+    const translations = window.translations && window.translations[window.currentLanguage] 
+        ? window.translations[window.currentLanguage].settings 
+        : {};
+    
+    if (confirm(translations.delete_saving_space_confirm || 'Are you sure you want to delete this saving space?')) {
         fetch(`/api/wallets/${walletId}`, {
             method: 'DELETE'
         })
         .then(response => response.json())
         .then(data => {
             if (data.message) {
-                alert('Saving space deleted successfully!');
+                alert(translations.saving_space_deleted || 'Saving space deleted successfully!');
                 location.reload();
             } else {
-                alert('Failed to delete saving space');
+                alert(translations.failed_delete_saving_space || 'Failed to delete saving space');
             }
         })
         .catch(error => {
             console.error('Error:', error);
-            alert('Failed to delete saving space');
+            alert(translations.failed_delete_saving_space || 'Failed to delete saving space');
         });
     }
 }
@@ -723,7 +751,10 @@ function deleteSavingSpace(walletId) {
 function editCategory(categoryId, name, description, isSystem) {
     // Prevent editing system categories
     if (isSystem) {
-        alert('System categories cannot be edited or deleted.');
+        const translations = window.translations && window.translations[window.currentLanguage] 
+            ? window.translations[window.currentLanguage].settings 
+            : {};
+        alert(translations.system_categories_cannot_edit || 'System categories cannot be edited or deleted.');
         return;
     }
     
@@ -736,7 +767,10 @@ function editCategory(categoryId, name, description, isSystem) {
     document.getElementById('category_description').value = description;
     
     // Change modal title
-    document.getElementById('categoryModalTitle').innerHTML = '<i class="fas fa-edit me-2"></i>Edit Category';
+    const translations = window.translations && window.translations[window.currentLanguage] 
+        ? window.translations[window.currentLanguage].settings 
+        : {};
+    document.getElementById('categoryModalTitle').innerHTML = `<i class="fas fa-edit me-2"></i>${translations.edit_category || 'Edit Category'}`;
     
     // Show modal
     new bootstrap.Modal(document.getElementById('categoryModal')).show();
@@ -762,49 +796,62 @@ function submitCategory() {
     })
     .then(response => response.json())
     .then(data => {
+        const translations = window.translations && window.translations[window.currentLanguage] 
+            ? window.translations[window.currentLanguage].settings 
+            : {};
+        
         if (data._id || data.message) {
-            alert(categoryId ? 'Category updated successfully!' : 'Category created successfully!');
+            alert(categoryId ? (translations.category_updated || 'Category updated successfully!') : (translations.category_created || 'Category created successfully!'));
             bootstrap.Modal.getInstance(document.getElementById('categoryModal')).hide();
             location.reload();
         } else {
-            alert('Failed to save category');
+            alert(translations.failed_save_category || 'Failed to save category');
         }
     })
     .catch(error => {
         console.error('Error:', error);
-        alert('Failed to save category');
+        const translations = window.translations && window.translations[window.currentLanguage] 
+            ? window.translations[window.currentLanguage].settings 
+            : {};
+        alert(translations.failed_save_category || 'Failed to save category');
     });
 }
 
 function deleteCategory(categoryId, isSystem) {
+    const translations = window.translations && window.translations[window.currentLanguage] 
+        ? window.translations[window.currentLanguage].settings 
+        : {};
+    
     // Prevent deleting system categories
     if (isSystem) {
-        alert('System categories cannot be edited or deleted.');
+        alert(translations.system_categories_cannot_edit || 'System categories cannot be edited or deleted.');
         return;
     }
     
-    if (confirm('Are you sure you want to delete this category?')) {
+    if (confirm(translations.delete_category_confirm || 'Are you sure you want to delete this category?')) {
         fetch(`/api/categories/${categoryId}`, {
             method: 'DELETE'
         })
         .then(response => response.json())
         .then(data => {
             if (data.message) {
-                alert('Category deleted successfully!');
+                alert(translations.category_deleted || 'Category deleted successfully!');
                 location.reload();
             } else {
-                alert('Failed to delete category');
+                alert(translations.failed_delete_category || 'Failed to delete category');
             }
         })
         .catch(error => {
             console.error('Error:', error);
-            alert('Failed to delete category');
+            alert(translations.failed_delete_category || 'Failed to delete category');
         });
     }
 }
 
 // Event listeners for mobile-friendly interactions
 document.addEventListener('DOMContentLoaded', function() {
+    // Initialize language switching
+    initializeSettingsLanguage();
     // Scope edit buttons
     document.querySelectorAll('.edit-scope-btn').forEach(btn => {
         btn.addEventListener('click', function() {
@@ -884,12 +931,16 @@ document.addEventListener('DOMContentLoaded', function() {
                     
                     // Reset modal title to "Add New"
                     const title = modal.querySelector('.modal-title');
+                    const translations = window.translations && window.translations[window.currentLanguage] 
+                        ? window.translations[window.currentLanguage].settings 
+                        : {};
+                    
                     if (targetModal === '#scopeModal') {
-                        title.innerHTML = '<i class="fas fa-folder me-2"></i>Add New Scope';
+                        title.innerHTML = `<i class="fas fa-folder me-2"></i>${translations.add_new_scope || 'Add New Scope'}`;
                     } else if (targetModal === '#savingSpaceModal') {
-                        title.innerHTML = '<i class="fas fa-piggy-bank me-2"></i>Add New Saving Space';
+                        title.innerHTML = `<i class="fas fa-piggy-bank me-2"></i>${translations.add_new_saving_space || 'Add New Saving Space'}`;
                     } else if (targetModal === '#categoryModal') {
-                        title.innerHTML = '<i class="fas fa-tags me-2"></i>Add New Category';
+                        title.innerHTML = `<i class="fas fa-tags me-2"></i>${translations.add_new_category || 'Add New Category'}`;
                     }
                 }
             }
@@ -910,12 +961,78 @@ document.addEventListener('DOMContentLoaded', function() {
             
             // Reset modal title back to "Add New"
             const title = this.querySelector('.modal-title');
-            if (modalId === 'scopeModal') title.innerHTML = '<i class="fas fa-folder me-2"></i>Add New Scope';
-            else if (modalId === 'savingSpaceModal') title.innerHTML = '<i class="fas fa-piggy-bank me-2"></i>Add New Saving Space';
-            else if (modalId === 'categoryModal') title.innerHTML = '<i class="fas fa-tags me-2"></i>Add New Category';
+            const translations = window.translations && window.translations[window.currentLanguage] 
+                ? window.translations[window.currentLanguage].settings 
+                : {};
+            
+            if (modalId === 'scopeModal') title.innerHTML = `<i class="fas fa-folder me-2"></i>${translations.add_new_scope || 'Add New Scope'}`;
+            else if (modalId === 'savingSpaceModal') title.innerHTML = `<i class="fas fa-piggy-bank me-2"></i>${translations.add_new_saving_space || 'Add New Saving Space'}`;
+            else if (modalId === 'categoryModal') title.innerHTML = `<i class="fas fa-tags me-2"></i>${translations.add_new_category || 'Add New Category'}`;
         });
     });
 });
+
+// Settings Language Functions
+function initializeSettingsLanguage() {
+    // Wait for translations to be loaded from layout.html
+    setTimeout(() => {
+        if (window.translations && window.currentLanguage) {
+            translateSettingsPage(window.currentLanguage);
+        }
+    }, 500);
+}
+
+function translateSettingsPage(lang) {
+    if (!window.translations || !window.translations[lang]) return;
+    
+    const translations = window.translations[lang];
+    
+    // Translate static elements
+    const elements = document.querySelectorAll('[data-translate]');
+    elements.forEach(element => {
+        const key = element.getAttribute('data-translate');
+        const keys = key.split('.');
+        let translation = translations;
+        
+        for (const k of keys) {
+            if (translation && translation[k]) {
+                translation = translation[k];
+            } else {
+                translation = null;
+                break;
+            }
+        }
+        
+        if (translation) {
+            if (element.tagName === 'INPUT' && element.type === 'text') {
+                element.placeholder = translation;
+            } else if (element.tagName === 'TEXTAREA') {
+                element.placeholder = translation;
+            } else if (element.tagName === 'OPTION') {
+                element.textContent = translation;
+            } else {
+                element.textContent = translation;
+            }
+        }
+    });
+    
+    // Update dynamic content
+    updateDynamicContent(lang);
+}
+
+function updateDynamicContent(lang) {
+    if (!window.translations || !window.translations[lang]) return;
+    
+    const translations = window.translations[lang];
+    
+    // Update "No description" spans that are hidden
+    const noDescriptionSpans = document.querySelectorAll('[data-translate="settings.no_description"]');
+    noDescriptionSpans.forEach(span => {
+        if (span.style.display === 'none') {
+            span.textContent = translations.no_description;
+        }
+    });
+}
 
 </script>
 {% endblock %}

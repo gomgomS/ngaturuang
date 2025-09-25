@@ -411,7 +411,7 @@
     }
     
     .tag-area [contenteditable]:empty::before {
-        content: "Ask me anything about your finances... (type @ to see helpers)";
+        content: attr(data-placeholder);
         color: var(--text-muted);
         font-style: italic;
     }
@@ -1449,9 +1449,9 @@
                 <div class="d-flex justify-content-end align-items-center mb-4">
                     <div class="text-end ms-3">
                       <h2 class="text-white mb-1 fs-6">
-                        <i class="fas fa-robot me-2"></i>AI Financial Advisor
+                        <i class="fas fa-robot me-2"></i><span data-translate="ai_advisor.title">AI Financial Advisor</span>
                       </h2>
-                      <p class="text-white-50 mb-0 small">
+                      <p class="text-white-50 mb-0 small" data-translate="ai_advisor.subtitle">
                         Get personalized financial insights and smart recommendations
                       </p>
                     </div>
@@ -1465,21 +1465,21 @@
                                 <i class="fas fa-robot"></i>
                             </div>
                             <div>
-                        <h5 class="mb-0">Financial AI Assistant</h5>
-                                <p class="chat-subtitle">Powered by advanced AI technology</p>
+                        <h5 class="mb-0" data-translate="ai_advisor.financial_ai_assistant">Financial AI Assistant</h5>
+                                <p class="chat-subtitle" data-translate="ai_advisor.powered_by_ai">Powered by advanced AI technology</p>
                             </div>
                     </div>
-                    <span class="pro-badge">PRO</span>
+                    <span class="pro-badge" data-translate="ai_advisor.pro_badge">PRO</span>
                 </div>
                 
                 <!-- Chat Messages -->
                 <div class="chat-messages" id="chatMessages">
                     <div class="welcome-message">
                         <i class="fas fa-robot"></i>
-                            <h5>Welcome to AI Financial Advisor!</h5>
-                            <p>I'm your intelligent financial companion, ready to help you make smarter money decisions.</p>
-                            <p>Ask me about your spending patterns, budget optimization, investment strategies, or any financial questions you have!</p>
-                            <p class="small">💡 <strong>Pro tip:</strong> Type <code>@</code> to see available helpers for categories, accounts, and scopes!</p>
+                            <h5 data-translate="ai_advisor.welcome_title">Welcome to AI Financial Advisor!</h5>
+                            <p data-translate="ai_advisor.welcome_message">I'm your intelligent financial companion, ready to help you make smarter money decisions.</p>
+                            <p data-translate="ai_advisor.welcome_description">Ask me about your spending patterns, budget optimization, investment strategies, or any financial questions you have!</p>
+                            <p class="small">💡 <strong data-translate="ai_advisor.pro_tip">Pro tip:</strong> <span data-translate="ai_advisor.pro_tip_description">Type @ to see available helpers for categories, accounts, and scopes!</span></p>
                     </div>
                 </div>
                 
@@ -1489,7 +1489,7 @@
                         <i class="fas fa-robot"></i>
                     </div>
                     <div class="message-content">
-                            AI is analyzing your request
+                            <span data-translate="ai_advisor.ai_analyzing">AI is analyzing your request</span>
                         <div class="typing-dots">
                             <span></span>
                             <span></span>
@@ -1516,24 +1516,24 @@
                      <div class="helper-suggestions" id="helperSuggestions" style="display: none;">
                          <div class="suggestion-header">
                             <i class="fas fa-magic"></i>
-                            <span>Quick Helpers</span>
-                            <small class="ms-auto opacity-75">Type @ to see these options</small>
+                            <span data-translate="ai_advisor.quick_helpers">Quick Helpers</span>
+                            <small class="ms-auto opacity-75" data-translate="ai_advisor.type_at_description">Type @ to see these options</small>
                          </div>
                          <div class="suggestion-categories">
                              <div class="suggestion-group">
-                                <h6><i class="fas fa-tags"></i>Categories</h6>
+                                <h6><i class="fas fa-tags"></i><span data-translate="ai_advisor.categories">Categories</span></h6>
                                  <div class="suggestion-items" id="categorySuggestions">
                                      <!-- Will be populated by JavaScript -->
                                  </div>
                              </div>
                              <div class="suggestion-group">
-                                <h6><i class="fas fa-wallet"></i>Accounts</h6>
+                                <h6><i class="fas fa-wallet"></i><span data-translate="ai_advisor.accounts">Accounts</span></h6>
                                  <div class="suggestion-items" id="accountSuggestions">
                                      <!-- Will be populated by JavaScript -->
                                  </div>
                              </div>
                              <div class="suggestion-group">
-                                <h6><i class="fas fa-calendar-alt"></i>Scopes</h6>
+                                <h6><i class="fas fa-calendar-alt"></i><span data-translate="ai_advisor.scopes">Scopes</span></h6>
                                  <div class="suggestion-items" id="scopeSuggestions">
                                      <!-- Will be populated by JavaScript -->
                                  </div>
@@ -1556,6 +1556,9 @@
 </script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    // Initialize language switching
+    initializeAIAdvisorLanguage();
+    
     // Initialize AI Advisor
     if (window.MoneyManagementAI && window.MoneyManagementAI.initializeAIAdvisor) {
         window.MoneyManagementAI.initializeAIAdvisor();
@@ -1904,16 +1907,25 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Clear chat
     clearChatBtn.addEventListener('click', function() {
-        if (confirm('Are you sure you want to clear the chat history?')) {
+        const translations = window.translations && window.translations[window.currentLanguage] 
+            ? window.translations[window.currentLanguage].ai_advisor 
+            : {};
+        
+        if (confirm(translations.clear_chat_confirm || 'Are you sure you want to clear the chat history?')) {
             chatMessages.innerHTML = `
                 <div class="welcome-message">
                     <i class="fas fa-robot"></i>
-                    <h5>Welcome to AI Financial Advisor!</h5>
-                    <p>I'm your intelligent financial companion, ready to help you make smarter money decisions.</p>
-                    <p>Ask me about your spending patterns, budget optimization, investment strategies, or any financial questions you have!</p>
-                    <p class="small">💡 <strong>Pro tip:</strong> Type <code>@</code> to see available helpers for categories, accounts, and scopes!</p>
+                    <h5 data-translate="ai_advisor.welcome_title">Welcome to AI Financial Advisor!</h5>
+                    <p data-translate="ai_advisor.welcome_message">I'm your intelligent financial companion, ready to help you make smarter money decisions.</p>
+                    <p data-translate="ai_advisor.welcome_description">Ask me about your spending patterns, budget optimization, investment strategies, or any financial questions you have!</p>
+                    <p class="small">💡 <strong data-translate="ai_advisor.pro_tip">Pro tip:</strong> <span data-translate="ai_advisor.pro_tip_description">Type @ to see available helpers for categories, accounts, and scopes!</span></p>
                 </div>
             `;
+            
+            // Re-translate the new welcome message
+            if (window.translations && window.currentLanguage) {
+                translateAIAdvisorPage(window.currentLanguage);
+            }
             
             // Clear input and chips
             editor.innerText = '';
@@ -2177,7 +2189,10 @@ document.addEventListener('DOMContentLoaded', function() {
             addMessage('ai', aiResponse, { provider, model });
         } catch (err) {
             hideTypingIndicator();
-            addMessage('ai', 'Maaf, terjadi kesalahan menyimpan percakapan.');
+            const translations = window.translations && window.translations[window.currentLanguage] 
+                ? window.translations[window.currentLanguage].ai_advisor 
+                : {};
+            addMessage('ai', translations.error_saving_conversation || 'Sorry, there was an error saving the conversation.');
         }
      }
     
@@ -2214,7 +2229,10 @@ document.addEventListener('DOMContentLoaded', function() {
             const badge = document.createElement('span');
             badge.className = 'ai-provider-badge';
             const icon = (meta.provider || '').toLowerCase().includes('gemini') ? 'fa-google' : 'fa-brain';
-            badge.innerHTML = `<i class="fas ${icon}"></i>AI by ${meta.provider || 'Local'}${meta.model ? ' · ' + meta.model : ''}`;
+            const translations = window.translations && window.translations[window.currentLanguage] 
+                ? window.translations[window.currentLanguage].ai_advisor 
+                : {};
+            badge.innerHTML = `<i class="fas ${icon}"></i>${translations.ai_by || 'AI by'} ${meta.provider || (translations.local || 'Local')}${meta.model ? ' · ' + meta.model : ''}`;
             note.appendChild(badge);
             messageContent.appendChild(note);
         }
@@ -2260,6 +2278,70 @@ document.addEventListener('DOMContentLoaded', function() {
         ];
         
         return responses[Math.floor(Math.random() * responses.length)];
+    }
+    
+    // AI Advisor Language Functions
+    function initializeAIAdvisorLanguage() {
+        // Wait for translations to be loaded from layout.html
+        setTimeout(() => {
+            if (window.translations && window.currentLanguage) {
+                translateAIAdvisorPage(window.currentLanguage);
+            }
+        }, 500);
+    }
+
+    function translateAIAdvisorPage(lang) {
+        if (!window.translations || !window.translations[lang]) return;
+        
+        const translations = window.translations[lang];
+        
+        // Translate static elements
+        const elements = document.querySelectorAll('[data-translate]');
+        elements.forEach(element => {
+            const key = element.getAttribute('data-translate');
+            const keys = key.split('.');
+            let translation = translations;
+            
+            for (const k of keys) {
+                if (translation && translation[k]) {
+                    translation = translation[k];
+                } else {
+                    translation = null;
+                    break;
+                }
+            }
+            
+            if (translation) {
+                if (element.tagName === 'INPUT' && element.type === 'text') {
+                    element.placeholder = translation;
+                } else if (element.tagName === 'TEXTAREA') {
+                    element.placeholder = translation;
+                } else {
+                    element.textContent = translation;
+                }
+            }
+        });
+        
+        // Update dynamic content
+        updateDynamicContent(lang);
+    }
+
+    function updateDynamicContent(lang) {
+        if (!window.translations || !window.translations[lang]) return;
+        
+        const translations = window.translations[lang];
+        
+        // Update placeholder text for contenteditable editor
+        const editor = document.getElementById('editor');
+        if (editor) {
+            editor.setAttribute('data-placeholder', translations.ask_anything_placeholder || 'Ask me anything about your finances... (type @ to see helpers)');
+        }
+        
+        // Update typing indicator text
+        const typingText = document.querySelector('#typingIndicator .message-content span[data-translate="ai_advisor.ai_analyzing"]');
+        if (typingText) {
+            typingText.textContent = translations.ai_analyzing || 'AI is analyzing your request';
+        }
     }
 });
 </script>

@@ -183,9 +183,9 @@
     <div class="transactions-header text-end">
         <div class="d-flex align-items-center justify-content-end mb-2">
             <i class="fas fa-coins me-2" style="font-size: 1.5rem;"></i>
-            <h1 class="h3 mb-0">Transactions</h1>
+            <h1 class="h3 mb-0" data-translate="transaction_type.title">Transactions</h1>
         </div>
-        <p class="mb-0 opacity-75">Choose what you want to do</p>
+        <p class="mb-0 opacity-75" data-translate="transaction_type.subtitle">Choose what you want to do</p>
     </div>
     
 
@@ -199,8 +199,8 @@
                         <div class="action-icon mb-2">
                             <i class="fas fa-plus-circle text-primary"></i>
                         </div>
-                        <h5 class="card-title mb-1">Add Transaction</h5>
-                        <p class="card-text text-muted small mb-0">Create new income or expense</p>
+                        <h5 class="card-title mb-1" data-translate="transaction_type.add_transaction">Add Transaction</h5>
+                        <p class="card-text text-muted small mb-0" data-translate="transaction_type.add_transaction_desc">Create new income or expense</p>
                     </div>
                 </div>
             </a>
@@ -214,8 +214,8 @@
                         <div class="action-icon mb-2">
                             <i class="fas fa-history text-success"></i>
                         </div>
-                        <h5 class="card-title mb-1">Transaction History</h5>
-                        <p class="card-text text-muted small mb-0">View and filter transactions</p>
+                        <h5 class="card-title mb-1" data-translate="transaction_type.transaction_history">Transaction History</h5>
+                        <p class="card-text text-muted small mb-0" data-translate="transaction_type.transaction_history_desc">View and filter transactions</p>
                     </div>
                 </div>
             </a>
@@ -229,8 +229,8 @@
                         <div class="action-icon mb-2">
                             <i class="fas fa-exchange-alt text-info"></i>
                         </div>
-                        <h5 class="card-title mb-1">Transfer</h5>
-                        <p class="card-text text-muted small mb-0">Move money between wallets</p>
+                        <h5 class="card-title mb-1" data-translate="transaction_type.transfer">Transfer</h5>
+                        <p class="card-text text-muted small mb-0" data-translate="transaction_type.transfer_desc">Move money between wallets</p>
                     </div>
                 </div>
             </a>
@@ -244,8 +244,8 @@
                         <div class="action-icon mb-2">
                             <i class="fas fa-balance-scale text-warning"></i>
                         </div>
-                        <h5 class="card-title mb-1">Modified Balance</h5>
-                        <p class="card-text text-muted small mb-0">Adjust wallet balance</p>
+                        <h5 class="card-title mb-1" data-translate="transaction_type.modified_balance">Modified Balance</h5>
+                        <p class="card-text text-muted small mb-0" data-translate="transaction_type.modified_balance_desc">Adjust wallet balance</p>
                     </div>
                 </div>
             </a>
@@ -255,7 +255,7 @@
     <!-- Quick Tips -->
     <div class="quick-tips">
         <i class="fas fa-lightbulb me-2"></i>
-        Select an action above to proceed
+        <span data-translate="transaction_type.quick_tips">Select an action above to proceed</span>
     </div>
 </div>
 
@@ -312,7 +312,97 @@ document.addEventListener('DOMContentLoaded', function() {
             formatAmountInput(e.target);
         });
     }
+    
+    // Initialize language switching
+    initializeTransactionTypeLanguage();
 });
+
+// Transaction Type Language Functions
+function initializeTransactionTypeLanguage() {
+    // Wait for translations to be loaded from layout.html
+    setTimeout(() => {
+        if (window.translations && window.currentLanguage) {
+            translateTransactionTypePage(window.currentLanguage);
+        }
+    }, 500);
+}
+
+function translateTransactionTypePage(lang) {
+    if (!window.translations || !window.translations[lang]) return;
+    
+    const translations = window.translations[lang];
+    
+    // Translate static elements
+    const elements = document.querySelectorAll('[data-translate]');
+    elements.forEach(element => {
+        const key = element.getAttribute('data-translate');
+        const keys = key.split('.');
+        let translation = translations;
+        
+        for (const k of keys) {
+            if (translation && translation[k]) {
+                translation = translation[k];
+            } else {
+                translation = null;
+                break;
+            }
+        }
+        
+        if (translation) {
+            element.textContent = translation;
+        }
+    });
+    
+    // Update dynamic content in modals
+    updateModalTranslations(lang);
+}
+
+function updateModalTranslations(lang) {
+    if (!window.translations || !window.translations[lang]) return;
+    
+    const translations = window.translations[lang];
+    
+    // Update step titles in add transaction modal
+    const modalTitle = document.querySelector('#addTransactionModal .modal-title');
+    if (modalTitle && currentStep) {
+        const stepTitles = [
+            translations.step_1_select_scope,
+            translations.step_2_select_saving_space,
+            translations.step_3_transaction_type,
+            translations.step_4_category_tags,
+            translations.step_5_transaction_amount,
+            translations.step_6_date_confirmation,
+            translations.step_7_final_note
+        ];
+        
+        // Update step titles based on current step
+        if (stepTitles[currentStep - 1]) {
+            modalTitle.textContent = stepTitles[currentStep - 1];
+        }
+    }
+    
+    // Update dynamic content in showDatePicker function
+    const step6 = document.getElementById('step6');
+    if (step6 && step6.innerHTML.includes('Select Date & Time')) {
+        step6.innerHTML = `
+            <div class="text-center mb-4">
+                <i class="fas fa-calendar fa-3x text-primary mb-3"></i>
+                <h4>${translations.select_date_time}</h4>
+                <p class="text-muted">${translations.choose_when}</p>
+            </div>
+            <div class="row justify-content-center">
+                <div class="col-md-8">
+                    <input type="datetime-local" class="form-control form-control-lg" id="custom_timestamp" required>
+                    <div class="mt-3">
+                        <button type="button" class="btn btn-primary btn-lg" onclick="confirmCustomDate()">
+                            <i class="fas fa-check me-2"></i>${translations.confirm_date}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+}
 
 // Date default
 function setDefaultDateTime() {
@@ -416,14 +506,18 @@ function showStep(stepNumber) {
     if (currentStepElement) currentStepElement.style.display = 'block';
     const modalTitle = document.querySelector('#addTransactionModal .modal-title');
     if (modalTitle) {
+        const translations = window.translations && window.translations[window.currentLanguage] 
+            ? window.translations[window.currentLanguage].transaction_type 
+            : {};
+        
         const stepTitles = [
-            'Step 1: Select Scope',
-            'Step 2: Select Saving Space',
-            'Step 3: Transaction Type',
-            'Step 4: Category & Tags',
-            'Step 5: Transaction Amount',
-            'Step 6: Date Confirmation',
-            'Step 7: Final Note'
+            translations.step_1_select_scope || 'Step 1: Select Scope',
+            translations.step_2_select_saving_space || 'Step 2: Select Saving Space',
+            translations.step_3_transaction_type || 'Step 3: Transaction Type',
+            translations.step_4_category_tags || 'Step 4: Category & Tags',
+            translations.step_5_transaction_amount || 'Step 5: Transaction Amount',
+            translations.step_6_date_confirmation || 'Step 6: Date Confirmation',
+            translations.step_7_final_note || 'Step 7: Final Note'
         ];
         modalTitle.textContent = stepTitles[stepNumber - 1];
     }
@@ -447,22 +541,41 @@ function updateButtons() {
     if (submitBtn) submitBtn.style.display = currentStep === totalSteps ? 'inline-block' : 'none';
 }
 function validateCurrentStep() {
+    const translations = window.translations && window.translations[window.currentLanguage] 
+        ? window.translations[window.currentLanguage].transaction_type 
+        : {};
+    
     switch (currentStep) {
         case 1:
-            if (!document.getElementById('add_scope_id').value) { alert('Please select a scope'); return false; }
+            if (!document.getElementById('add_scope_id').value) { 
+                alert(translations.please_select_scope || 'Please select a scope'); 
+                return false; 
+            }
             break;
         case 2:
             const walletId = document.getElementById('add_wallet_id').value;
-            if (!walletId) { alert('Please select a saving space'); return false; }
+            if (!walletId) { 
+                alert(translations.please_select_saving_space || 'Please select a saving space'); 
+                return false; 
+            }
             const selectedOption = document.querySelector(`#add_wallet_id option[value="${walletId}"]`);
-            if (selectedOption && selectedOption.disabled) { alert('This wallet has 0 balance. Please go to Balance page to add funds first.'); return false; }
+            if (selectedOption && selectedOption.disabled) { 
+                alert(translations.wallet_zero_balance || 'This wallet has 0 balance. Please go to Balance page to add funds first.'); 
+                return false; 
+            }
             break;
         case 3:
-            if (!document.getElementById('add_type').value) { alert('Please select transaction type'); return false; }
+            if (!document.getElementById('add_type').value) { 
+                alert(translations.please_select_type || 'Please select transaction type'); 
+                return false; 
+            }
             break;
         case 5:
             const amount = document.getElementById('add_amount').value;
-            if (!amount) { alert('Please enter transaction amount'); return false; }
+            if (!amount) { 
+                alert(translations.please_enter_amount || 'Please enter transaction amount'); 
+                return false; 
+            }
             const type = document.getElementById('add_type').value;
             if (type === 'expense') {
                 const walletId2 = document.getElementById('add_wallet_id').value;
@@ -479,7 +592,10 @@ function validateCurrentStep() {
             }
             break;
         case 6:
-            if (!document.getElementById('add_timestamp').value) { alert('Please confirm the transaction date first'); return false; }
+            if (!document.getElementById('add_timestamp').value) { 
+                alert(translations.please_confirm_date || 'Please confirm the transaction date first'); 
+                return false; 
+            }
             break;
     }
     return true;
@@ -576,7 +692,17 @@ function updateSelectionSummary() {
         }
     } else { walletDiv.style.display = 'none'; }
     const selectedType = document.getElementById('add_type').value;
-    if (selectedType) { typeValue.textContent = selectedType.charAt(0).toUpperCase() + selectedType.slice(1); typeDiv.style.display = 'block'; hasAnySelection = true; } else { typeDiv.style.display = 'none'; }
+    if (selectedType) { 
+        const translations = window.translations && window.translations[window.currentLanguage] 
+            ? window.translations[window.currentLanguage].transaction_type 
+            : {};
+        const typeText = translations[selectedType] || selectedType.charAt(0).toUpperCase() + selectedType.slice(1);
+        typeValue.textContent = typeText; 
+        typeDiv.style.display = 'block'; 
+        hasAnySelection = true; 
+    } else { 
+        typeDiv.style.display = 'none'; 
+    }
     const selectedCategoryId = document.getElementById('add_category_id').value;
     if (selectedCategoryId) {
         const selectedCategoryOption = document.querySelector(`#add_category_id option[value="${selectedCategoryId}"]`);
@@ -595,19 +721,23 @@ function confirmRecentTransaction() {
     nextStep();
 }
 function showDatePicker() {
+    const translations = window.translations && window.translations[window.currentLanguage] 
+        ? window.translations[window.currentLanguage].transaction_type 
+        : {};
+    
     const step6 = document.getElementById('step6');
     step6.innerHTML = `
         <div class="text-center mb-4">
             <i class="fas fa-calendar fa-3x text-primary mb-3"></i>
-            <h4>Select Date & Time</h4>
-            <p class="text-muted">Choose when this transaction occurred</p>
+            <h4>${translations.select_date_time || 'Select Date & Time'}</h4>
+            <p class="text-muted">${translations.choose_when || 'Choose when this transaction occurred'}</p>
         </div>
         <div class="row justify-content-center">
             <div class="col-md-8">
                 <input type="datetime-local" class="form-control form-control-lg" id="custom_timestamp" required>
                 <div class="mt-3">
                     <button type="button" class="btn btn-primary btn-lg" onclick="confirmCustomDate()">
-                        <i class="fas fa-check me-2"></i>Confirm Date
+                        <i class="fas fa-check me-2"></i>${translations.confirm_date || 'Confirm Date'}
                     </button>
                 </div>
             </div>
@@ -635,6 +765,10 @@ function resetTransactionForm() {
     updateButtons();
 }
 function submitTransaction() {
+    const translations = window.translations && window.translations[window.currentLanguage] 
+        ? window.translations[window.currentLanguage].transaction_type 
+        : {};
+    
     const data = {
         scope_id: document.getElementById('add_scope_id').value,
         wallet_id: document.getElementById('add_wallet_id').value,
@@ -647,18 +781,23 @@ function submitTransaction() {
     };
     if (data.amount) data.amount = parseFormattedAmount(data.amount);
     if (data.tags) data.tags = data.tags.split(',').map(t => t.trim()).filter(Boolean);
-    if (!data.timestamp) { alert('Timestamp is missing. Please go back and confirm the date.'); return; }
+    if (!data.timestamp) { 
+        alert(translations.timestamp_missing || 'Timestamp is missing. Please go back and confirm the date.'); 
+        return; 
+    }
     data.timestamp = parseInt(data.timestamp);
     fetch('/api/transactions/', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) })
     .then(r => r.json())
     .then(res => {
         if (res._id) {
-            alert('Transaction added successfully!');
+            alert(translations.transaction_added || 'Transaction added successfully!');
             bootstrap.Modal.getInstance(document.getElementById('addTransactionModal')).hide();
             location.reload();
-        } else { alert('Failed to add transaction'); }
+        } else { 
+            alert(translations.failed_add_transaction || 'Failed to add transaction'); 
+        }
     })
-    .catch(() => alert('Failed to add transaction'));
+    .catch(() => alert(translations.failed_add_transaction || 'Failed to add transaction'));
 }
 
 // Modified Balance
@@ -671,15 +810,28 @@ function showModifiedBalance() {
     modal.show();
 }
 function submitModifiedBalance() {
+    const translations = window.translations && window.translations[window.currentLanguage] 
+        ? window.translations[window.currentLanguage].transaction_type 
+        : {};
+    
     const walletId = document.getElementById('modify_wallet_id').value;
     const amount = document.getElementById('modify_amount').value;
-    if (!walletId) { alert('Please select a saving space'); return; }
-    if (!amount) { alert('Please enter the new balance amount'); return; }
+    if (!walletId) { 
+        alert(translations.please_select_saving_space_balance || 'Please select a saving space'); 
+        return; 
+    }
+    if (!amount) { 
+        alert(translations.please_enter_new_balance || 'Please enter the new balance amount'); 
+        return; 
+    }
     const newBalance = parseFormattedAmount(amount);
     const selectedOption = document.querySelector(`#modify_wallet_id option[value="${walletId}"]`);
     const currentBalance = parseFloat(selectedOption.getAttribute('data-balance')) || 0;
     const difference = newBalance - currentBalance;
-    if (difference === 0) { alert('The new balance is the same as current balance. No changes needed.'); return; }
+    if (difference === 0) { 
+        alert(translations.balance_same || 'The new balance is the same as current balance. No changes needed.'); 
+        return; 
+    }
     const data = {
         wallet_id: walletId,
         new_balance: newBalance,
@@ -691,12 +843,14 @@ function submitModifiedBalance() {
     .then(r => r.json())
     .then(res => {
         if (res.message) {
-            alert('Balance updated successfully!');
+            alert(translations.balance_updated || 'Balance updated successfully!');
             bootstrap.Modal.getInstance(document.getElementById('modifiedBalanceModal')).hide();
             location.reload();
-        } else { alert('Failed to update balance: ' + (res.error || 'Unknown error')); }
+        } else { 
+            alert((translations.failed_update_balance || 'Failed to update balance') + ': ' + (res.error || 'Unknown error')); 
+        }
     })
-    .catch(() => alert('Failed to update balance'));
+    .catch(() => alert(translations.failed_update_balance || 'Failed to update balance'));
 }
 function updateBalanceDifference() {
     const walletId = document.getElementById('modify_wallet_id').value;
@@ -736,21 +890,40 @@ function showTransfer() {
     modal.show();
 }
 function submitTransfer() {
+    const translations = window.translations && window.translations[window.currentLanguage] 
+        ? window.translations[window.currentLanguage].transaction_type 
+        : {};
+    
     const fromWalletId = document.getElementById('transfer_from_wallet').value;
     const toWalletId = document.getElementById('transfer_to_wallet').value;
     const amount = document.getElementById('transfer_amount').value;
     const fee = document.getElementById('transfer_fee').value;
-    if (!fromWalletId) { alert('Please select source wallet'); return; }
-    if (!toWalletId) { alert('Please select destination wallet'); return; }
-    if (fromWalletId === toWalletId) { alert('Source and destination wallets cannot be the same'); return; }
-    if (!amount) { alert('Please enter transfer amount'); return; }
+    if (!fromWalletId) { 
+        alert(translations.please_select_source || 'Please select source wallet'); 
+        return; 
+    }
+    if (!toWalletId) { 
+        alert(translations.please_select_destination || 'Please select destination wallet'); 
+        return; 
+    }
+    if (fromWalletId === toWalletId) { 
+        alert(translations.same_wallets || 'Source and destination wallets cannot be the same'); 
+        return; 
+    }
+    if (!amount) { 
+        alert(translations.please_enter_transfer_amount || 'Please enter transfer amount'); 
+        return; 
+    }
     const transferAmount = parseFormattedAmount(amount);
     const adminFee = fee ? parseFormattedAmount(fee) : 0;
     const totalDeducted = transferAmount + adminFee;
     const fromWalletOption = document.querySelector(`#transfer_from_wallet option[value="${fromWalletId}"]`);
     const fromWalletBalance = parseFloat(fromWalletOption.getAttribute('data-balance')) || 0;
     if (totalDeducted > fromWalletBalance) {
-        alert(`Insufficient balance. Available: IDR ${fromWalletBalance.toLocaleString('id-ID')}, Required: IDR ${totalDeducted.toLocaleString('id-ID')}`);
+        const message = translations.insufficient_balance_transfer 
+            ? translations.insufficient_balance_transfer.replace('{available}', fromWalletBalance.toLocaleString('id-ID')).replace('{required}', totalDeducted.toLocaleString('id-ID'))
+            : `Insufficient balance. Available: IDR ${fromWalletBalance.toLocaleString('id-ID')}, Required: IDR ${totalDeducted.toLocaleString('id-ID')}`;
+        alert(message);
         return;
     }
     const data = { from_wallet_id: fromWalletId, to_wallet_id: toWalletId, amount: transferAmount, admin_fee: adminFee };
@@ -758,12 +931,14 @@ function submitTransfer() {
     .then(r => r.json())
     .then(res => {
         if (res.message) {
-            alert('Transfer completed successfully!');
+            alert(translations.transfer_completed || 'Transfer completed successfully!');
             bootstrap.Modal.getInstance(document.getElementById('transferModal')).hide();
             location.reload();
-        } else { alert('Failed to complete transfer: ' + (res.error || 'Unknown error')); }
+        } else { 
+            alert((translations.failed_complete_transfer || 'Failed to complete transfer') + ': ' + (res.error || 'Unknown error')); 
+        }
     })
-    .catch(() => alert('Failed to complete transfer'));
+    .catch(() => alert(translations.failed_complete_transfer || 'Failed to complete transfer'));
 }
 function updateFromWalletBalance() {
     const fromWalletId = document.getElementById('transfer_from_wallet').value;
@@ -788,7 +963,7 @@ function updateFromWalletBalance() {
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Add New Transaction</h5>
+                <h5 class="modal-title" data-translate="transaction_type.add_new_transaction">Add New Transaction</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
@@ -798,13 +973,13 @@ function updateFromWalletBalance() {
                 <div id="step1" class="step-content">
                     <div class="text-center mb-4">
                         <i class="fas fa-folder-open fa-3x text-primary mb-3"></i>
-                        <h4>Select Scope</h4>
-                        <p class="text-muted">Choose the scope for this transaction</p>
+                        <h4 data-translate="transaction_type.select_scope">Select Scope</h4>
+                        <p class="text-muted" data-translate="transaction_type.choose_scope">Choose the scope for this transaction</p>
                     </div>
                     <div class="row justify-content-center">
                         <div class="col-md-8">
                             <select class="form-select form-select-lg" id="add_scope_id" name="scope_id" required>
-                                <option value="">Select Scope</option>
+                                <option value="" data-translate="transaction_type.select_scope">Select Scope</option>
                                 {% for scope in scopes %}
                                 <option value="{{ scope._id }}">{{ scope.name }}</option>
                                 {% endfor %}
@@ -818,13 +993,13 @@ function updateFromWalletBalance() {
                 <div id="step2" class="step-content" style="display: none;">
                     <div class="text-center mb-4">
                         <i class="fas fa-wallet fa-3x text-success mb-3"></i>
-                        <h4>Select Saving Space</h4>
-                        <p class="text-muted">Choose which wallet this transaction affects</p>
+                        <h4 data-translate="transaction_type.select_saving_space">Select Saving Space</h4>
+                        <p class="text-muted" data-translate="transaction_type.choose_wallet">Choose which wallet this transaction affects</p>
                     </div>
                     <div class="row justify-content-center">
                         <div class="col-md-8">
                             <select class="form-select form-select-lg" id="add_wallet_id" name="wallet_id" required>
-                                <option value="">Select Saving Space</option>
+                                <option value="" data-translate="transaction_type.select_saving_space">Select Saving Space</option>
                                 {% for wallet in wallets %}
                                 {% if wallet.actual_balance and wallet.actual_balance > 0 %}
                                 <option value="{{ wallet._id }}">{{ wallet.name }} ({{ wallet.type or 'bank' }}) - Balance: IDR {{ "{:,.0f}".format(wallet.actual_balance) }}</option>
@@ -836,8 +1011,8 @@ function updateFromWalletBalance() {
                             <div class="mt-2 text-center">
                                 <small class="text-muted">
                                     <i class="fas fa-info-circle me-1"></i>
-                                    Wallets with 0 balance are disabled.
-                                    <a href="/balance" class="text-primary">Go to Balance page</a> to add funds.
+                                    <span data-translate="transaction_type.wallets_disabled_info">Wallets with 0 balance are disabled.</span>
+                                    <a href="/balance" class="text-primary" data-translate="transaction_type.go_to_balance">Go to Balance page</a> <span data-translate="transaction_type.to_add_funds">to add funds.</span>
                                 </small>
                             </div>
                         </div>
@@ -846,17 +1021,17 @@ function updateFromWalletBalance() {
                 <div id="step3" class="step-content" style="display: none;">
                     <div class="text-center mb-4">
                         <i class="fas fa-exchange-alt fa-3x text-info mb-3"></i>
-                        <h4>Transaction Type</h4>
-                        <p class="text-muted">Is this income or expense?</p>
+                        <h4 data-translate="transaction_type.transaction_type_title">Transaction Type</h4>
+                        <p class="text-muted" data-translate="transaction_type.is_income_expense">Is this income or expense?</p>
                     </div>
                     <div class="row justify-content-center">
                         <div class="col-md-8">
                             <div class="d-grid gap-3">
                                 <button type="button" class="btn btn-outline-success btn-lg" onclick="selectTransactionType('income')">
-                                    <i class="fas fa-plus-circle me-2"></i>Income
+                                    <i class="fas fa-plus-circle me-2"></i><span data-translate="transaction_type.income">Income</span>
                                 </button>
                                 <button type="button" class="btn btn-outline-danger btn-lg" onclick="selectTransactionType('expense')">
-                                    <i class="fas fa-minus-circle me-2"></i>Expense
+                                    <i class="fas fa-minus-circle me-2"></i><span data-translate="transaction_type.expense">Expense</span>
                                 </button>
                             </div>
                         </div>
@@ -865,18 +1040,18 @@ function updateFromWalletBalance() {
                 <div id="step4" class="step-content" style="display: none;">
                     <div class="text-center mb-4">
                         <i class="fas fa-tags fa-3x text-warning mb-3"></i>
-                        <h4>Category & Tags</h4>
-                        <p class="text-muted">Categorize and tag your transaction</p>
+                        <h4 data-translate="transaction_type.category_tags">Category & Tags</h4>
+                        <p class="text-muted" data-translate="transaction_type.categorize_tag">Categorize and tag your transaction</p>
                         <small class="text-info">
                             <i class="fas fa-info-circle me-1"></i>
-                            Sequence number will be automatically assigned based on the latest manual balance
+                            <span data-translate="transaction_type.sequence_info">Sequence number will be automatically assigned based on the latest manual balance</span>
                         </small>
                     </div>
                     <div class="row">
                         <div class="col-md-6 mb-3">
-                            <label for="add_category_id" class="form-label">Category</label>
+                            <label for="add_category_id" class="form-label" data-translate="transaction_type.category">Category</label>
                             <select class="form-select" id="add_category_id" name="category_id">
-                                <option value="">Select Category</option>
+                                <option value="" data-translate="transaction_type.select_category">Select Category</option>
                                 {% for category in categories %}
                                 {% if category.name == "Transfer" or category.name == "Balance Adjustment" %}
                                 <option value="{{ category._id }}" disabled>{{ category.name }} (by system only)</option>
@@ -887,7 +1062,7 @@ function updateFromWalletBalance() {
                             </select>
                         </div>
                         <div class="col-md-6 mb-3">
-                            <label for="add_tags" class="form-label">Tags (comma separated)</label>
+                            <label for="add_tags" class="form-label" data-translate="transaction_type.tags_comma_separated">Tags (comma separated)</label>
                             <input type="text" class="form-control" id="add_tags" name="tags" placeholder="food, entertainment, work">
                         </div>
                     </div>
@@ -895,45 +1070,45 @@ function updateFromWalletBalance() {
                 <div id="step5" class="step-content" style="display: none;">
                     <div class="text-center mb-4">
                         <i class="fas fa-money-bill-wave fa-3x text-success mb-3"></i>
-                        <h4>Transaction Amount</h4>
-                        <p class="text-muted">Enter the amount for this transaction</p>
+                        <h4 data-translate="transaction_type.transaction_amount">Transaction Amount</h4>
+                        <p class="text-muted" data-translate="transaction_type.enter_amount">Enter the amount for this transaction</p>
                     </div>
                     <div class="row justify-content-center">
                         <div class="col-md-8">
                             <div class="alert alert-info mb-3" id="balanceInfo" style="display: none;">
                                 <i class="fas fa-wallet me-2"></i>
-                                <strong>Available Balance:</strong> <span id="availableBalance">IDR 0</span>
+                                <strong data-translate="transaction_type.available_balance">Available Balance:</strong> <span id="availableBalance">IDR 0</span>
                                 <br>
-                                <small class="text-muted">For expense transactions, amount cannot exceed available balance</small>
+                                <small class="text-muted" data-translate="transaction_type.expense_limit">For expense transactions, amount cannot exceed available balance</small>
                             </div>
                             <div class="alert alert-danger mb-3" id="balanceWarning" style="display: none;">
                                 <i class="fas fa-exclamation-triangle me-2"></i>
-                                <strong>Insufficient Balance!</strong>
+                                <strong data-translate="transaction_type.insufficient_balance">Insufficient Balance!</strong>
                                 <br>
-                                <span id="balanceWarningText">Amount exceeds available balance</span>
+                                <span id="balanceWarningText" data-translate="transaction_type.amount_exceeds">Amount exceeds available balance</span>
                             </div>
                             <div class="input-group input-group-lg">
                                 <span class="input-group-text">IDR</span>
                                 <input type="text" class="form-control form-control-lg text-center" id="add_amount" name="amount" required placeholder="1.000.000">
                             </div>
-                            <small class="form-text text-muted">Format: 1.000.000 (gunakan titik sebagai separator ribuan)</small>
+                            <small class="form-text text-muted" data-translate="transaction_type.amount_format">Format: 1.000.000 (gunakan titik sebagai separator ribuan)</small>
                         </div>
                     </div>
                 </div>
                 <div id="step6" class="step-content" style="display: none;">
                     <div class="text-center mb-4">
                         <i class="fas fa-calendar-check fa-3x text-primary mb-3"></i>
-                        <h4>Date Confirmation</h4>
-                        <p class="text-muted">Just to make sure, this transaction happened recently, right?</p>
+                        <h4 data-translate="transaction_type.date_confirmation">Date Confirmation</h4>
+                        <p class="text-muted" data-translate="transaction_type.transaction_recent">Just to make sure, this transaction happened recently, right?</p>
                     </div>
                     <div class="row justify-content-center">
                         <div class="col-md-8">
                             <div class="d-grid gap-3">
                                 <button type="button" class="btn btn-outline-primary btn-lg" onclick="confirmRecentTransaction()">
-                                    <i class="fas fa-check me-2"></i>Yes, it's recent
+                                    <i class="fas fa-check me-2"></i><span data-translate="transaction_type.yes_recent">Yes, it's recent</span>
                                 </button>
                                 <button type="button" class="btn btn-outline-secondary btn-lg" onclick="showDatePicker()">
-                                    <i class="fas fa-calendar me-2"></i>No, pick different date
+                                    <i class="fas fa-calendar me-2"></i><span data-translate="transaction_type.no_pick_date">No, pick different date</span>
                                 </button>
                             </div>
                         </div>
@@ -942,12 +1117,12 @@ function updateFromWalletBalance() {
                 <div id="step7" class="step-content" style="display: none;">
                     <div class="text-center mb-4">
                         <i class="fas fa-sticky-note fa-3x text-info mb-3"></i>
-                        <h4>Final Note</h4>
-                        <p class="text-muted">Add any additional notes (optional)</p>
+                        <h4 data-translate="transaction_type.final_note">Final Note</h4>
+                        <p class="text-muted" data-translate="transaction_type.add_notes">Add any additional notes (optional)</p>
                     </div>
                     <div class="row justify-content-center">
                         <div class="col-md-8">
-                            <textarea class="form-control" id="add_note" name="note" rows="4" placeholder="Add any notes about this transaction..."></textarea>
+                            <textarea class="form-control" id="add_note" name="note" rows="4" placeholder="Add any notes about this transaction..." data-translate="transaction_type.notes_placeholder"></textarea>
                         </div>
                     </div>
                 </div>
@@ -958,42 +1133,42 @@ function updateFromWalletBalance() {
             </div>
             <div class="modal-footer">
                 <div id="selectionSummary" class="alert alert-info mb-3 w-100" style="display: none;">
-                    <h6 class="mb-2"><i class="fas fa-info-circle me-2"></i>Selected Options:</h6>
+                    <h6 class="mb-2"><i class="fas fa-info-circle me-2"></i><span data-translate="transaction_type.selected_options">Selected Options:</span></h6>
                     <div class="row">
                         <div class="col-md-6">
                             <div id="summaryScope" class="mb-1" style="display: none;">
-                                <strong>Scope:</strong> <span id="summaryScopeValue">-</span>
+                                <strong data-translate="transaction_type.scope">Scope:</strong> <span id="summaryScopeValue">-</span>
                             </div>
                             <div id="summaryWallet" class="mb-1" style="display: none;">
-                                <strong>Saving Space:</strong> <span id="summaryWalletValue">-</span>
+                                <strong data-translate="transaction_type.saving_space">Saving Space:</strong> <span id="summaryWalletValue">-</span>
                             </div>
                             <div id="summaryType" class="mb-1" style="display: none;">
-                                <strong>Type:</strong> <span id="summaryTypeValue">-</span>
+                                <strong data-translate="transaction_type.type">Type:</strong> <span id="summaryTypeValue">-</span>
                             </div>
                         </div>
                         <div class="col-md-6">
                             <div id="summaryCategory" class="mb-1" style="display: none;">
-                                <strong>Category:</strong> <span id="summaryCategoryValue">-</span>
+                                <strong data-translate="transaction_type.category">Category:</strong> <span id="summaryCategoryValue">-</span>
                             </div>
                             <div id="summaryTags" class="mb-1" style="display: none;">
-                                <strong>Tags:</strong> <span id="summaryTagsValue">-</span>
+                                <strong data-translate="transaction_type.tags">Tags:</strong> <span id="summaryTagsValue">-</span>
                             </div>
                             <div id="summaryAmount" class="mb-1" style="display: none;">
-                                <strong>Amount:</strong> <span id="summaryAmountValue">-</span>
+                                <strong data-translate="transaction_type.amount">Amount:</strong> <span id="summaryAmountValue">-</span>
                             </div>
                         </div>
                     </div>
                 </div>
                 <div class="d-flex gap-2">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" data-translate="transaction_type.cancel">Cancel</button>
                     <button type="button" class="btn btn-secondary" id="prevBtn" onclick="previousStep()" style="display: none;">
-                        <i class="fas fa-arrow-left me-1"></i>Previous
+                        <i class="fas fa-arrow-left me-1"></i><span data-translate="transaction_type.previous">Previous</span>
                     </button>
                     <button type="button" class="btn btn-primary" id="nextBtn" onclick="nextStep()">
-                        Next<i class="fas fa-arrow-right ms-1"></i>
+                        <span data-translate="transaction_type.next">Next</span><i class="fas fa-arrow-right ms-1"></i>
                     </button>
                     <button type="button" class="btn btn-success" id="submitBtn" onclick="submitTransaction()" style="display: none;">
-                        <i class="fas fa-check me-1"></i>Submit Transaction
+                        <i class="fas fa-check me-1"></i><span data-translate="transaction_type.submit_transaction">Submit Transaction</span>
                     </button>
                 </div>
             </div>
@@ -1006,21 +1181,21 @@ function updateFromWalletBalance() {
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title"><i class="fas fa-balance-scale me-2"></i>Modified Balance</h5>
+                <h5 class="modal-title"><i class="fas fa-balance-scale me-2"></i><span data-translate="transaction_type.modified_balance_title">Modified Balance</span></h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
                 <div class="text-center mb-4">
                     <i class="fas fa-balance-scale fa-3x text-warning mb-3"></i>
-                    <h4>Adjust Wallet Balance</h4>
-                    <p class="text-muted">Set the actual balance of your wallet. The difference will be recorded as a transaction.</p>
+                    <h4 data-translate="transaction_type.adjust_wallet_balance">Adjust Wallet Balance</h4>
+                    <p class="text-muted" data-translate="transaction_type.set_actual_balance">Set the actual balance of your wallet. The difference will be recorded as a transaction.</p>
                 </div>
                 <form id="modifiedBalanceForm">
                     <div class="row justify-content-center">
                         <div class="col-md-8 mb-4">
-                            <label for="modify_wallet_id" class="form-label">Select Saving Space</label>
+                            <label for="modify_wallet_id" class="form-label" data-translate="transaction_type.select_saving_space">Select Saving Space</label>
                             <select class="form-select form-select-lg" id="modify_wallet_id" name="wallet_id" required>
-                                <option value="">Select Saving Space</option>
+                                <option value="" data-translate="transaction_type.select_saving_space">Select Saving Space</option>
                                 {% for wallet in wallets %}
                                 <option value="{{ wallet._id }}" data-balance="{{ wallet.actual_balance or 0 }}">{{ wallet.name }} ({{ wallet.type or 'bank' }})</option>
                                 {% endfor %}
@@ -1035,29 +1210,29 @@ function updateFromWalletBalance() {
                     </div>
                     <div class="row justify-content-center">
                         <div class="col-md-8 mb-4">
-                            <label for="modify_amount" class="form-label">New Balance Amount</label>
+                            <label for="modify_amount" class="form-label" data-translate="transaction_type.new_balance_amount">New Balance Amount</label>
                             <div class="input-group input-group-lg">
                                 <span class="input-group-text">IDR</span>
                                 <input type="text" class="form-control form-control-lg text-center" id="modify_amount" name="amount" required placeholder="1.000.000">
                             </div>
-                            <small class="form-text text-muted">Format: 1.000.000 (gunakan titik sebagai separator ribuan)</small>
+                            <small class="form-text text-muted" data-translate="transaction_type.amount_format">Format: 1.000.000 (gunakan titik sebagai separator ribuan)</small>
                         </div>
                     </div>
                     <div class="row justify-content-center">
                         <div class="col-md-8">
                             <div class="alert alert-info" id="balanceDifferenceInfo" style="display: none;">
                                 <i class="fas fa-info-circle me-2"></i>
-                                <strong>Balance Difference:</strong> <span id="balanceDifferenceAmount">IDR 0</span>
+                                <strong data-translate="transaction_type.balance_difference">Balance Difference:</strong> <span id="balanceDifferenceAmount">IDR 0</span>
                                 <br>
-                                <small class="text-muted">This amount will be recorded as a transaction</small>
+                                <small class="text-muted" data-translate="transaction_type.amount_recorded">This amount will be recorded as a transaction</small>
                             </div>
                         </div>
                     </div>
                 </form>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-warning" onclick="submitModifiedBalance()"><i class="fas fa-balance-scale me-1"></i>Update Balance</button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" data-translate="transaction_type.cancel">Cancel</button>
+                <button type="button" class="btn btn-warning" onclick="submitModifiedBalance()"><i class="fas fa-balance-scale me-1"></i><span data-translate="transaction_type.update_balance">Update Balance</span></button>
             </div>
         </div>
     </div>
@@ -1068,21 +1243,21 @@ function updateFromWalletBalance() {
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title"><i class="fas fa-exchange-alt me-2"></i>Transfer Money</h5>
+                <h5 class="modal-title"><i class="fas fa-exchange-alt me-2"></i><span data-translate="transaction_type.transfer_money">Transfer Money</span></h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
                 <div class="text-center mb-4">
                     <i class="fas fa-exchange-alt fa-3x text-info mb-3"></i>
-                    <h4>Transfer Between Wallets</h4>
-                    <p class="text-muted">Move money from one wallet to another with optional admin fee.</p>
+                    <h4 data-translate="transaction_type.transfer_between_wallets">Transfer Between Wallets</h4>
+                    <p class="text-muted" data-translate="transaction_type.move_money">Move money from one wallet to another with optional admin fee.</p>
                 </div>
                 <form id="transferForm">
                     <div class="row justify-content-center">
                         <div class="col-md-5 col-sm-6 mb-4">
-                            <label for="transfer_from_wallet" class="form-label">From Wallet</label>
+                            <label for="transfer_from_wallet" class="form-label" data-translate="transaction_type.from_wallet">From Wallet</label>
                             <select class="form-select form-select-lg" id="transfer_from_wallet" name="from_wallet_id" required>
-                                <option value="">Select Source Wallet</option>
+                                <option value="" data-translate="transaction_type.select_source_wallet">Select Source Wallet</option>
                                 {% for wallet in wallets %}
                                 {% if wallet.actual_balance and wallet.actual_balance > 0 %}
                                 <option value="{{ wallet._id }}" data-balance="{{ wallet.actual_balance or 0 }}">{{ wallet.name }} ({{ wallet.type or 'bank' }})</option>
@@ -1099,9 +1274,9 @@ function updateFromWalletBalance() {
                             </div>
                         </div>
                         <div class="col-md-5 col-sm-6 mb-4">
-                            <label for="transfer_to_wallet" class="form-label">To Wallet</label>
+                            <label for="transfer_to_wallet" class="form-label" data-translate="transaction_type.to_wallet">To Wallet</label>
                             <select class="form-select form-select-lg" id="transfer_to_wallet" name="to_wallet_id" required>
-                                <option value="">Select Destination Wallet</option>
+                                <option value="" data-translate="transaction_type.select_destination_wallet">Select Destination Wallet</option>
                                 {% for wallet in wallets %}
                                 <option value="{{ wallet._id }}">{{ wallet.name }} ({{ wallet.type or 'bank' }})</option>
                                 {% endfor %}
@@ -1110,7 +1285,7 @@ function updateFromWalletBalance() {
                     </div>
                     <div class="row justify-content-center">
                         <div class="col-md-10 mb-4">
-                            <label for="transfer_amount" class="form-label">Transfer Amount</label>
+                            <label for="transfer_amount" class="form-label" data-translate="transaction_type.transfer_amount">Transfer Amount</label>
                             <div class="input-group input-group-lg">
                                 <span class="input-group-text">IDR</span>
                                 <input type="text" class="form-control form-control-lg text-center" id="transfer_amount" name="amount" required placeholder="1.000.000">
@@ -1120,19 +1295,19 @@ function updateFromWalletBalance() {
                     </div>
                     <div class="row justify-content-center">
                         <div class="col-md-10 mb-4">
-                            <label for="transfer_fee" class="form-label">Admin Fee (Optional)</label>
+                            <label for="transfer_fee" class="form-label" data-translate="transaction_type.admin_fee_optional">Admin Fee (Optional)</label>
                             <div class="input-group input-group-lg">
                                 <span class="input-group-text">IDR</span>
                                 <input type="text" class="form-control form-control-lg text-center" id="transfer_fee" name="admin_fee" placeholder="0">
                             </div>
-                            <small class="form-text text-muted">Optional admin fee for the transfer</small>
+                            <small class="form-text text-muted" data-translate="transaction_type.optional_admin_fee">Optional admin fee for the transfer</small>
                         </div>
                     </div>
                 </form>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-info" onclick="submitTransfer()"><i class="fas fa-exchange-alt me-1"></i>Transfer Money</button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" data-translate="transaction_type.cancel">Cancel</button>
+                <button type="button" class="btn btn-info" onclick="submitTransfer()"><i class="fas fa-exchange-alt me-1"></i><span data-translate="transaction_type.transfer_money_btn">Transfer Money</span></button>
             </div>
         </div>
     </div>

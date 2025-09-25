@@ -590,8 +590,8 @@
     <!-- Header -->
     <div class="dashboard-header">
         <div class="welcome-text">
-            <h1>Welcome back, {{ username }}!</h1>
-            <p>Here's your financial overview for <span id="currentDateDisplay">Loading...</span></p>
+            <h1><span data-translate="dashboard.welcome_back">Welcome back,</span> {{ username }}!</h1>
+            <p><span data-translate="dashboard.financial_overview">Here's your financial overview for</span> <span id="currentDateDisplay">Loading...</span></p>
         </div>
         
         <!-- Year, Month, Day Filter and Current Button -->
@@ -599,31 +599,31 @@
             <div class="row g-3 align-items-end">
                 <div class="col-md-3">
                     <label for="yearFilter" class="month-filter-label">
-                        <i class="fas fa-calendar me-2"></i>Year:
+                        <i class="fas fa-calendar me-2"></i><span data-translate="dashboard.year">Year:</span>
                     </label>
                     <select id="yearFilter" class="form-select month-filter-select">
-                        <option value="">Loading years...</option>
+                        <option value="" data-translate="dashboard.loading_years">Loading years...</option>
                     </select>
                 </div>
                 <div class="col-md-3">
                     <label for="monthFilter" class="month-filter-label">
-                        <i class="fas fa-calendar-alt me-2"></i>Month:
+                        <i class="fas fa-calendar-alt me-2"></i><span data-translate="dashboard.month">Month:</span>
                     </label>
                     <select id="monthFilter" class="form-select month-filter-select">
-                        <option value="">Loading months...</option>
+                        <option value="" data-translate="dashboard.loading_months">Loading months...</option>
                     </select>
                 </div>
                 <div class="col-md-3">
                     <label for="dayFilter" class="month-filter-label">
-                        <i class="fas fa-calendar-day me-2"></i>Day:
+                        <i class="fas fa-calendar-day me-2"></i><span data-translate="dashboard.day">Day:</span>
                     </label>
                     <select id="dayFilter" class="form-select month-filter-select">
-                        <option value="">All days</option>
+                        <option value="" data-translate="dashboard.all_days">All days</option>
                     </select>
                 </div>
                 <div class="col-md-3">
                     <button type="button" class="btn btn-outline-light quick-access-btn w-100" id="currentButton">
-                        <i class="fas fa-home me-2"></i>Current
+                        <i class="fas fa-home me-2"></i><span data-translate="dashboard.current">Current</span>
                     </button>
                 </div>
             </div>
@@ -632,7 +632,7 @@
         <!-- Quick Access -->
         <div class="quick-access-container">
             <button type="button" class="btn btn-outline-light quick-access-btn" data-bs-toggle="modal" data-bs-target="#quickAccessModal">
-                <i class="fas fa-bolt me-2"></i>Quick Access
+                <i class="fas fa-bolt me-2"></i><span data-translate="dashboard.quick_access">Quick Access</span>
             </button>
         </div>
     </div>
@@ -646,7 +646,7 @@
                         <i class="fas fa-wallet"></i>
                                 </div>
                     <div class="d-flex align-items-center justify-content-center gap-2 mb-2">
-                        <h5 class="stats-label mb-0">Total Balance</h5>
+                        <h5 class="stats-label mb-0" data-translate="dashboard.total_balance">Total Balance</h5>
                         <button type="button" class="btn btn-sm btn-outline-primary p-1" id="dashboardToggleBalance" style="width: 24px; height: 24px; padding: 0; border-radius: 50%;">
                             <i class="fas fa-eye-slash" id="dashboardBalanceToggleIcon"></i>
                         </button>
@@ -671,7 +671,7 @@
                     <div class="stats-icon">
                         <i class="fas fa-arrow-up"></i>
                                 </div>
-                    <h5 class="stats-label">Income</h5>
+                    <h5 class="stats-label" data-translate="dashboard.income">Income</h5>
                     <h3 class="stats-value">Rp {{ "{:,.0f}".format((total_income|default(0))|float) }}</h3>
                     <!-- Comparison info (yesterday for specific day, previous month for specific month) -->
                     <div id="incomeComparisonInfo" class="yesterday-balance-info" style="display: none;">
@@ -692,7 +692,7 @@
                     <div class="stats-icon">
                         <i class="fas fa-arrow-down"></i>
                                 </div>
-                    <h5 class="stats-label">Expenses</h5>
+                    <h5 class="stats-label" data-translate="dashboard.expenses">Expenses</h5>
                     <h3 class="stats-value">Rp {{ "{:,.0f}".format((total_expenses|default(0))|float) }}</h3>
                     <!-- Comparison info (yesterday for specific day, previous month for specific month) -->
                     <div id="expensesComparisonInfo" class="yesterday-balance-info" style="display: none;">
@@ -713,7 +713,7 @@
                     <div class="stats-icon">
                         <i class="fas fa-list"></i>
                                 </div>
-                    <h5 class="stats-label">Transactions</h5>
+                    <h5 class="stats-label" data-translate="dashboard.transactions">Transactions</h5>
                     <h3 class="stats-value">{{ transaction_count|default(0) }}</h3>
                                 </div>
                             </div>
@@ -728,7 +728,7 @@
                 <div class="card-header">
                     <h5 class="mb-0">
                         <i class="fas fa-chart-line me-2"></i>
-                        <span id="chartTitle">Monthly Overview</span>
+                        <span id="chartTitle" data-translate="dashboard.monthly_overview">Monthly Overview</span>
                     </h5>
                 </div>
                         <div class="card-body">
@@ -745,11 +745,11 @@
                 <div class="card-header d-flex justify-content-between align-items-center">
                     <h5 class="mb-0">
                         <i class="fas fa-clock me-2"></i>
-                        Recent Transactions
+                        <span data-translate="dashboard.recent_transactions">Recent Transactions</span>
                     </h5>
                     <a href="/transactions" class="btn btn-sm btn-outline-action">
-                        <span class="d-none d-sm-inline">View All</span>
-                        <span class="d-inline d-sm-none">All</span>
+                        <span class="d-none d-sm-inline" data-translate="dashboard.view_all">View All</span>
+                        <span class="d-inline d-sm-none" data-translate="dashboard.all">All</span>
                     </a>
                 </div>
                 <div class="card-body p-0">
@@ -795,7 +795,7 @@
                             {% else %}
                         <div class="text-center py-4">
                                 <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
-                            <p class="text-muted mb-0">No transactions yet</p>
+                            <p class="text-muted mb-0" data-translate="dashboard.no_transactions">No transactions yet</p>
                             </div>
                             {% endif %}
                         </div>
@@ -810,7 +810,7 @@
                 <div class="card-header">
                     <h5 class="mb-0">
                         <i class="fas fa-tags me-2"></i>
-                        Top Tags
+                        <span data-translate="dashboard.top_tags">Top Tags</span>
                     </h5>
                 </div>
                 <div class="card-body">
@@ -830,8 +830,8 @@
                     {% else %}
                         <div class="text-center py-4">
                             <i class="fas fa-tags fa-3x text-muted mb-3"></i>
-                            <p class="text-muted mb-0">No tags found</p>
-                            <small class="text-muted">Start adding tags to your transactions to see them here</small>
+                            <p class="text-muted mb-0" data-translate="dashboard.no_tags">No tags found</p>
+                            <small class="text-muted" data-translate="dashboard.start_adding_tags">Start adding tags to your transactions to see them here</small>
                         </div>
                     {% endif %}
                 </div>
@@ -946,6 +946,7 @@ document.addEventListener('DOMContentLoaded', function() {
         initializeDayFilter();
         initializeCurrentButton();
         initializeDashboardBalanceToggle();
+        initializeDashboardLanguage();
     }, 100);
     
     // Prevent zoom and pan gestures on mobile
@@ -1924,6 +1925,154 @@ function initializeDashboardBalanceToggle() {
         });
     }
 }
+
+// Dashboard Language Functions
+function initializeDashboardLanguage() {
+    // Wait for translations to be loaded from layout.html
+    setTimeout(() => {
+        if (window.translations && window.currentLanguage) {
+            translateDashboardPage(window.currentLanguage);
+        }
+    }, 500);
+}
+
+function translateDashboardPage(lang) {
+    if (!window.translations || !window.translations[lang]) return;
+    
+    const translations = window.translations[lang];
+    
+    // Translate static elements
+    const elements = document.querySelectorAll('[data-translate]');
+    elements.forEach(element => {
+        const key = element.getAttribute('data-translate');
+        const keys = key.split('.');
+        let translation = translations;
+        
+        for (const k of keys) {
+            if (translation && translation[k]) {
+                translation = translation[k];
+            } else {
+                translation = null;
+                break;
+            }
+        }
+        
+        if (translation) {
+            element.textContent = translation;
+        }
+    });
+    
+    // Update dynamic text in JavaScript functions
+    updateDynamicTexts(lang);
+}
+
+function updateDynamicTexts(lang) {
+    if (!window.translations || !window.translations[lang]) return;
+    
+    const translations = window.translations[lang];
+    
+    // Update comparison labels
+    const balanceComparisonLabel = document.getElementById('balanceComparisonLabel');
+    const incomeComparisonLabel = document.getElementById('incomeComparisonLabel');
+    const expensesComparisonLabel = document.getElementById('expensesComparisonLabel');
+    
+    if (balanceComparisonLabel && translations.dashboard.yesterday) {
+        balanceComparisonLabel.textContent = translations.dashboard.yesterday;
+    }
+    if (incomeComparisonLabel && translations.dashboard.yesterday) {
+        incomeComparisonLabel.textContent = translations.dashboard.yesterday;
+    }
+    if (expensesComparisonLabel && translations.dashboard.yesterday) {
+        expensesComparisonLabel.textContent = translations.dashboard.yesterday;
+    }
+    
+    // Update improvement texts
+    const balanceImprovementText = document.getElementById('balanceImprovementText');
+    const incomeImprovementText = document.getElementById('incomeImprovementText');
+    const expensesImprovementText = document.getElementById('expensesImprovementText');
+    
+    if (balanceImprovementText && balanceImprovementText.textContent === 'No change') {
+        balanceImprovementText.textContent = translations.dashboard.no_change;
+    }
+    if (incomeImprovementText && incomeImprovementText.textContent === 'No change') {
+        incomeImprovementText.textContent = translations.dashboard.no_change;
+    }
+    if (expensesImprovementText && expensesImprovementText.textContent === 'No change') {
+        expensesImprovementText.textContent = translations.dashboard.no_change;
+    }
+    
+    if (balanceImprovementText && balanceImprovementText.textContent === 'Unable to calculate') {
+        balanceImprovementText.textContent = translations.dashboard.unable_to_calculate;
+    }
+    if (incomeImprovementText && incomeImprovementText.textContent === 'Unable to calculate') {
+        incomeImprovementText.textContent = translations.dashboard.unable_to_calculate;
+    }
+    if (expensesImprovementText && expensesImprovementText.textContent === 'Unable to calculate') {
+        expensesImprovementText.textContent = translations.dashboard.unable_to_calculate;
+    }
+    
+    // Update "No data" text
+    const balanceComparisonAmount = document.getElementById('balanceComparisonAmount');
+    const incomeComparisonAmount = document.getElementById('incomeComparisonAmount');
+    const expensesComparisonAmount = document.getElementById('expensesComparisonAmount');
+    
+    if (balanceComparisonAmount && balanceComparisonAmount.textContent === 'No data') {
+        balanceComparisonAmount.textContent = translations.dashboard.no_data;
+    }
+    if (incomeComparisonAmount && incomeComparisonAmount.textContent === 'No data') {
+        incomeComparisonAmount.textContent = translations.dashboard.no_data;
+    }
+    if (expensesComparisonAmount && expensesComparisonAmount.textContent === 'No data') {
+        expensesComparisonAmount.textContent = translations.dashboard.no_data;
+    }
+}
+
+// Override the updateBalanceComparisonInfo function to use translations
+const originalUpdateBalanceComparisonInfo = updateBalanceComparisonInfo;
+updateBalanceComparisonInfo = function(data) {
+    originalUpdateBalanceComparisonInfo(data);
+    
+    // Update with current language
+    if (window.currentLanguage) {
+        updateDynamicTexts(window.currentLanguage);
+    }
+};
+
+// Override the updateIncomeComparisonInfo function to use translations
+const originalUpdateIncomeComparisonInfo = updateIncomeComparisonInfo;
+updateIncomeComparisonInfo = function(data) {
+    originalUpdateIncomeComparisonInfo(data);
+    
+    // Update with current language
+    if (window.currentLanguage) {
+        updateDynamicTexts(window.currentLanguage);
+    }
+};
+
+// Override the updateExpensesComparisonInfo function to use translations
+const originalUpdateExpensesComparisonInfo = updateExpensesComparisonInfo;
+updateExpensesComparisonInfo = function(data) {
+    originalUpdateExpensesComparisonInfo(data);
+    
+    // Update with current language
+    if (window.currentLanguage) {
+        updateDynamicTexts(window.currentLanguage);
+    }
+};
+
+// Override the updateRecentTransactions function to use translations
+const originalUpdateRecentTransactions = updateRecentTransactions;
+updateRecentTransactions = function(transactions) {
+    originalUpdateRecentTransactions(transactions);
+    
+    // Update "No transactions for this month" text
+    const noTransactionsElement = document.querySelector('.list-group .text-center p');
+    if (noTransactionsElement && noTransactionsElement.textContent.includes('No transactions for this month')) {
+        if (window.translations && window.currentLanguage && window.translations[window.currentLanguage]) {
+            noTransactionsElement.textContent = window.translations[window.currentLanguage].dashboard.no_transactions_month;
+        }
+    }
+};
 </script>
 
 <!-- Quick Access Modal -->
@@ -1932,7 +2081,7 @@ function initializeDashboardBalanceToggle() {
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title" id="quickAccessModalLabel">
-                    <i class="fas fa-bolt me-2"></i>Quick Access
+                    <i class="fas fa-bolt me-2"></i><span data-translate="dashboard.quick_access">Quick Access</span>
                 </h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
@@ -1941,35 +2090,35 @@ function initializeDashboardBalanceToggle() {
                     <!-- Quick Actions -->
                     <div class="col-12">
                         <h6 class="text-muted mb-3">
-                            <i class="fas fa-rocket me-2"></i>Quick Actions
+                            <i class="fas fa-rocket me-2"></i><span data-translate="dashboard.quick_actions">Quick Actions</span>
                         </h6>
                     </div>
                     
                     <div class="col-6 col-md-3">
                         <a href="/transactions" class="btn btn-outline-primary w-100 quick-action-btn">
                             <i class="fas fa-plus-circle mb-2"></i>
-                            <div>Add Transaction</div>
+                            <div data-translate="dashboard.add_transaction">Add Transaction</div>
                         </a>
                     </div>
                     
                     <div class="col-6 col-md-3">
                         <a href="/balance" class="btn btn-outline-success w-100 quick-action-btn">
                             <i class="fas fa-wallet mb-2"></i>
-                            <div>Update Balance</div>
+                            <div data-translate="dashboard.update_balance">Update Balance</div>
                         </a>
                     </div>
                     
                     <div class="col-6 col-md-3">
                         <a href="/goals" class="btn btn-outline-warning w-100 quick-action-btn">
                             <i class="fas fa-bullseye mb-2"></i>
-                            <div>Set Goals</div>
+                            <div data-translate="dashboard.set_goals">Set Goals</div>
                         </a>
                     </div>
                     
                     <div class="col-6 col-md-3">
                         <a href="/settings" class="btn btn-outline-info w-100 quick-action-btn">
                             <i class="fas fa-cog mb-2"></i>
-                            <div>Settings</div>
+                            <div data-translate="navigation.settings">Settings</div>
                         </a>
                     </div>
                     
@@ -1977,7 +2126,7 @@ function initializeDashboardBalanceToggle() {
                 </div>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" data-translate="dashboard.close">Close</button>
             </div>
         </div>
     </div>

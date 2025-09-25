@@ -532,7 +532,7 @@
         <div class="d-flex justify-content-between align-items-center mb-3">
             <div class="d-flex align-items-center gap-2">
                 <i class="fas fa-wallet"></i>
-                <h1 class="h4 mb-0">My Accounts</h1>
+                <h1 class="h4 mb-0" data-translate="accounts.title">My Accounts</h1>
             </div>
             
             <div class="scope-filter-container">
@@ -540,12 +540,12 @@
                     <div class="scope-dropdown-container">
                         <button type="button" class="scope-dropdown-toggle" id="scopeDropdownToggle">
                             <i class="fas fa-globe me-1"></i>
-                            <span id="selectedScopeText">All</span>
+                            <span id="selectedScopeText" data-translate="accounts.all_scopes">All</span>
                             <i class="fas fa-chevron-down"></i>
                         </button>
                         <div class="scope-dropdown-menu" id="scopeDropdownMenu">
                             <button type="button" class="scope-dropdown-item active" data-scope="all">
-                                <i class="fas fa-globe"></i>All
+                                <i class="fas fa-globe"></i><span data-translate="accounts.all_scopes">All</span>
                             </button>
                             <div id="scopeDropdownItems">
                                 <!-- populated by JS -->
@@ -557,7 +557,7 @@
         </div>
         
         <!-- Subtext -->
-        <p class="text-white-50 mb-0">
+        <p class="text-white-50 mb-0" data-translate="accounts.subtitle">
             Manage and view all accounts & wallets
         </p>
     </div>
@@ -573,7 +573,7 @@
                             <i class="fas fa-wallet text-primary"></i>
                         </div>
                     </div>
-                    <p class="stats-label mb-0">Total Accounts</p>
+                    <p class="stats-label mb-0" data-translate="accounts.total_accounts">Total Accounts</p>
                 </div>
             </div>
             <div class="col-md-6">
@@ -590,7 +590,7 @@
                             <i class="fas fa-eye-slash" id="accountsBalanceToggleIcon"></i>
                         </button>
                     </div>
-                    <p class="stats-label mb-0">Total Balance</p>
+                    <p class="stats-label mb-0" data-translate="accounts.total_balance">Total Balance</p>
                 </div>
             </div>          
         </div>
@@ -622,7 +622,7 @@
                         
                         <!-- Click indicator -->
                         <div class="text-center click-indicator">
-                            <i class="fas fa-hand-pointer me-1"></i>Tap to view transactions
+                            <i class="fas fa-hand-pointer me-1"></i><span data-translate="accounts.tap_to_view_transactions">Tap to view transactions</span>
                         </div>
                         
                         <!-- Meta information -->
@@ -657,10 +657,10 @@
         <!-- Empty State -->
         <div class="empty-state">
             <i class="fas fa-wallet"></i>
-            <h3>No Accounts Found</h3>
-            <p>You haven't created any accounts yet. Start by adding your first wallet or bank account.</p>
+            <h3 data-translate="accounts.no_accounts_found">No Accounts Found</h3>
+            <p data-translate="accounts.no_accounts_desc">You haven't created any accounts yet. Start by adding your first wallet or bank account.</p>
             <a href="/settings" class="btn btn-primary">
-                <i class="fas fa-plus me-2"></i>Add Account
+                <i class="fas fa-plus me-2"></i><span data-translate="accounts.add_account">Add Account</span>
             </a>
         </div>
     {% endif %}
@@ -677,6 +677,9 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Initialize scope filter
     initializeScopeFilter();
+    
+    // Initialize language switching
+    initializeAccountsLanguage();
     
     // Add any interactive functionality here if needed
     const accountCards = document.querySelectorAll('.account-card');
@@ -775,7 +778,7 @@ function hideAllBalances() {
 // Scope Filter Functions
 function initializeScopeFilter() {
     // Use scopes passed from template
-    const scopes = {{ scopes|tojson }};
+    const scopes = JSON.parse('{{ scopes|tojson|e }}');
     populateScopeDropdown(scopes);
     
     // Add event listeners to scope dropdown
@@ -869,9 +872,12 @@ function populateScopeDropdown(scopes) {
         });
     } else {
         // Show message if no scopes available
+        const translations = window.translations && window.translations[window.currentLanguage] 
+            ? window.translations[window.currentLanguage].accounts 
+            : {};
         const noScopesMsg = document.createElement('div');
         noScopesMsg.className = 'scope-dropdown-item text-muted';
-        noScopesMsg.textContent = 'No scopes available';
+        noScopesMsg.textContent = translations.no_scopes_available || 'No scopes available';
         noScopesMsg.style.pointerEvents = 'none';
         container.appendChild(noScopesMsg);
     }
@@ -1032,7 +1038,10 @@ function submitAccountTransaction() {
     
     // Validate required fields
     if (!data.scope_id || !data.wallet_id || !data.type || !data.amount) {
-        alert('Please fill in all required fields');
+        const translations = window.translations && window.translations[window.currentLanguage] 
+            ? window.translations[window.currentLanguage].accounts 
+            : {};
+        alert(translations.please_fill_required_fields || 'Please fill in all required fields');
         return;
     }
     
@@ -1043,15 +1052,24 @@ function submitAccountTransaction() {
     })
     .then(r => r.json())
     .then(res => {
+        const translations = window.translations && window.translations[window.currentLanguage] 
+            ? window.translations[window.currentLanguage].accounts 
+            : {};
+        
         if (res._id) {
-            alert('Transaction added successfully!');
+            alert(translations.transaction_added || 'Transaction added successfully!');
             bootstrap.Modal.getInstance(document.getElementById('accountAddTransactionModal')).hide();
             location.reload();
         } else {
-            alert('Failed to add transaction: ' + (res.error || 'Unknown error'));
+            alert((translations.failed_add_transaction || 'Failed to add transaction') + ': ' + (res.error || 'Unknown error'));
         }
     })
-    .catch(() => alert('Failed to add transaction'));
+    .catch(() => {
+        const translations = window.translations && window.translations[window.currentLanguage] 
+            ? window.translations[window.currentLanguage].accounts 
+            : {};
+        alert(translations.failed_add_transaction || 'Failed to add transaction');
+    });
 }
 
 function submitAccountTransfer() {
@@ -1070,13 +1088,17 @@ function submitAccountTransfer() {
     data.admin_fee = parseInt(data.admin_fee.replace(/\./g, '')) || 0;
     
     // Validate required fields
+    const translations = window.translations && window.translations[window.currentLanguage] 
+        ? window.translations[window.currentLanguage].accounts 
+        : {};
+    
     if (!data.from_wallet_id || !data.to_wallet_id || !data.amount) {
-        alert('Please fill in all required fields');
+        alert(translations.please_fill_required_fields || 'Please fill in all required fields');
         return;
     }
     
     if (data.from_wallet_id === data.to_wallet_id) {
-        alert('Source and destination wallets cannot be the same');
+        alert(translations.same_wallets_error || 'Source and destination wallets cannot be the same');
         return;
     }
     
@@ -1087,15 +1109,24 @@ function submitAccountTransfer() {
     })
     .then(r => r.json())
     .then(res => {
+        const translations = window.translations && window.translations[window.currentLanguage] 
+            ? window.translations[window.currentLanguage].accounts 
+            : {};
+        
         if (res.message) {
-            alert('Transfer completed successfully!');
+            alert(translations.transfer_completed || 'Transfer completed successfully!');
             bootstrap.Modal.getInstance(document.getElementById('accountTransferModal')).hide();
             location.reload();
         } else {
-            alert('Failed to complete transfer: ' + (res.error || 'Unknown error'));
+            alert((translations.failed_complete_transfer || 'Failed to complete transfer') + ': ' + (res.error || 'Unknown error'));
         }
     })
-    .catch(() => alert('Failed to complete transfer'));
+    .catch(() => {
+        const translations = window.translations && window.translations[window.currentLanguage] 
+            ? window.translations[window.currentLanguage].accounts 
+            : {};
+        alert(translations.failed_complete_transfer || 'Failed to complete transfer');
+    });
 }
 
 function submitAccountModifiedBalance() {
@@ -1105,8 +1136,12 @@ function submitAccountModifiedBalance() {
     const walletId = formData.get('wallet_id');
     const newAmount = formData.get('amount');
     
+    const translations = window.translations && window.translations[window.currentLanguage] 
+        ? window.translations[window.currentLanguage].accounts 
+        : {};
+    
     if (!walletId || !newAmount) {
-        alert('Please fill in all required fields');
+        alert(translations.please_fill_required_fields || 'Please fill in all required fields');
         return;
     }
     
@@ -1116,7 +1151,7 @@ function submitAccountModifiedBalance() {
     const difference = newBalance - currentBalance;
     
     if (difference === 0) {
-        alert('The new balance is the same as current balance. No changes needed.');
+        alert(translations.balance_same || 'The new balance is the same as current balance. No changes needed.');
         return;
     }
     
@@ -1136,14 +1171,78 @@ function submitAccountModifiedBalance() {
     .then(r => r.json())
     .then(res => {
         if (res.message) {
-            alert('Balance updated successfully!');
+            alert(translations.balance_updated || 'Balance updated successfully!');
             bootstrap.Modal.getInstance(document.getElementById('accountModifiedBalanceModal')).hide();
             location.reload();
         } else {
-            alert('Failed to update balance: ' + (res.error || 'Unknown error'));
+            alert((translations.failed_update_balance || 'Failed to update balance') + ': ' + (res.error || 'Unknown error'));
         }
     })
-    .catch(() => alert('Failed to update balance'));
+    .catch(() => alert(translations.failed_update_balance || 'Failed to update balance'));
+}
+
+// Accounts Language Functions
+function initializeAccountsLanguage() {
+    // Wait for translations to be loaded from layout.html
+    setTimeout(() => {
+        if (window.translations && window.currentLanguage) {
+            translateAccountsPage(window.currentLanguage);
+        }
+    }, 500);
+}
+
+function translateAccountsPage(lang) {
+    if (!window.translations || !window.translations[lang]) return;
+    
+    const translations = window.translations[lang];
+    
+    // Translate static elements
+    const elements = document.querySelectorAll('[data-translate]');
+    elements.forEach(element => {
+        const key = element.getAttribute('data-translate');
+        const keys = key.split('.');
+        let translation = translations;
+        
+        for (const k of keys) {
+            if (translation && translation[k]) {
+                translation = translation[k];
+            } else {
+                translation = null;
+                break;
+            }
+        }
+        
+        if (translation) {
+            if (element.tagName === 'INPUT' && element.type === 'text') {
+                element.placeholder = translation;
+            } else if (element.tagName === 'TEXTAREA') {
+                element.placeholder = translation;
+            } else {
+                element.textContent = translation;
+            }
+        }
+    });
+    
+    // Update dynamic content
+    updateDynamicContent(lang);
+}
+
+function updateDynamicContent(lang) {
+    if (!window.translations || !window.translations[lang]) return;
+    
+    const translations = window.translations[lang];
+    
+    // Update scope dropdown "All" text
+    const selectedScopeText = document.getElementById('selectedScopeText');
+    if (selectedScopeText && selectedScopeText.textContent === 'All') {
+        selectedScopeText.textContent = translations.all_scopes;
+    }
+    
+    // Update "No scopes available" message if it exists
+    const noScopesMsg = document.querySelector('.scope-dropdown-item.text-muted');
+    if (noScopesMsg && noScopesMsg.textContent.includes('No scopes available')) {
+        noScopesMsg.textContent = translations.no_scopes_available;
+    }
 }
 </script>
 
@@ -1153,7 +1252,7 @@ function submitAccountModifiedBalance() {
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title">
-                    <i class="fas fa-plus-circle me-2"></i>Quick Actions
+                    <i class="fas fa-plus-circle me-2"></i><span data-translate="accounts.quick_actions">Quick Actions</span>
                 </h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
@@ -1161,32 +1260,32 @@ function submitAccountModifiedBalance() {
                 <div class="text-center mb-4">
                     <i class="fas fa-wallet fa-3x text-primary mb-3"></i>
                     <h4 id="selectedAccountName">Account Name</h4>
-                    <p class="text-muted">Choose what you want to do with this account</p>
+                    <p class="text-muted" data-translate="accounts.choose_action">Choose what you want to do with this account</p>
                 </div>
                 
                 <div class="row">
                     <div class="col-md-4 mb-3">
                         <button type="button" class="btn btn-outline-primary btn-lg w-100 h-100 d-flex flex-column align-items-center justify-content-center p-4" onclick="showAccountAddTransaction()">
                             <i class="fas fa-plus-circle fa-2x mb-2"></i>
-                            <span>Add Transaction</span>
+                            <span data-translate="accounts.add_transaction">Add Transaction</span>
                         </button>
                     </div>
                     <div class="col-md-4 mb-3">
                         <button type="button" class="btn btn-outline-info btn-lg w-100 h-100 d-flex flex-column align-items-center justify-content-center p-4" onclick="showAccountTransfer()">
                             <i class="fas fa-exchange-alt fa-2x mb-2"></i>
-                            <span>Transfer</span>
+                            <span data-translate="accounts.transfer">Transfer</span>
                         </button>
                     </div>
                     <div class="col-md-4 mb-3">
                         <button type="button" class="btn btn-outline-warning btn-lg w-100 h-100 d-flex flex-column align-items-center justify-content-center p-4" onclick="showAccountModifiedBalance()">
                             <i class="fas fa-balance-scale fa-2x mb-2"></i>
-                            <span>Modified Balance</span>
+                            <span data-translate="accounts.modified_balance">Modified Balance</span>
                         </button>
                     </div>
                 </div>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" data-translate="accounts.cancel">Cancel</button>
             </div>
         </div>
     </div>
@@ -1198,7 +1297,7 @@ function submitAccountModifiedBalance() {
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title">
-                    <i class="fas fa-plus-circle me-2"></i>Add Transaction
+                    <i class="fas fa-plus-circle me-2"></i><span data-translate="accounts.add_transaction_modal">Add Transaction</span>
                 </h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
@@ -1206,18 +1305,18 @@ function submitAccountModifiedBalance() {
                 <form id="accountAddTransactionForm">
                     <div class="row">
                         <div class="col-md-6 mb-3">
-                            <label for="account_add_scope_id" class="form-label">Scope</label>
+                            <label for="account_add_scope_id" class="form-label" data-translate="accounts.scope_label">Scope</label>
                             <select class="form-select" id="account_add_scope_id" name="scope_id" required>
-                                <option value="">Select Scope</option>
+                                <option value="" data-translate="accounts.select_scope">Select Scope</option>
                                 {% for scope in scopes %}
                                 <option value="{{ scope._id }}">{{ scope.name }}</option>
                                 {% endfor %}
                             </select>
                         </div>
                         <div class="col-md-6 mb-3">
-                            <label for="account_add_wallet_id" class="form-label">Saving Space</label>
+                            <label for="account_add_wallet_id" class="form-label" data-translate="accounts.saving_space_label">Saving Space</label>
                             <select class="form-select" id="account_add_wallet_id" name="wallet_id" required>
-                                <option value="">Select Saving Space</option>
+                                <option value="" data-translate="accounts.select_saving_space">Select Saving Space</option>
                                 {% for wallet in wallets %}
                                 <option value="{{ wallet._id }}">{{ wallet.name }} ({{ wallet.type or 'bank' }})</option>
                                 {% endfor %}
@@ -1226,20 +1325,20 @@ function submitAccountModifiedBalance() {
                     </div>
                     <div class="row">
                         <div class="col-md-6 mb-3">
-                            <label for="account_add_type" class="form-label">Transaction Type</label>
+                            <label for="account_add_type" class="form-label" data-translate="accounts.transaction_type_label">Transaction Type</label>
                             <select class="form-select" id="account_add_type" name="type" required>
-                                <option value="">Select Type</option>
-                                <option value="income">Income</option>
-                                <option value="expense">Expense</option>
+                                <option value="" data-translate="accounts.select_type">Select Type</option>
+                                <option value="income" data-translate="accounts.income">Income</option>
+                                <option value="expense" data-translate="accounts.expense">Expense</option>
                             </select>
                         </div>
                         <div class="col-md-6 mb-3">
-                            <label for="account_add_category_id" class="form-label">Category</label>
+                            <label for="account_add_category_id" class="form-label" data-translate="accounts.category_label">Category</label>
                             <select class="form-select" id="account_add_category_id" name="category_id">
-                                <option value="">Select Category</option>
+                                <option value="" data-translate="accounts.select_category">Select Category</option>
                                 {% for category in categories %}
                                 {% if category.name == "Transfer" or category.name == "Balance Adjustment" %}
-                                <option value="{{ category._id }}" disabled>{{ category.name }} (by system only)</option>
+                                <option value="{{ category._id }}" disabled>{{ category.name }} <span data-translate="accounts.by_system_only">(by system only)</span></option>
                                 {% else %}
                                 <option value="{{ category._id }}">{{ category.name }}</option>
                                 {% endif %}
@@ -1249,27 +1348,27 @@ function submitAccountModifiedBalance() {
                     </div>
                     <div class="row">
                         <div class="col-md-6 mb-3">
-                            <label for="account_add_amount" class="form-label">Amount</label>
+                            <label for="account_add_amount" class="form-label" data-translate="accounts.amount_label">Amount</label>
                             <div class="input-group">
                                 <span class="input-group-text">IDR</span>
-                                <input type="text" class="form-control" id="account_add_amount" name="amount" required placeholder="1.000.000">
+                                <input type="text" class="form-control" id="account_add_amount" name="amount" required placeholder="1.000.000" data-translate="accounts.amount_placeholder">
                             </div>
                         </div>
                         <div class="col-md-6 mb-3">
-                            <label for="account_add_tags" class="form-label">Tags (comma separated)</label>
-                            <input type="text" class="form-control" id="account_add_tags" name="tags" placeholder="food, entertainment, work">
+                            <label for="account_add_tags" class="form-label" data-translate="accounts.tags_label">Tags (comma separated)</label>
+                            <input type="text" class="form-control" id="account_add_tags" name="tags" placeholder="food, entertainment, work" data-translate="accounts.tags_placeholder">
                         </div>
                     </div>
                     <div class="mb-3">
-                        <label for="account_add_note" class="form-label">Note (optional)</label>
-                        <textarea class="form-control" id="account_add_note" name="note" rows="3" placeholder="Add any notes about this transaction..."></textarea>
+                        <label for="account_add_note" class="form-label" data-translate="accounts.note_label">Note (optional)</label>
+                        <textarea class="form-control" id="account_add_note" name="note" rows="3" placeholder="Add any notes about this transaction..." data-translate="accounts.note_placeholder"></textarea>
                     </div>
                 </form>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" data-translate="accounts.cancel">Cancel</button>
                 <button type="button" class="btn btn-primary" onclick="submitAccountTransaction()">
-                    <i class="fas fa-check me-1"></i>Add Transaction
+                    <i class="fas fa-check me-1"></i><span data-translate="accounts.add_transaction">Add Transaction</span>
                 </button>
             </div>
         </div>
@@ -1282,7 +1381,7 @@ function submitAccountModifiedBalance() {
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title">
-                    <i class="fas fa-exchange-alt me-2"></i>Transfer Money
+                    <i class="fas fa-exchange-alt me-2"></i><span data-translate="accounts.transfer_money_modal">Transfer Money</span>
                 </h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
@@ -1290,18 +1389,18 @@ function submitAccountModifiedBalance() {
                 <form id="accountTransferForm">
                     <div class="row">
                         <div class="col-md-6 mb-3">
-                            <label for="account_transfer_from_wallet" class="form-label">From Wallet</label>
+                            <label for="account_transfer_from_wallet" class="form-label" data-translate="accounts.from_wallet">From Wallet</label>
                             <select class="form-select" id="account_transfer_from_wallet" name="from_wallet_id" required>
-                                <option value="">Select Source Wallet</option>
+                                <option value="" data-translate="accounts.select_source_wallet">Select Source Wallet</option>
                                 {% for wallet in wallets %}
                                 <option value="{{ wallet._id }}">{{ wallet.name }} ({{ wallet.type or 'bank' }})</option>
                                 {% endfor %}
                             </select>
                         </div>
                         <div class="col-md-6 mb-3">
-                            <label for="account_transfer_to_wallet" class="form-label">To Wallet</label>
+                            <label for="account_transfer_to_wallet" class="form-label" data-translate="accounts.to_wallet">To Wallet</label>
                             <select class="form-select" id="account_transfer_to_wallet" name="to_wallet_id" required>
-                                <option value="">Select Destination Wallet</option>
+                                <option value="" data-translate="accounts.select_destination_wallet">Select Destination Wallet</option>
                                 {% for wallet in wallets %}
                                 <option value="{{ wallet._id }}">{{ wallet.name }} ({{ wallet.type or 'bank' }})</option>
                                 {% endfor %}
@@ -1310,14 +1409,14 @@ function submitAccountModifiedBalance() {
                     </div>
                     <div class="row">
                         <div class="col-md-6 mb-3">
-                            <label for="account_transfer_amount" class="form-label">Transfer Amount</label>
+                            <label for="account_transfer_amount" class="form-label" data-translate="accounts.transfer_amount">Transfer Amount</label>
                             <div class="input-group">
                                 <span class="input-group-text">IDR</span>
-                                <input type="text" class="form-control" id="account_transfer_amount" name="amount" required placeholder="1.000.000">
+                                <input type="text" class="form-control" id="account_transfer_amount" name="amount" required placeholder="1.000.000" data-translate="accounts.amount_placeholder">
                             </div>
                         </div>
                         <div class="col-md-6 mb-3">
-                            <label for="account_transfer_fee" class="form-label">Admin Fee (Optional)</label>
+                            <label for="account_transfer_fee" class="form-label" data-translate="accounts.admin_fee_optional">Admin Fee (Optional)</label>
                             <div class="input-group">
                                 <span class="input-group-text">IDR</span>
                                 <input type="text" class="form-control" id="account_transfer_fee" name="admin_fee" placeholder="0">
@@ -1327,9 +1426,9 @@ function submitAccountModifiedBalance() {
                 </form>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" data-translate="accounts.cancel">Cancel</button>
                 <button type="button" class="btn btn-info" onclick="submitAccountTransfer()">
-                    <i class="fas fa-exchange-alt me-1"></i>Transfer Money
+                    <i class="fas fa-exchange-alt me-1"></i><span data-translate="accounts.transfer_money_btn">Transfer Money</span>
                 </button>
             </div>
         </div>
@@ -1342,7 +1441,7 @@ function submitAccountModifiedBalance() {
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title">
-                    <i class="fas fa-balance-scale me-2"></i>Modified Balance
+                    <i class="fas fa-balance-scale me-2"></i><span data-translate="accounts.modified_balance_modal">Modified Balance</span>
                 </h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
@@ -1350,28 +1449,28 @@ function submitAccountModifiedBalance() {
                 <form id="accountModifiedBalanceForm">
                     <div class="row">
                         <div class="col-md-6 mb-3">
-                            <label for="account_modify_wallet_id" class="form-label">Select Saving Space</label>
+                            <label for="account_modify_wallet_id" class="form-label" data-translate="accounts.select_saving_space">Select Saving Space</label>
                             <select class="form-select" id="account_modify_wallet_id" name="wallet_id" required>
-                                <option value="">Select Saving Space</option>
+                                <option value="" data-translate="accounts.select_saving_space">Select Saving Space</option>
                                 {% for wallet in wallets %}
                                 <option value="{{ wallet._id }}" data-balance="{{ wallet.latest_balance or 0 }}">{{ wallet.name }} ({{ wallet.type or 'bank' }})</option>
                                 {% endfor %}
                             </select>
                         </div>
                         <div class="col-md-6 mb-3">
-                            <label for="account_modify_amount" class="form-label">New Balance Amount</label>
+                            <label for="account_modify_amount" class="form-label" data-translate="accounts.new_balance_amount">New Balance Amount</label>
                             <div class="input-group">
                                 <span class="input-group-text">IDR</span>
-                                <input type="text" class="form-control" id="account_modify_amount" name="amount" required placeholder="1.000.000">
+                                <input type="text" class="form-control" id="account_modify_amount" name="amount" required placeholder="1.000.000" data-translate="accounts.amount_placeholder">
                             </div>
                         </div>
                     </div>
                 </form>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" data-translate="accounts.cancel">Cancel</button>
                 <button type="button" class="btn btn-warning" onclick="submitAccountModifiedBalance()">
-                    <i class="fas fa-balance-scale me-1"></i>Update Balance
+                    <i class="fas fa-balance-scale me-1"></i><span data-translate="accounts.update_balance">Update Balance</span>
                 </button>
             </div>
         </div>

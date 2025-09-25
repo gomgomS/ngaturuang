@@ -375,6 +375,28 @@
         #balanceDisplay:hover {
             transform: translateY(-1px);
         }
+        
+        /* Language Selector Styles */
+        .language-btn {
+            transition: all 0.3s ease !important;
+            border: 2px solid rgba(255, 255, 255, 0.3) !important;
+            background: transparent !important;
+        }
+        
+        .language-btn:hover {
+            background: rgba(255, 255, 255, 0.1) !important;
+            border-color: rgba(255, 255, 255, 0.6) !important;
+            transform: translateY(-1px);
+        }
+        
+        .language-btn.active {
+            background: rgba(255, 255, 255, 0.2) !important;
+            border-color: rgba(255, 255, 255, 0.8) !important;
+        }
+        
+        .language-btn i {
+            font-size: 0.7rem;
+        }
     </style>
     
     {% block head %}{% endblock %}
@@ -405,8 +427,8 @@
                             </div>
                         </div>
                         <div>
-                            <h5 class="mb-0 text-white fw-bold" style="font-size: 1.4rem;">Uangly</h5>
-                            <small class="text-white-50" style="font-size: 0.8rem;">Money Management</small>
+                            <h5 class="mb-0 text-white fw-bold" style="font-size: 1.4rem;" data-translate="app.name">Uangly</h5>
+                            <small class="text-white-50" style="font-size: 0.8rem;" data-translate="app.subtitle">Money Management</small>
                         </div>
                     </div>
                     <button class="btn btn-outline-light btn-sm d-lg-none" id="closeSidebar" style="border-radius: 50%; width: 40px; height: 40px; padding: 0; border: 2px solid rgba(255,255,255,0.3); transition: all 0.3s ease;">
@@ -424,7 +446,7 @@
                             </div>
                         </div>
                         <div class="flex-grow-1">
-                            <div class="text-white-50" style="font-size: 0.85rem; margin-bottom: 0.25rem;">Welcome back,</div>
+                            <div class="text-white-50" style="font-size: 0.85rem; margin-bottom: 0.25rem;" data-translate="sidebar.welcome_back">Welcome back,</div>
                             <div class="text-white fw-bold" style="font-size: 1.1rem;">{{ username or 'User' }}</div>
                         </div>
                     </div>
@@ -434,7 +456,7 @@
                         <div class="d-flex align-items-center justify-content-between mb-2">
                             <div class="d-flex align-items-center">
                                 <i class="fas fa-wallet me-2 text-white-50" style="font-size: 0.9rem;"></i>
-                                <span class="text-white-50" style="font-size: 0.9rem; font-weight: 500;">Total Balance</span>
+                                <span class="text-white-50" style="font-size: 0.9rem; font-weight: 500;" data-translate="sidebar.total_balance">Total Balance</span>
                             </div>
                             <button type="button" class="btn btn-sm btn-outline-light" id="toggleBalance" style="border-radius: 50%; width: 32px; height: 32px; padding: 0; border: 2px solid rgba(255,255,255,0.3); transition: all 0.3s ease;">
                                 <i class="fas fa-eye-slash" id="balanceToggleIcon" style="font-size: 0.8rem;"></i>
@@ -444,44 +466,64 @@
                             ••••••••
                         </div>
                         <div class="text-white-50" style="font-size: 0.75rem; margin-top: 0.25rem;">
-                            <i class="fas fa-shield-alt me-1"></i>Secured & Encrypted
+                            <i class="fas fa-shield-alt me-1"></i><span data-translate="sidebar.secured_encrypted">Secured & Encrypted</span>
                         </div>
                     </div>
                 </div>
                 
                 <nav class="nav flex-column">
                     <a class="nav-link text-white-50 mb-2" href="/dashboard">
-                        <i class="fas fa-tachometer-alt me-2"></i>Dashboard
+                        <i class="fas fa-tachometer-alt me-2"></i><span data-translate="navigation.dashboard">Dashboard</span>
                     </a>
                     <a class="nav-link text-white-50 mb-2" href="/transactions-type">
-                        <i class="fas fa-list me-2"></i>Transactions
+                        <i class="fas fa-list me-2"></i><span data-translate="navigation.transactions">Transactions</span>
                     </a>
                     <!-- <a class="nav-link text-white-50 mb-2" href="/goals">
-                        <i class="fas fa-bullseye me-2"></i>Goals
+                        <i class="fas fa-bullseye me-2"></i><span data-translate="navigation.goals">Goals</span>
                     </a> -->
                     <a class="nav-link text-white-50 mb-2" href="/accounts">
-                        <i class="fas fa-wallet me-2"></i>Accounts
+                        <i class="fas fa-wallet me-2"></i><span data-translate="navigation.accounts">Accounts</span>
                     </a>
                     <!-- <a class="nav-link text-white-50 mb-2" href="/analysis">
-                        <i class="fas fa-chart-line me-2"></i>Balance Analysis
+                        <i class="fas fa-chart-line me-2"></i><span data-translate="navigation.balance_analysis">Balance Analysis</span>
                     </a> -->
                     <!-- <a class="nav-link text-white-50 mb-2" href="/balance">
-                        <i class="fas fa-balance-scale me-2"></i>Balance
+                        <i class="fas fa-balance-scale me-2"></i><span data-translate="navigation.balance">Balance</span>
                     </a> -->
                     <a class="nav-link text-white-50 mb-2" href="/ai-advisor">
-                        <i class="fas fa-robot me-2"></i>AI Advisor
-                        <span class="badge bg-warning text-dark ms-2">Pro</span>
+                        <i class="fas fa-robot me-2"></i><span data-translate="navigation.ai_advisor">AI Advisor</span>
+                        <span class="badge bg-warning text-dark ms-2" data-translate="sidebar.pro_badge">Pro</span>
                     </a>
                     <a class="nav-link text-white-50 mb-2" href="/settings">
-                        <i class="fas fa-cog me-2"></i>Settings
+                        <i class="fas fa-cog me-2"></i><span data-translate="navigation.settings">Settings</span>
                     </a>
                 </nav>
+                
+                <!-- Language Selector -->
+                <div class="mb-4">
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <div class="d-flex align-items-center">
+                            <i class="fas fa-globe me-2 text-white-50" style="font-size: 0.9rem;"></i>
+                            <span class="text-white-50" style="font-size: 0.9rem; font-weight: 500;" data-translate="language.select">Select Language</span>
+                        </div>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <button type="button" class="btn btn-sm btn-outline-light flex-fill language-btn" data-lang="en" style="border-radius: 10px; padding: 0.5rem; font-size: 0.8rem; transition: all 0.3s ease;">
+                            <i class="fas fa-flag-usa me-1"></i>
+                            <span data-translate="language.english">English</span>
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-light flex-fill language-btn" data-lang="id" style="border-radius: 10px; padding: 0.5rem; font-size: 0.8rem; transition: all 0.3s ease;">
+                            <i class="fas fa-flag me-1"></i>
+                            <span data-translate="language.indonesian">Bahasa Indonesia</span>
+                        </button>
+                    </div>
+                </div>
                 
                 <hr class="text-white-50 my-4">
                 
                 <div class="text-center" style="margin-bottom: 10rem;">
                     <a href="/logout" class="btn btn-outline-light btn-sm w-100">
-                        <i class="fas fa-sign-out-alt me-2"></i>Logout
+                        <i class="fas fa-sign-out-alt me-2"></i><span data-translate="navigation.logout">Logout</span>
                     </a>
                 </div>
             </div>
@@ -503,7 +545,7 @@
             <!-- Footer -->
             <footer class="bg-dark text-light text-center py-3 mt-auto">
                 <div class="container">
-                    <small>&copy; 2025 Uangly. Built with ❤️ by taroleague</small>
+                    <small data-translate="footer.copyright">&copy; 2025 Uangly. Built with ❤️ by taroleague</small>
                 </div>
             </footer>
         </div>
@@ -1020,6 +1062,86 @@
         
         quickAddTransactionBtn.addEventListener('mouseleave', function() {
             this.style.transform = 'scale(1)';
+        });
+        
+        // Language switching functionality
+        let currentLanguage = localStorage.getItem('selectedLanguage') || 'en';
+        let translations = {};
+        
+        // Make translations and currentLanguage globally available
+        window.currentLanguage = currentLanguage;
+        window.translations = translations;
+        
+        // Load translations
+        async function loadTranslations(lang) {
+            try {
+                const response = await fetch(`/static/data/${lang}.json`);
+                translations[lang] = await response.json();
+            } catch (error) {
+                console.error(`Error loading ${lang} translations:`, error);
+            }
+        }
+        
+        // Translate text elements
+        function translatePage(lang) {
+            if (!translations[lang]) return;
+            
+            const elements = document.querySelectorAll('[data-translate]');
+            elements.forEach(element => {
+                const key = element.getAttribute('data-translate');
+                const keys = key.split('.');
+                let translation = translations[lang];
+                
+                for (const k of keys) {
+                    if (translation && translation[k]) {
+                        translation = translation[k];
+                    } else {
+                        translation = null;
+                        break;
+                    }
+                }
+                
+                if (translation) {
+                    element.textContent = translation;
+                }
+            });
+            
+            // Update language buttons
+            const languageButtons = document.querySelectorAll('.language-btn');
+            languageButtons.forEach(btn => {
+                if (btn.getAttribute('data-lang') === lang) {
+                    btn.classList.add('active');
+                } else {
+                    btn.classList.remove('active');
+                }
+            });
+        }
+        
+        // Initialize language system
+        async function initializeLanguage() {
+            // Load both language files
+            await loadTranslations('en');
+            await loadTranslations('id');
+            
+            // Set initial language
+            translatePage(currentLanguage);
+            
+            // Add click handlers to language buttons
+            const languageButtons = document.querySelectorAll('.language-btn');
+            languageButtons.forEach(btn => {
+                btn.addEventListener('click', async function() {
+                    const selectedLang = this.getAttribute('data-lang');
+                    currentLanguage = selectedLang;
+                    window.currentLanguage = selectedLang;
+                    localStorage.setItem('selectedLanguage', selectedLang);
+                    translatePage(selectedLang);
+                });
+            });
+        }
+        
+        // Initialize when DOM is loaded
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeLanguage();
         });
     </script>
     
