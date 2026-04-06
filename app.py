@@ -1218,12 +1218,14 @@ def wallet_scope():
     if not wallet_id or not scope_id:
         return redirect("/accounts")
 
-    wallet_repo = WalletRepository()
-    scope_repo  = ScopeRepository()
-    tx_repo     = TransactionRepository()
+    wallet_repo   = WalletRepository()
+    scope_repo    = ScopeRepository()
+    tx_repo       = TransactionRepository()
+    category_repo = CategoryRepository()
 
     wallet = wallet_repo.get_wallet_by_id(wallet_id, user_id)
     scope  = next((s for s in scope_repo.list_by_user(user_id) if s.get("_id") == scope_id), None)
+    categories = category_repo.list_by_user_with_defaults(user_id) or []
 
     # All transactions for this wallet in this scope, oldest first for chart
     all_txs = tx_repo.get_transactions_with_filters(user_id, {"wallet_id": wallet_id, "scope_id": scope_id}, limit=2000)
@@ -1267,6 +1269,7 @@ def wallet_scope():
         transactions=recent_txs,
         wallet_id=wallet_id,
         scope_id=scope_id,
+        categories=categories,
     )
 
 
@@ -1572,6 +1575,79 @@ def accounts():
         current_scope_id=scope_id,
         selected_scope=selected_scope,
     )
+
+@app.route("/all-detail")
+def all_detail():
+    auth_check = require_login()
+    if auth_check:
+        return auth_check
+
+    user_id = session.get("user_id", "demo_user")
+
+    tx_repo       = TransactionRepository()
+    wallet_repo   = WalletRepository()
+    category_repo = CategoryRepository()
+
+    # All transactions sorted oldest-first
+    all_txs = tx_repo.get_transactions_with_filters(user_id, {}, limit=5000)
+    all_txs_sorted = sorted(all_txs,
+        key=lambda t: (t.get("timestamp", 0), t.get("sequence_number", 0)))
+
+    system_cats = {"transfer", "balance_adjustment"}
+    money_txs = [t for t in all_txs_sorted
+                 if t.get("type") != "transfer"
+                 and t.get("category_id") not in system_cats]
+
+    total_income  = sum(float(t.get("amount", 0)) for t in money_txs if t.get("type") == "income")
+    total_expense = sum(float(t.get("amount", 0)) for t in money_txs if t.get("type") == "expense")
+    net = total_income - total_expense
+
+    # Total current balance = sum of actual_balance across all wallets
+    all_wallets = wallet_repo.list_by_user(user_id) or []
+    current_balance = sum(float(w.get("actual_balance", 0)) for w in all_wallets)
+
+    # Base amount = sum of balance_before of the very first transaction per wallet
+    first_tx_per_wallet = {}
+    for t in all_txs_sorted:
+        wid = t.get("wallet_id")
+        if wid and wid not in first_tx_per_wallet:
+            first_tx_per_wallet[wid] = float(t.get("balance_before", 0))
+    base_amount = sum(first_tx_per_wallet.values())
+
+    # Chart points: running total balance across all wallets
+    wallet_balances = {}
+    chart_points = []
+    for t in all_txs_sorted:
+        if t.get("balance_after") is not None:
+            wid = t.get("wallet_id", "")
+            wallet_balances[wid] = float(t.get("balance_after", 0))
+            chart_points.append({
+                "ts":     t.get("timestamp", 0),
+                "bal":    sum(wallet_balances.values()),
+                "type":   t.get("type", ""),
+                "amount": float(t.get("amount", 0)),
+            })
+
+    recent_txs = list(reversed(money_txs))
+    categories = category_repo.list_by_user_with_defaults(user_id) or []
+
+    return render_template(
+        "wallet_scope.html",
+        wallet={"name": "All Wallets", "type": "all"},
+        scope={"name": "All Scopes"},
+        base_amount=base_amount,
+        current_balance=current_balance,
+        total_income=total_income,
+        total_expense=total_expense,
+        net=net,
+        chart_points=chart_points,
+        transactions=recent_txs,
+        wallet_id="",
+        scope_id="",
+        is_all_view=True,
+        categories=categories,
+    )
+
 
 @app.route("/test-data")
 def test_data():

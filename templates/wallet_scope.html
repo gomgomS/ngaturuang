@@ -76,16 +76,16 @@ body { background: linear-gradient(135deg, #0f2027 0%, #203a43 50%, #2c5364 100%
 
 /* ── Chart card ── */
 .chart-card {
-    background: rgba(255,255,255,0.06);
+    background: rgba(255,255,255,0.04);
     backdrop-filter: blur(12px);
-    border: 1px solid rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.12);
     border-radius: 20px;
     padding: 1.5rem;
     margin-bottom: 1.5rem;
     color: white;
 }
 .chart-card h6 { font-size: 0.9rem; font-weight: 600; opacity: 0.85; margin-bottom: 1rem; }
-.chart-wrap { position: relative; height: 220px; }
+.chart-wrap { position: relative; height: 240px; }
 
 /* ── Transaction list ── */
 .tx-card {
@@ -158,7 +158,7 @@ body { background: linear-gradient(135deg, #0f2027 0%, #203a43 50%, #2c5364 100%
         <div class="ws-header-inner">
             <!-- top row: back + global toggle -->
             <div class="d-flex align-items-center justify-content-between mb-3">
-                <a href="/accounts?scope_id={{ scope_id }}" class="ws-back-btn" style="margin-bottom:0;">
+                <a href="{% if is_all_view %}/accounts{% else %}/accounts?scope_id={{ scope_id or '' }}{% endif %}" class="ws-back-btn" style="margin-bottom:0;">
                     <i class="fas fa-arrow-left"></i> Back
                 </a>
                 <div class="mode-toggle">
@@ -166,7 +166,7 @@ body { background: linear-gradient(135deg, #0f2027 0%, #203a43 50%, #2c5364 100%
                         <i class="fas fa-database me-1"></i>With Base
                     </button>
                     <button id="btnScopeOnly" class="toggle-btn" onclick="setMode('scope')">
-                        <i class="fas fa-seedling me-1"></i>Scope Only
+                        <i class="fas fa-seedling me-1"></i>{% if is_all_view %}Net Flow{% else %}Scope Only{% endif %}
                     </button>
                 </div>
             </div>
@@ -175,11 +175,11 @@ body { background: linear-gradient(135deg, #0f2027 0%, #203a43 50%, #2c5364 100%
             <div class="d-flex align-items-end gap-3 flex-wrap">
                 <div>
                     <h2 class="ws-wallet-name">
-                        <i class="fas fa-{% if wallet.type == 'bank' %}university{% elif wallet.type == 'ewallet' %}mobile-alt{% elif wallet.type == 'cash' %}money-bill-wave{% elif wallet.type == 'crypto' %}coins{% else %}wallet{% endif %} me-2" style="opacity:0.8;"></i>
+                        <i class="fas fa-{% if is_all_view %}layer-group{% elif wallet.type == 'bank' %}university{% elif wallet.type == 'ewallet' %}mobile-alt{% elif wallet.type == 'cash' %}money-bill-wave{% elif wallet.type == 'crypto' %}coins{% else %}wallet{% endif %} me-2" style="opacity:0.8;"></i>
                         {{ wallet.name if wallet else 'Account' }}
                     </h2>
                     <div class="ws-scope-badge">
-                        <i class="fas fa-tag" style="font-size:0.7rem;"></i>
+                        <i class="fas fa-{% if is_all_view %}globe{% else %}tag{% endif %}" style="font-size:0.7rem;"></i>
                         {{ scope.name if scope else 'Scope' }}
                     </div>
                 </div>
@@ -261,7 +261,7 @@ body { background: linear-gradient(135deg, #0f2027 0%, #203a43 50%, #2c5364 100%
 
     <!-- ── Transaction list ── -->
     <div class="tx-card">
-        <h6><i class="fas fa-list me-2"></i>Transactions in this scope ({{ transactions|length }})</h6>
+        <h6><i class="fas fa-list me-2"></i>{% if is_all_view %}All Transactions{% else %}Transactions in this scope{% endif %} ({{ transactions|length }})</h6>
         {% if transactions %}
             {% for tx in transactions %}
             <div class="tx-row">
@@ -323,10 +323,13 @@ body { background: linear-gradient(135deg, #0f2027 0%, #203a43 50%, #2c5364 100%
         const data    = isWith ? balances : scopeOnly;
         const minV    = Math.min(...data);
         const maxV    = Math.max(...data);
-        const color   = isWith ? '#667eea' : '#48c78e';
-        const grad    = isWith
-            ? makeGrad('rgba(102,126,234,0.45)', 'rgba(102,126,234,0.02)')
-            : makeGrad('rgba(72,199,142,0.4)',   'rgba(72,199,142,0.02)');
+
+        // Vivid, high-contrast colors
+        const color     = isWith ? '#38bdf8' : '#4ade80';   // sky-blue / bright-green
+        const glowColor = isWith ? 'rgba(56,189,248,0.6)'  : 'rgba(74,222,128,0.6)';
+        const grad      = isWith
+            ? makeGrad('rgba(56,189,248,0.35)',  'rgba(56,189,248,0.0)')
+            : makeGrad('rgba(74,222,128,0.35)',  'rgba(74,222,128,0.0)');
 
         if (chart) chart.destroy();
 
@@ -335,18 +338,22 @@ body { background: linear-gradient(135deg, #0f2027 0%, #203a43 50%, #2c5364 100%
             data: {
                 labels,
                 datasets: [{
-                    label: isWith ? 'Balance' : 'Scope Growth',
+                    label: isWith ? 'Balance' : 'Net Growth',
                     data,
                     borderColor: color,
-                    borderWidth: 2.5,
+                    borderWidth: 3,
                     backgroundColor: grad,
                     fill: true,
-                    tension: 0.35,
-                    pointRadius: points.length <= 30 ? 4 : 0,
-                    pointHoverRadius: 6,
-                    pointBackgroundColor: '#fff',
-                    pointBorderColor: color,
+                    tension: 0.4,
+                    pointRadius: points.length <= 60 ? 4 : 0,
+                    pointHoverRadius: 7,
+                    pointBackgroundColor: color,
+                    pointBorderColor: '#fff',
                     pointBorderWidth: 2,
+                    // glow via shadow plugin workaround
+                    segment: {
+                        borderColor: ctx => color,
+                    },
                 }]
             },
             options: {
@@ -356,29 +363,32 @@ body { background: linear-gradient(135deg, #0f2027 0%, #203a43 50%, #2c5364 100%
                 plugins: {
                     legend: { display: false },
                     tooltip: {
-                        backgroundColor: 'rgba(20,20,40,0.9)',
-                        titleColor: '#ccc',
+                        backgroundColor: 'rgba(10,15,30,0.95)',
+                        titleColor: 'rgba(255,255,255,0.6)',
                         bodyColor: '#fff',
-                        padding: 12,
+                        borderColor: color,
+                        borderWidth: 1,
+                        padding: 14,
                         callbacks: {
                             label: c => {
                                 const v = c.parsed.y;
                                 const prefix = (!isWith && v >= 0) ? '+' : '';
-                                return prefix + 'Rp ' + v.toLocaleString('id-ID');
+                                return ' ' + prefix + 'Rp ' + v.toLocaleString('id-ID');
                             }
                         }
                     }
                 },
                 scales: {
                     x: {
-                        grid:  { color: 'rgba(255,255,255,0.06)' },
-                        ticks: { color: 'rgba(255,255,255,0.5)', font: { size: 11 },
+                        grid:  { color: 'rgba(255,255,255,0.05)', drawBorder: false },
+                        ticks: { color: 'rgba(255,255,255,0.45)', font: { size: 11 },
                                  maxTicksLimit: 8, maxRotation: 0 },
+                        border: { display: false },
                     },
                     y: {
-                        grid:  { color: 'rgba(255,255,255,0.06)' },
+                        grid:  { color: 'rgba(255,255,255,0.05)', drawBorder: false },
                         ticks: {
-                            color: 'rgba(255,255,255,0.5)', font: { size: 11 },
+                            color: 'rgba(255,255,255,0.45)', font: { size: 11 },
                             callback: v => {
                                 const abs = Math.abs(v);
                                 const sign = v < 0 ? '-' : ((!isWith && v > 0) ? '+' : '');
@@ -387,11 +397,24 @@ body { background: linear-gradient(135deg, #0f2027 0%, #203a43 50%, #2c5364 100%
                                 return sign + 'Rp ' + abs;
                             }
                         },
+                        border: { display: false },
                         suggestedMin: isWith ? minV * 0.98 : Math.min(minV * 1.1, minV - Math.abs(minV) * 0.05),
                         suggestedMax: maxV * 1.02,
                     }
                 }
-            }
+            },
+            plugins: [{
+                // Draw a soft glow behind the line
+                id: 'lineGlow',
+                beforeDatasetsDraw(chart) {
+                    chart.ctx.save();
+                    chart.ctx.shadowColor  = glowColor;
+                    chart.ctx.shadowBlur   = 16;
+                },
+                afterDatasetsDraw(chart) {
+                    chart.ctx.restore();
+                }
+            }]
         });
     }
 
@@ -436,6 +459,15 @@ body { background: linear-gradient(135deg, #0f2027 0%, #203a43 50%, #2c5364 100%
     const txs      = {{ transactions | tojson }};
     const baseAmt  = {{ base_amount }};
     const totalExp = {{ total_expense }};
+
+    // Build id → name lookup from DB categories
+    const catDb    = {{ (categories or []) | tojson }};
+    const catNames = {};
+    catDb.forEach(c => {
+        const id   = c._id || c.id || '';
+        const name = c.name || id;
+        if (id) catNames[String(id)] = name;
+    });
 
     const PALETTE = [
         '#667eea','#48c78e','#ff6464','#f7c948','#0dcaf0',
@@ -500,13 +532,19 @@ body { background: linear-gradient(135deg, #0f2027 0%, #203a43 50%, #2c5364 100%
         });
     }
 
+    // ── helper: resolve category name ────────────────────────────────────────
+    function resolveCatName(tx) {
+        if (tx._snap && tx._snap.category_path && tx._snap.category_path.length)
+            return tx._snap.category_path[tx._snap.category_path.length - 1];
+        const id = String(tx.category_id || '');
+        return catNames[id] || id || 'Uncategorized';
+    }
+
     // ── 1. By Category (expense only) ────────────────────────────────────────
     const catMap = {};
     txs.forEach(tx => {
         if (tx.type !== 'expense') return;
-        const name = (tx._snap && tx._snap.category_path && tx._snap.category_path.length)
-            ? tx._snap.category_path[tx._snap.category_path.length - 1]
-            : (tx.category_id || 'Uncategorized');
+        const name = resolveCatName(tx);
         if (!catMap[name]) catMap[name] = { amt: 0, count: 0 };
         catMap[name].amt   += parseFloat(tx.amount || 0);
         catMap[name].count += 1;
