@@ -1277,6 +1277,227 @@ def comparison():
         return auth_check
     return render_template("comparison.html")
 
+@app.route("/wealth-pulse")
+def wealth_pulse_page():
+    auth_check = require_login()
+    if auth_check:
+        return auth_check
+    return render_template("wealth_pulse.html")
+
+
+@app.route("/api/wealth-pulse")
+def api_wealth_pulse():
+    """Wealth Pulse: full wealth-growth analysis between two specific dates."""
+    try:
+        from datetime import timedelta
+
+        user_id = session.get("user_id")
+        if not user_id:
+            return jsonify({"error": "Not authenticated"}), 401
+
+        date_a_str = request.args.get("date_a")
+        date_b_str = request.args.get("date_b")
+        if not date_a_str or not date_b_str:
+            return jsonify({"error": "date_a and date_b are required"}), 400
+
+        date_a = datetime.strptime(date_a_str, "%Y-%m-%d")
+        date_b = datetime.strptime(date_b_str, "%Y-%m-%d")
+        if date_b <= date_a:
+            return jsonify({"error": "End date must be after start date"}), 400
+
+        days = (date_b - date_a).days
+
+        # End-of-day Unix timestamps
+        ts_a_end   = int((date_a + timedelta(days=1)).timestamp()) - 1
+        ts_b_end   = int((date_b + timedelta(days=1)).timestamp()) - 1
+        ts_a_start = int(date_a.timestamp())
+
+        # ── Wealth snapshots ────────────────────────────────────────────
+        raw_a = calculate_balance_from_transactions(user_id, ts_a_end)
+        raw_b = calculate_balance_from_transactions(user_id, ts_b_end)
+        wealth_a = float(raw_a) if raw_a != "-" else 0.0
+        wealth_b = float(raw_b) if raw_b != "-" else 0.0
+
+        wealth_change     = wealth_b - wealth_a
+        wealth_change_pct = pct_change(wealth_a, wealth_b)
+        daily_growth      = wealth_change / days if days > 0 else 0
+
+        # ── Period cashflow ─────────────────────────────────────────────
+        tx_repo   = TransactionRepository()
+        period_txs = tx_repo.get_user_transactions_by_date_range(
+            user_id, ts_a_start, ts_b_end, limit=10000)
+        system_cats = {"transfer", "balance_adjustment"}
+        money_txs = [t for t in period_txs
+                     if t.get("type") != "transfer"
+                     and t.get("category_id") not in system_cats]
+
+        total_income  = sum(float(t.get("amount", 0)) for t in money_txs if t.get("type") == "income")
+        total_expense = sum(float(t.get("amount", 0)) for t in money_txs if t.get("type") == "expense")
+        net_cashflow  = total_income - total_expense
+        savings_rate  = round((net_cashflow / total_income * 100) if total_income > 0 else 0, 1)
+        burn_rate     = round(total_expense / days, 0) if days > 0 else 0
+        income_vel    = round(total_income  / days, 0) if days > 0 else 0
+
+        # ── Category breakdown ──────────────────────────────────────────
+        cat_income, cat_expense = {}, {}
+        for t in money_txs:
+            snap = t.get("_snap") or {}
+            path = snap.get("category_path") or []
+            name = path[-1] if path else (t.get("category_id") or "Uncategorized")
+            amt  = float(t.get("amount", 0))
+            if t.get("type") == "income":
+                cat_income[name]  = cat_income.get(name, 0) + amt
+            elif t.get("type") == "expense":
+                cat_expense[name] = cat_expense.get(name, 0) + amt
+
+        top_income  = sorted([{"name": k, "amount": v} for k, v in cat_income.items()],
+                              key=lambda x: x["amount"], reverse=True)[:6]
+        top_expense = sorted([{"name": k, "amount": v} for k, v in cat_expense.items()],
+                              key=lambda x: x["amount"], reverse=True)[:6]
+
+        # ── Per-wallet breakdown ────────────────────────────────────────
+        wallet_repo = WalletRepository()
+        wallets     = wallet_repo.list_by_user(user_id)
+        wallet_breakdown = []
+        for w in wallets:
+            wid   = str(w.get("_id", ""))
+            bal_a = get_latest_wallet_balance(user_id, wid, ts_a_end)
+            bal_b = get_latest_wallet_balance(user_id, wid, ts_b_end)
+            bal_a = float(bal_a) if bal_a is not None else 0.0
+            bal_b = float(bal_b) if bal_b is not None else 0.0
+            if bal_a == 0 and bal_b == 0:
+                continue
+            wallet_breakdown.append({
+                "name":       w.get("name", ""),
+                "type":       w.get("type", "bank"),
+                "balance_a":  bal_a,
+                "balance_b":  bal_b,
+                "change":     bal_b - bal_a,
+                "change_pct": pct_change(bal_a, bal_b),
+            })
+        wallet_breakdown.sort(key=lambda x: abs(x["change"]), reverse=True)
+
+        # ── Wealth Score (0–100) ────────────────────────────────────────
+        # Savings Rate  → max 35 pts  (target ≥ 30 %)
+        # Wealth Growth → max 30 pts  (target ≥ 5 % / 30 days)
+        # Expense Ctrl  → max 20 pts  (income > expense)
+        # Activity      → max 15 pts  (≥ 2 tx/day)
+        score_savings = min(35, max(0, (savings_rate / 30) * 35)) if savings_rate > 0 else 0
+        monthly_growth = (wealth_change_pct or 0) / days * 30 if days > 0 else 0
+        score_growth   = min(30, max(0, (monthly_growth / 5) * 30))
+        if net_cashflow >= 0:
+            score_ctrl = 20
+        elif total_expense > 0:
+            score_ctrl = max(0, 20 + (net_cashflow / total_expense * 20))
+        else:
+            score_ctrl = 0
+        tx_per_day     = len(money_txs) / days if days > 0 else 0
+        score_activity = min(15, tx_per_day * 7.5)
+        wealth_score   = round(score_savings + score_growth + score_ctrl + score_activity)
+
+        if wealth_score >= 80:
+            score_label, score_color = "Excellent",        "#48c78e"
+        elif wealth_score >= 60:
+            score_label, score_color = "Good",             "#a3e635"
+        elif wealth_score >= 40:
+            score_label, score_color = "Fair",             "#f7c948"
+        elif wealth_score >= 20:
+            score_label, score_color = "Needs Work",       "#fb923c"
+        else:
+            score_label, score_color = "Needs Attention",  "#ff6464"
+
+        # ── Projections ─────────────────────────────────────────────────
+        projections = {str(h): round(wealth_b + daily_growth * h)
+                       for h in [30, 90, 180, 365]}
+
+        # ── Expert insights ─────────────────────────────────────────────
+        insights = []
+        if savings_rate >= 20:
+            insights.append({"type": "positive", "icon": "piggy-bank",
+                "text": f"Strong savings discipline — {savings_rate:.1f}% of income preserved. "
+                        f"Keep this rate and your wealth compounds quickly."})
+        elif savings_rate > 0:
+            insights.append({"type": "warning", "icon": "piggy-bank",
+                "text": f"Savings rate is {savings_rate:.1f}%. Financial planners recommend "
+                        f"≥20%. Cutting 10–15% of your top expense category could close the gap."})
+        else:
+            insights.append({"type": "danger", "icon": "exclamation-triangle",
+                "text": "Expenses exceeded income this period. This is unsustainable long-term — "
+                        "your top spending category should be reviewed immediately."})
+
+        if monthly_growth >= 3:
+            insights.append({"type": "positive", "icon": "chart-line",
+                "text": f"Wealth growing at ≈{monthly_growth:.1f}%/month — "
+                        f"outpacing inflation (typical 0.3–0.5%/month). Excellent trajectory."})
+        elif monthly_growth > 0:
+            insights.append({"type": "info", "icon": "chart-line",
+                "text": f"Wealth growing at ≈{monthly_growth:.1f}%/month. "
+                        f"At this rate your wealth doubles in ~{round(70/monthly_growth)} months."})
+        elif wealth_change < 0:
+            insights.append({"type": "danger", "icon": "arrow-trend-down",
+                "text": "Net wealth declined this period. Unless this was planned (investment, large purchase), "
+                        "rebalancing income vs. expenses is critical."})
+
+        if burn_rate > 0 and income_vel > 0:
+            ratio = burn_rate / income_vel
+            if ratio > 0.8:
+                insights.append({"type": "warning", "icon": "fire",
+                    "text": f"Burn ratio {ratio*100:.0f}% — nearly all income is consumed by expenses daily. "
+                            f"Build a buffer of at least 3× monthly expenses."})
+            elif ratio < 0.5:
+                insights.append({"type": "positive", "icon": "shield-halved",
+                    "text": f"Burn ratio {ratio*100:.0f}% — healthy. You're spending less than half "
+                            f"your daily income. Financial resilience is high."})
+
+        if top_expense:
+            top = top_expense[0]
+            share = top["amount"] / total_expense * 100 if total_expense > 0 else 0
+            if share > 35:
+                insights.append({"type": "warning", "icon": "triangle-exclamation",
+                    "text": f"'{top['name']}' consumes {share:.0f}% of all expenses. "
+                            f"High concentration risk — diversify or cap this category."})
+
+        if days < 14:
+            insights.append({"type": "info", "icon": "clock",
+                "text": f"Window is only {days} days — short windows amplify noise. "
+                        f"Use 30-90 days for a reliable wealth trend signal."})
+        elif days >= 90:
+            insights.append({"type": "positive", "icon": "calendar-check",
+                "text": f"{days}-day analysis window provides high statistical confidence "
+                        f"in the trends shown above."})
+
+        return jsonify({
+            "date_a": date_a_str,
+            "date_b": date_b_str,
+            "days": days,
+            "wealth_a": wealth_a,
+            "wealth_b": wealth_b,
+            "wealth_change": wealth_change,
+            "wealth_change_pct": wealth_change_pct,
+            "daily_growth": daily_growth,
+            "total_income": total_income,
+            "total_expense": total_expense,
+            "net_cashflow": net_cashflow,
+            "savings_rate": savings_rate,
+            "burn_rate": burn_rate,
+            "income_velocity": income_vel,
+            "top_income": top_income,
+            "top_expense": top_expense,
+            "wallet_breakdown": wallet_breakdown,
+            "wealth_score": wealth_score,
+            "score_label": score_label,
+            "score_color": score_color,
+            "projections": projections,
+            "insights": insights,
+            "tx_count": len(money_txs),
+        })
+
+    except Exception as e:
+        print(f"Error in api_wealth_pulse: {e}")
+        import traceback; traceback.print_exc()
+        return jsonify({"error": "Internal server error"}), 500
+
+
 @app.route("/accounts")
 def accounts():
     # Check authentication

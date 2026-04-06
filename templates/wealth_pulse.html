@@ -1,0 +1,696 @@
+{% extends "layout.html" %}
+
+{% block head %}
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+* { font-family: 'Inter', sans-serif; box-sizing: border-box; }
+body { background: #0b0f1a; min-height: 100vh; }
+
+/* ── Container ── */
+.wp-wrap { padding: 1.5rem; max-width: 1200px; margin: 0 auto; }
+
+/* ── Header ── */
+.wp-header {
+    background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #0f172a 100%);
+    border: 1px solid rgba(139,92,246,0.3);
+    border-radius: 24px;
+    padding: 2rem;
+    margin-bottom: 1.5rem;
+    position: relative;
+    overflow: hidden;
+}
+.wp-header::before {
+    content:'';position:absolute;inset:0;
+    background: radial-gradient(ellipse at 70% 50%, rgba(139,92,246,0.15) 0%, transparent 60%);
+    pointer-events:none;
+}
+.wp-header-inner { position:relative;z-index:1; }
+.wp-title { font-size:2rem;font-weight:800;color:#fff;margin:0; }
+.wp-sub   { color:rgba(255,255,255,0.55);font-size:0.95rem;margin:0.25rem 0 0; }
+.back-btn {
+    display:inline-flex;align-items:center;gap:0.4rem;
+    background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.18);
+    color:rgba(255,255,255,0.8);border-radius:10px;padding:0.4rem 1rem;
+    font-size:0.85rem;font-weight:500;text-decoration:none;transition:all .2s;
+    margin-bottom:1.25rem;
+}
+.back-btn:hover { background:rgba(255,255,255,0.15);color:#fff; }
+
+/* ── Date picker card ── */
+.picker-card {
+    background: #111827;
+    border: 1px solid rgba(139,92,246,0.25);
+    border-radius: 20px;
+    padding: 1.75rem;
+    margin-bottom: 1.5rem;
+}
+.picker-label {
+    font-size:0.75rem;font-weight:700;text-transform:uppercase;
+    letter-spacing:.06em;margin-bottom:.5rem;
+}
+.picker-label.start { color:#818cf8; }
+.picker-label.end   { color:#a78bfa; }
+.wp-date-input {
+    width:100%;padding:.75rem 1rem;border:2px solid rgba(139,92,246,0.3);
+    border-radius:12px;background:#0f172a;color:#fff;font-size:1rem;
+    font-family:inherit;transition:border-color .2s;
+}
+.wp-date-input:focus { outline:none;border-color:#8b5cf6; }
+.wp-date-input::-webkit-calendar-picker-indicator { filter:invert(1);opacity:.5; }
+.arrow-div { display:flex;align-items:center;justify-content:center;padding-top:1.5rem; }
+.arrow-badge {
+    width:44px;height:44px;border-radius:50%;
+    background:linear-gradient(135deg,#8b5cf6,#a78bfa);
+    display:flex;align-items:center;justify-content:center;
+    color:#fff;font-size:1rem;flex-shrink:0;
+}
+.btn-analyze {
+    width:100%;margin-top:1.25rem;padding:.9rem 2rem;
+    background:linear-gradient(135deg,#8b5cf6 0%,#a78bfa 100%);
+    color:#fff;border:none;border-radius:14px;
+    font-size:1rem;font-weight:700;cursor:pointer;
+    transition:all .3s;box-shadow:0 8px 25px rgba(139,92,246,0.35);
+}
+.btn-analyze:hover { transform:translateY(-2px);box-shadow:0 12px 35px rgba(139,92,246,0.5); }
+.btn-analyze:disabled { opacity:.5;cursor:not-allowed;transform:none; }
+
+/* ── Result area ── */
+#resultSection { display:none; }
+
+/* ── Score ring ── */
+.score-card {
+    background: linear-gradient(135deg,#1e1b4b 0%,#0f172a 100%);
+    border:1px solid rgba(139,92,246,0.3);
+    border-radius:24px;padding:2rem;text-align:center;
+    margin-bottom:1.5rem;
+}
+.score-ring-wrap { position:relative;width:180px;height:180px;margin:0 auto 1.25rem; }
+.score-ring-wrap svg { transform:rotate(-90deg); }
+.score-center {
+    position:absolute;inset:0;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;
+}
+.score-number { font-size:2.8rem;font-weight:800;color:#fff;line-height:1; }
+.score-max    { font-size:0.8rem;color:rgba(255,255,255,0.4);margin-top:2px; }
+.score-label-text { font-size:1.1rem;font-weight:700;margin-top:.5rem; }
+.score-desc { font-size:.82rem;color:rgba(255,255,255,.5);margin-top:.4rem; }
+
+/* ── Key metrics grid ── */
+.metrics-grid {
+    display:grid;gap:1rem;margin-bottom:1.5rem;
+    grid-template-columns:repeat(2,1fr);
+}
+@media(min-width:640px){ .metrics-grid{grid-template-columns:repeat(3,1fr);} }
+@media(min-width:992px){ .metrics-grid{grid-template-columns:repeat(6,1fr);} }
+.metric-card {
+    background:#111827;border-radius:16px;padding:1.1rem 1rem;
+    border:1px solid rgba(255,255,255,0.07);
+}
+.mc-label { font-size:.7rem;font-weight:600;text-transform:uppercase;letter-spacing:.05em;opacity:.5;color:#fff;margin-bottom:.4rem; }
+.mc-value { font-size:1rem;font-weight:700;color:#fff;line-height:1.1; }
+.mc-sub   { font-size:.68rem;opacity:.45;color:#fff;margin-top:.2rem; }
+.mc-up   { color:#48c78e; }
+.mc-down { color:#ff6464; }
+.mc-neu  { color:#94a3b8; }
+
+/* ── Wealth change headline ── */
+.wealth-headline {
+    background:#111827;border:1px solid rgba(255,255,255,0.07);
+    border-radius:20px;padding:1.5rem 2rem;margin-bottom:1.5rem;
+    display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:1rem;
+}
+.wh-label { font-size:.82rem;color:rgba(255,255,255,.5);margin-bottom:.25rem; }
+.wh-value { font-size:1.6rem;font-weight:800;color:#fff; }
+.wh-pct   { display:inline-flex;align-items:center;gap:.3rem;padding:.25rem .7rem;border-radius:20px;font-size:.85rem;font-weight:700; }
+.wh-pct.up   { background:rgba(72,199,142,.15);color:#48c78e; }
+.wh-pct.down { background:rgba(255,100,100,.15);color:#ff6464; }
+.wh-pct.flat { background:rgba(148,163,184,.15);color:#94a3b8; }
+
+/* ── Projection chart ── */
+.section-card {
+    background:#111827;border:1px solid rgba(255,255,255,0.07);
+    border-radius:20px;margin-bottom:1.5rem;overflow:hidden;
+}
+.section-head {
+    padding:1.1rem 1.5rem;border-bottom:1px solid rgba(255,255,255,0.06);
+    display:flex;align-items:center;gap:.75rem;
+}
+.section-head h6 { margin:0;font-size:.9rem;font-weight:700;color:#fff; }
+.section-body { padding:1.25rem 1.5rem; }
+.chart-wrap { position:relative;height:260px; }
+
+/* ── Category bars ── */
+.cat-bar-row { margin-bottom:.85rem; }
+.cat-bar-top { display:flex;justify-content:space-between;margin-bottom:.3rem; }
+.cat-bar-name  { font-size:.82rem;font-weight:500;color:rgba(255,255,255,.8); }
+.cat-bar-amt   { font-size:.78rem;font-weight:700;color:#fff; }
+.cat-bar-track { height:8px;background:rgba(255,255,255,.07);border-radius:8px;overflow:hidden; }
+.cat-bar-fill  { height:100%;border-radius:8px;transition:width .6s ease; }
+.cat-bar-pct   { font-size:.68rem;color:rgba(255,255,255,.35);margin-top:.2rem;text-align:right; }
+
+/* ── Wallet table ── */
+.wallet-row {
+    display:flex;align-items:center;padding:.75rem 0;
+    border-bottom:1px solid rgba(255,255,255,.05);gap:.75rem;
+}
+.wallet-row:last-child { border-bottom:none; }
+.wallet-icon {
+    width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;
+    font-size:.85rem;flex-shrink:0;
+}
+.wallet-name  { font-size:.88rem;font-weight:600;color:#fff; }
+.wallet-type  { font-size:.7rem;color:rgba(255,255,255,.4); }
+.wallet-right { margin-left:auto;text-align:right; }
+.wallet-bal   { font-size:.88rem;font-weight:700;color:#fff; }
+.wallet-chg   { font-size:.72rem;font-weight:600; }
+.wallet-chg.up   { color:#48c78e; }
+.wallet-chg.down { color:#ff6464; }
+
+/* ── Insights ── */
+.insight-item {
+    display:flex;align-items:flex-start;gap:1rem;padding:1rem;
+    border-radius:14px;margin-bottom:.75rem;
+}
+.insight-item:last-child { margin-bottom:0; }
+.insight-item.positive { background:rgba(72,199,142,.08);border:1px solid rgba(72,199,142,.2); }
+.insight-item.warning  { background:rgba(247,201,72,.08);border:1px solid rgba(247,201,72,.2); }
+.insight-item.danger   { background:rgba(255,100,100,.08);border:1px solid rgba(255,100,100,.2); }
+.insight-item.info     { background:rgba(96,165,250,.08);border:1px solid rgba(96,165,250,.2); }
+.insight-icon { width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:.9rem;flex-shrink:0; }
+.positive .insight-icon { background:rgba(72,199,142,.15);color:#48c78e; }
+.warning  .insight-icon { background:rgba(247,201,72,.15);color:#f7c948; }
+.danger   .insight-icon { background:rgba(255,100,100,.15);color:#ff6464; }
+.info     .insight-icon { background:rgba(96,165,250,.15);color:#60a5fa; }
+.insight-text { font-size:.85rem;color:rgba(255,255,255,.8);line-height:1.55; }
+
+/* ── Loading spinner ── */
+.spinner-wrap { text-align:center;padding:3rem;color:rgba(255,255,255,.4); }
+.spinner-border { width:2.5rem;height:2.5rem; }
+
+/* ── Empty state ── */
+.empty-state { text-align:center;padding:3rem;color:rgba(255,255,255,.3); }
+.empty-state i { font-size:2.5rem;display:block;margin-bottom:.75rem; }
+
+/* ── Mobile ── */
+@media(max-width:767px){
+    .wp-wrap { padding:1rem; }
+    .wp-title { font-size:1.5rem; }
+    .wealth-headline { flex-direction:column;align-items:flex-start; }
+    .wh-value { font-size:1.3rem; }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="wp-wrap">
+
+    <!-- Header -->
+    <div class="wp-header">
+        <div class="wp-header-inner">
+            <a href="/comparison" class="back-btn"><i class="fas fa-arrow-left"></i> Back to Comparison</a>
+            <div class="d-flex align-items-start justify-content-between flex-wrap gap-3">
+                <div>
+                    <h1 class="wp-title"><i class="fas fa-heartbeat me-3" style="color:#a78bfa;"></i>Wealth Pulse</h1>
+                    <p class="wp-sub">Select two dates — see exactly how your wealth moved between them</p>
+                </div>
+                <div style="background:rgba(139,92,246,.15);border:1px solid rgba(139,92,246,.3);border-radius:12px;padding:.5rem 1rem;color:#a78bfa;font-size:.8rem;font-weight:600;">
+                    <i class="fas fa-shield-halved me-1"></i>Expert Analysis
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Date picker -->
+    <div class="picker-card">
+        <div class="row g-3 align-items-end">
+            <div class="col-12 col-md-5">
+                <div class="picker-label start"><i class="fas fa-flag-checkered me-1"></i>Start Date (Snapshot A)</div>
+                <input type="date" id="dateA" class="wp-date-input">
+            </div>
+            <div class="col-12 col-md-2 arrow-div">
+                <div class="arrow-badge"><i class="fas fa-arrow-right"></i></div>
+            </div>
+            <div class="col-12 col-md-5">
+                <div class="picker-label end"><i class="fas fa-flag me-1"></i>End Date (Snapshot B)</div>
+                <input type="date" id="dateB" class="wp-date-input">
+            </div>
+        </div>
+        <button class="btn-analyze" id="btnAnalyze" onclick="runAnalysis()">
+            <i class="fas fa-heartbeat me-2"></i>Analyze Wealth Growth
+        </button>
+    </div>
+
+    <!-- Loading -->
+    <div id="loadingState" style="display:none;">
+        <div class="spinner-wrap">
+            <div class="spinner-border text-light" role="status" style="border-color:rgba(139,92,246,.3);border-top-color:#8b5cf6;"></div>
+            <div class="mt-3" style="color:rgba(255,255,255,.5);font-size:.9rem;">Calculating your wealth trajectory…</div>
+        </div>
+    </div>
+
+    <!-- Results -->
+    <div id="resultSection">
+
+        <!-- Wealth change headline -->
+        <div class="wealth-headline">
+            <div>
+                <div class="wh-label" id="headlinePeriod">—</div>
+                <div class="wh-value" id="headlineChange">—</div>
+            </div>
+            <div class="d-flex align-items-center gap-3 flex-wrap">
+                <div>
+                    <div class="wh-label">Snapshot A</div>
+                    <div class="wh-value" id="headlineA" style="font-size:1.1rem;">—</div>
+                </div>
+                <div style="font-size:1.2rem;color:rgba(255,255,255,.3);">→</div>
+                <div>
+                    <div class="wh-label">Snapshot B</div>
+                    <div class="wh-value" id="headlineB" style="font-size:1.1rem;">—</div>
+                </div>
+                <span class="wh-pct flat" id="headlinePct">—</span>
+            </div>
+        </div>
+
+        <!-- Score + Key Metrics -->
+        <div class="row g-3 mb-0" style="margin-bottom:1.5rem!important;">
+            <div class="col-12 col-lg-3">
+                <div class="score-card">
+                    <div class="score-ring-wrap">
+                        <svg width="180" height="180" viewBox="0 0 180 180">
+                            <circle cx="90" cy="90" r="76" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="14"/>
+                            <circle id="scoreArc" cx="90" cy="90" r="76" fill="none"
+                                stroke="#8b5cf6" stroke-width="14" stroke-linecap="round"
+                                stroke-dasharray="477.52" stroke-dashoffset="477.52"
+                                style="transition:stroke-dashoffset 1.2s ease,stroke .5s;"/>
+                        </svg>
+                        <div class="score-center">
+                            <div class="score-number" id="scoreNum">—</div>
+                            <div class="score-max">/100</div>
+                        </div>
+                    </div>
+                    <div class="score-label-text" id="scoreLbl" style="color:#8b5cf6;">—</div>
+                    <div class="score-desc">Wealth Health Score</div>
+                    <div class="mt-3" style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem;font-size:.72rem;text-align:left;">
+                        <div style="background:rgba(255,255,255,.05);border-radius:8px;padding:.5rem;">
+                            <div style="color:rgba(255,255,255,.4);">Savings</div>
+                            <div style="color:#fff;font-weight:700;" id="subSavings">—</div>
+                        </div>
+                        <div style="background:rgba(255,255,255,.05);border-radius:8px;padding:.5rem;">
+                            <div style="color:rgba(255,255,255,.4);">Growth/mo</div>
+                            <div style="color:#fff;font-weight:700;" id="subGrowth">—</div>
+                        </div>
+                        <div style="background:rgba(255,255,255,.05);border-radius:8px;padding:.5rem;">
+                            <div style="color:rgba(255,255,255,.4);">Burn Ratio</div>
+                            <div style="color:#fff;font-weight:700;" id="subBurn">—</div>
+                        </div>
+                        <div style="background:rgba(255,255,255,.05);border-radius:8px;padding:.5rem;">
+                            <div style="color:rgba(255,255,255,.4);">Tx Count</div>
+                            <div style="color:#fff;font-weight:700;" id="subTx">—</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-12 col-lg-9">
+                <div class="metrics-grid h-100" style="align-content:start;">
+                    <div class="metric-card">
+                        <div class="mc-label">Days Analyzed</div>
+                        <div class="mc-value" id="mDays">—</div>
+                        <div class="mc-sub">period window</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="mc-label">Daily Growth</div>
+                        <div class="mc-value" id="mDailyGrowth">—</div>
+                        <div class="mc-sub">net/day</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="mc-label">Total Income</div>
+                        <div class="mc-value mc-up" id="mIncome">—</div>
+                        <div class="mc-sub">in period</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="mc-label">Total Expense</div>
+                        <div class="mc-value mc-down" id="mExpense">—</div>
+                        <div class="mc-sub">in period</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="mc-label">Burn Rate</div>
+                        <div class="mc-value" id="mBurn">—</div>
+                        <div class="mc-sub">expense/day</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="mc-label">Savings Rate</div>
+                        <div class="mc-value" id="mSavings">—</div>
+                        <div class="mc-sub">of income</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Projections -->
+        <div class="section-card">
+            <div class="section-head">
+                <div style="width:32px;height:32px;border-radius:10px;background:rgba(139,92,246,.2);display:flex;align-items:center;justify-content:center;color:#a78bfa;flex-shrink:0;">
+                    <i class="fas fa-chart-line"></i>
+                </div>
+                <h6>Wealth Projection — if current growth rate continues</h6>
+            </div>
+            <div class="section-body">
+                <div class="chart-wrap"><canvas id="projectionChart"></canvas></div>
+            </div>
+        </div>
+
+        <!-- Income vs Expense categories — side by side -->
+        <div class="row g-3 mb-0" style="margin-bottom:1.5rem!important;">
+            <div class="col-12 col-md-6">
+                <div class="section-card" style="margin-bottom:0;height:100%;">
+                    <div class="section-head">
+                        <div style="width:32px;height:32px;border-radius:10px;background:rgba(72,199,142,.15);display:flex;align-items:center;justify-content:center;color:#48c78e;flex-shrink:0;">
+                            <i class="fas fa-arrow-down"></i>
+                        </div>
+                        <h6>Top Income Sources</h6>
+                    </div>
+                    <div class="section-body" id="incomeBreakdown">
+                        <div class="empty-state"><i class="fas fa-inbox"></i>No data</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-12 col-md-6">
+                <div class="section-card" style="margin-bottom:0;height:100%;">
+                    <div class="section-head">
+                        <div style="width:32px;height:32px;border-radius:10px;background:rgba(255,100,100,.15);display:flex;align-items:center;justify-content:center;color:#ff6464;flex-shrink:0;">
+                            <i class="fas fa-arrow-up"></i>
+                        </div>
+                        <h6>Top Expense Drains</h6>
+                    </div>
+                    <div class="section-body" id="expenseBreakdown">
+                        <div class="empty-state"><i class="fas fa-inbox"></i>No data</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Wallet breakdown -->
+        <div class="section-card" style="margin-top:1.5rem;">
+            <div class="section-head">
+                <div style="width:32px;height:32px;border-radius:10px;background:rgba(251,146,60,.15);display:flex;align-items:center;justify-content:center;color:#fb923c;flex-shrink:0;">
+                    <i class="fas fa-wallet"></i>
+                </div>
+                <h6>Wallet-by-Wallet Breakdown</h6>
+            </div>
+            <div class="section-body" id="walletBreakdown">
+                <div class="empty-state"><i class="fas fa-wallet"></i>No wallet data</div>
+            </div>
+        </div>
+
+        <!-- Expert insights -->
+        <div class="section-card" style="margin-top:1.5rem;">
+            <div class="section-head">
+                <div style="width:32px;height:32px;border-radius:10px;background:rgba(96,165,250,.15);display:flex;align-items:center;justify-content:center;color:#60a5fa;flex-shrink:0;">
+                    <i class="fas fa-brain"></i>
+                </div>
+                <h6>Expert Financial Insights</h6>
+            </div>
+            <div class="section-body" id="insightsList">
+                <div class="empty-state"><i class="fas fa-lightbulb"></i>Run analysis to see insights</div>
+            </div>
+        </div>
+
+    </div><!-- /resultSection -->
+
+</div><!-- /wp-wrap -->
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+// ── helpers ──────────────────────────────────────────────────────────────────
+const fmt  = v => 'Rp ' + Math.abs(v).toLocaleString('id-ID');
+const fmtS = v => {                                    // short: 1.2M / 500K
+    const a = Math.abs(v);
+    if (a >= 1_000_000) return (v < 0 ? '-' : '') + 'Rp ' + (a/1_000_000).toFixed(1) + 'M';
+    if (a >= 1_000)     return (v < 0 ? '-' : '') + 'Rp ' + (a/1_000).toFixed(0) + 'K';
+    return fmt(v);
+};
+const pctFmt = p => p == null ? '—' : (p >= 0 ? '+' : '') + p.toFixed(1) + '%';
+
+let projChart = null;
+
+// ── Set default dates (last 30 days) ─────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+    const today = new Date();
+    const prior = new Date(today); prior.setDate(prior.getDate() - 30);
+    document.getElementById('dateB').value = today.toISOString().slice(0,10);
+    document.getElementById('dateA').value = prior.toISOString().slice(0,10);
+});
+
+// ── Main analysis ─────────────────────────────────────────────────────────────
+async function runAnalysis() {
+    const dateA = document.getElementById('dateA').value;
+    const dateB = document.getElementById('dateB').value;
+    if (!dateA || !dateB) { alert('Please select both dates.'); return; }
+    if (dateB <= dateA)   { alert('End date must be after start date.'); return; }
+
+    document.getElementById('btnAnalyze').disabled = true;
+    document.getElementById('loadingState').style.display  = 'block';
+    document.getElementById('resultSection').style.display = 'none';
+
+    try {
+        const res  = await fetch(`/api/wealth-pulse?date_a=${dateA}&date_b=${dateB}`);
+        const data = await res.json();
+        if (!res.ok) { alert(data.error || 'Error loading data'); return; }
+        renderResults(data);
+        document.getElementById('resultSection').style.display = 'block';
+        document.getElementById('resultSection').scrollIntoView({ behavior:'smooth', block:'start' });
+    } catch(e) {
+        alert('Network error — please try again.');
+        console.error(e);
+    } finally {
+        document.getElementById('btnAnalyze').disabled = false;
+        document.getElementById('loadingState').style.display = 'none';
+    }
+}
+
+// ── Render ────────────────────────────────────────────────────────────────────
+function renderResults(d) {
+    // ── Headline
+    const sign = d.wealth_change >= 0;
+    document.getElementById('headlinePeriod').textContent =
+        `${d.date_a}  →  ${d.date_b}  (${d.days} days)`;
+    document.getElementById('headlineChange').textContent =
+        (sign ? '+' : '−') + fmt(d.wealth_change);
+    document.getElementById('headlineChange').style.color = sign ? '#48c78e' : '#ff6464';
+    document.getElementById('headlineA').textContent = fmt(d.wealth_a);
+    document.getElementById('headlineB').textContent = fmt(d.wealth_b);
+    const pctEl = document.getElementById('headlinePct');
+    pctEl.textContent = pctFmt(d.wealth_change_pct);
+    pctEl.className = 'wh-pct ' + (d.wealth_change_pct == null ? 'flat' : (d.wealth_change_pct >= 0 ? 'up' : 'down'));
+
+    // ── Score ring
+    const score = d.wealth_score;
+    const arc   = document.getElementById('scoreArc');
+    const circ  = 477.52;
+    arc.style.stroke = d.score_color;
+    setTimeout(() => {
+        arc.style.strokeDashoffset = circ - (circ * score / 100);
+    }, 100);
+    document.getElementById('scoreNum').textContent = score;
+    document.getElementById('scoreLbl').textContent = d.score_label;
+    document.getElementById('scoreLbl').style.color  = d.score_color;
+
+    // sub-stats
+    document.getElementById('subSavings').textContent = d.savings_rate.toFixed(1) + '%';
+    const mg = d.days > 0 && d.wealth_change_pct != null
+        ? ((d.wealth_change_pct / d.days) * 30).toFixed(1) + '%/mo'
+        : '—';
+    document.getElementById('subGrowth').textContent = mg;
+    const br = d.income_velocity > 0
+        ? ((d.burn_rate / d.income_velocity) * 100).toFixed(0) + '%'
+        : '—';
+    document.getElementById('subBurn').textContent = br;
+    document.getElementById('subTx').textContent = d.tx_count;
+
+    // ── Key metrics
+    const dailySign = d.daily_growth >= 0;
+    document.getElementById('mDays').textContent = d.days + ' days';
+    document.getElementById('mDailyGrowth').textContent = (dailySign ? '+' : '−') + fmtS(d.daily_growth);
+    document.getElementById('mDailyGrowth').className = 'mc-value ' + (dailySign ? 'mc-up' : 'mc-down');
+    document.getElementById('mIncome').textContent  = fmtS(d.total_income);
+    document.getElementById('mExpense').textContent = fmtS(d.total_expense);
+    document.getElementById('mBurn').textContent    = fmtS(d.burn_rate) + '/day';
+    document.getElementById('mBurn').className      = 'mc-value';
+    const srEl = document.getElementById('mSavings');
+    srEl.textContent = d.savings_rate.toFixed(1) + '%';
+    srEl.className   = 'mc-value ' + (d.savings_rate >= 20 ? 'mc-up' : (d.savings_rate > 0 ? '' : 'mc-down'));
+
+    // ── Projections chart
+    renderProjectionChart(d);
+
+    // ── Category bars
+    renderBars('incomeBreakdown',  d.top_income,  d.total_income,  '#48c78e', '#065f46');
+    renderBars('expenseBreakdown', d.top_expense, d.total_expense, '#ff6464', '#7f1d1d');
+
+    // ── Wallets
+    renderWallets(d.wallet_breakdown);
+
+    // ── Insights
+    renderInsights(d.insights);
+}
+
+// ── Projection chart ──────────────────────────────────────────────────────────
+function renderProjectionChart(d) {
+    if (projChart) { projChart.destroy(); projChart = null; }
+
+    const today = new Date(d.date_b);
+    const horizons = [0, 30, 90, 180, 365];
+    const labels = horizons.map(h => {
+        if (h === 0) return 'Now';
+        const dt = new Date(today); dt.setDate(dt.getDate() + h);
+        return dt.toLocaleDateString('id-ID', { day:'2-digit', month:'short', year:'2-digit' });
+    });
+    const values = [
+        d.wealth_b,
+        d.projections['30'],
+        d.projections['90'],
+        d.projections['180'],
+        d.projections['365'],
+    ];
+    const rising = values[values.length-1] >= values[0];
+    const lineColor = rising ? '#8b5cf6' : '#ff6464';
+
+    const ctx = document.getElementById('projectionChart').getContext('2d');
+    const grad = ctx.createLinearGradient(0, 0, 0, 260);
+    grad.addColorStop(0, rising ? 'rgba(139,92,246,0.35)' : 'rgba(255,100,100,0.35)');
+    grad.addColorStop(1, 'rgba(0,0,0,0)');
+
+    projChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels,
+            datasets: [{
+                label: 'Projected Wealth',
+                data: values,
+                borderColor: lineColor,
+                borderWidth: 3,
+                backgroundColor: grad,
+                fill: true,
+                tension: 0.4,
+                pointBackgroundColor: '#fff',
+                pointBorderColor: lineColor,
+                pointBorderWidth: 2,
+                pointRadius: 5,
+                pointHoverRadius: 7,
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    backgroundColor: 'rgba(15,23,42,0.95)',
+                    titleColor: '#94a3b8',
+                    bodyColor: '#fff',
+                    padding: 14,
+                    callbacks: {
+                        label: ctx => ' ' + fmt(ctx.parsed.y),
+                        afterLabel: ctx => {
+                            if (ctx.dataIndex === 0) return '';
+                            const diff = ctx.parsed.y - values[0];
+                            return (diff >= 0 ? ' +' : ' −') + fmt(diff);
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    grid: { color: 'rgba(255,255,255,0.05)' },
+                    ticks: { color: 'rgba(255,255,255,0.45)', font: { size: 11 } }
+                },
+                y: {
+                    grid: { color: 'rgba(255,255,255,0.05)' },
+                    ticks: {
+                        color: 'rgba(255,255,255,0.45)', font: { size: 11 },
+                        callback: v => fmtS(v)
+                    }
+                }
+            }
+        }
+    });
+}
+
+// ── Category horizontal bars ──────────────────────────────────────────────────
+function renderBars(containerId, items, total, fillColor, bgColor) {
+    const el = document.getElementById(containerId);
+    if (!items || !items.length) {
+        el.innerHTML = '<div class="empty-state"><i class="fas fa-inbox"></i>No data this period</div>';
+        return;
+    }
+    const maxAmt = items[0].amount;
+    el.innerHTML = items.map(item => {
+        const pct  = total > 0 ? (item.amount / total * 100).toFixed(1) : 0;
+        const barW = maxAmt > 0 ? (item.amount / maxAmt * 100).toFixed(1) : 0;
+        return `
+        <div class="cat-bar-row">
+            <div class="cat-bar-top">
+                <span class="cat-bar-name">${item.name}</span>
+                <span class="cat-bar-amt">${fmtS(item.amount)}</span>
+            </div>
+            <div class="cat-bar-track">
+                <div class="cat-bar-fill" style="width:${barW}%;background:${fillColor};"></div>
+            </div>
+            <div class="cat-bar-pct">${pct}% of total</div>
+        </div>`;
+    }).join('');
+}
+
+// ── Wallet breakdown ──────────────────────────────────────────────────────────
+function renderWallets(wallets) {
+    const el = document.getElementById('walletBreakdown');
+    if (!wallets || !wallets.length) {
+        el.innerHTML = '<div class="empty-state"><i class="fas fa-wallet"></i>No wallet data</div>';
+        return;
+    }
+    const typeIcon = t => ({
+        bank:'university', ewallet:'mobile-alt', cash:'money-bill-wave', crypto:'coins'
+    }[t] || 'wallet');
+    const typeColor = t => ({
+        bank:'#60a5fa', ewallet:'#a78bfa', cash:'#48c78e', crypto:'#f7c948'
+    }[t] || '#94a3b8');
+
+    el.innerHTML = wallets.map(w => {
+        const up  = w.change >= 0;
+        const pct = w.change_pct != null ? pctFmt(w.change_pct) : '—';
+        return `
+        <div class="wallet-row">
+            <div class="wallet-icon" style="background:${typeColor(w.type)}22;color:${typeColor(w.type)};">
+                <i class="fas fa-${typeIcon(w.type)}"></i>
+            </div>
+            <div>
+                <div class="wallet-name">${w.name}</div>
+                <div class="wallet-type">${w.type || 'bank'}</div>
+            </div>
+            <div class="wallet-right">
+                <div class="wallet-bal">${fmt(w.balance_b)}</div>
+                <div class="wallet-chg ${up ? 'up' : 'down'}">
+                    ${up ? '+' : '−'}${fmt(w.change)} (${pct})
+                </div>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+// ── Insights ──────────────────────────────────────────────────────────────────
+function renderInsights(insights) {
+    const el = document.getElementById('insightsList');
+    if (!insights || !insights.length) {
+        el.innerHTML = '<div class="empty-state"><i class="fas fa-lightbulb"></i>No insights available</div>';
+        return;
+    }
+    el.innerHTML = insights.map(ins => `
+        <div class="insight-item ${ins.type}">
+            <div class="insight-icon"><i class="fas fa-${ins.icon}"></i></div>
+            <div class="insight-text">${ins.text}</div>
+        </div>`).join('');
+}
+</script>
+{% endblock %}
