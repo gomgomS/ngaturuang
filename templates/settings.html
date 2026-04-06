@@ -288,6 +288,9 @@
                     <button class="btn btn-action" data-bs-toggle="modal" data-bs-target="#scopeModal">
                         <i class="fas fa-plus me-1"></i><span data-translate="settings.add_scope">Add Scope</span>
                     </button>
+                    <button class="btn btn-outline-warning ms-2" onclick="startSettingsTour()" title="Start Interactive Tour">
+                        <i class="fas fa-play me-1"></i><span>Start Tour</span>
+                    </button>
                 </div>
                 <div class="card-body p-0">
                     {% if scopes %}
@@ -852,6 +855,9 @@ function deleteCategory(categoryId, isSystem) {
 document.addEventListener('DOMContentLoaded', function() {
     // Initialize language switching
     initializeSettingsLanguage();
+    
+    // Start settings tour for new users
+    startSettingsTour();
     // Scope edit buttons
     document.querySelectorAll('.edit-scope-btn').forEach(btn => {
         btn.addEventListener('click', function() {

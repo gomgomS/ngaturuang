@@ -1,0 +1,961 @@
+{% extends "layout.html" %}
+
+{% block head %}
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+{% endblock %}
+
+{% block content %}
+<style>
+    body { font-family: 'Inter', sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; }
+
+    .cmp-container {
+        background: rgba(255,255,255,0.95);
+        backdrop-filter: blur(20px);
+        border-radius: 25px;
+        box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+        margin: 2rem;
+        padding: 2rem;
+        min-height: calc(100vh - 4rem);
+    }
+
+    /* ── Header ── */
+    .cmp-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 2rem;
+        border-radius: 20px;
+        margin-bottom: 2rem;
+        position: relative;
+        overflow: hidden;
+    }
+    .cmp-header::before {
+        content:'';position:absolute;inset:0;
+        background:url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="20" cy="20" r="1" fill="white" opacity="0.1"/><circle cx="80" cy="80" r="1" fill="white" opacity="0.1"/><circle cx="60" cy="15" r="0.5" fill="white" opacity="0.1"/></svg>');
+        opacity:0.4;
+    }
+    .cmp-header-inner { position: relative; z-index: 1; }
+
+    /* ── Selector panel ── */
+    .selector-card {
+        background: white;
+        border-radius: 20px;
+        padding: 2rem;
+        box-shadow: 0 8px 30px rgba(0,0,0,0.08);
+        margin-bottom: 2rem;
+        border: 1px solid #f0f0f0;
+    }
+    .type-tabs { display: flex; gap: 0.5rem; margin-bottom: 1.5rem; flex-wrap: wrap; }
+    .type-tab {
+        padding: 0.55rem 1.4rem;
+        border-radius: 25px;
+        border: 2px solid #e0e0e0;
+        background: white;
+        color: #6c757d;
+        font-weight: 600;
+        font-size: 0.9rem;
+        cursor: pointer;
+        transition: all 0.25s;
+    }
+    .type-tab.active, .type-tab:hover {
+        background: linear-gradient(135deg, #667eea, #764ba2);
+        color: white;
+        border-color: transparent;
+    }
+    .period-inputs { display: grid; grid-template-columns: 1fr auto 1fr; gap: 1rem; align-items: center; }
+    .period-label { font-weight: 600; font-size: 0.8rem; color: #667eea; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.35rem; }
+    .vs-badge { background: linear-gradient(135deg,#667eea,#764ba2); color:white; width:44px; height:44px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:0.85rem; margin:0 auto; flex-shrink:0; }
+    .cmp-select {
+        width: 100%;
+        padding: 0.75rem 1rem;
+        border: 2px solid #e9ecef;
+        border-radius: 12px;
+        font-size: 0.95rem;
+        font-family: inherit;
+        color: #343a40;
+        background: #fafafa;
+        transition: border-color 0.2s;
+        appearance: none;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%23667eea' d='M6 8L0 0h12z'/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 1rem center;
+        padding-right: 2.5rem;
+    }
+    .cmp-select:focus { outline: none; border-color: #667eea; background-color: white; }
+    .cmp-input {
+        width: 100%;
+        padding: 0.75rem 1rem;
+        border: 2px solid #e9ecef;
+        border-radius: 12px;
+        font-size: 0.95rem;
+        font-family: inherit;
+        color: #343a40;
+        background: #fafafa;
+        transition: border-color 0.2s;
+    }
+    .cmp-input:focus { outline: none; border-color: #667eea; background: white; }
+    .btn-compare {
+        background: linear-gradient(135deg,#667eea,#764ba2);
+        color: white;
+        border: none;
+        border-radius: 14px;
+        padding: 0.85rem 2rem;
+        font-weight: 700;
+        font-size: 1rem;
+        cursor: pointer;
+        transition: all 0.3s;
+        width: 100%;
+        margin-top: 1.25rem;
+    }
+    .btn-compare:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(102,126,234,0.4); }
+    .btn-compare:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+
+    /* ── Result section ── */
+    #resultSection { display: none; }
+
+    .period-summary-card {
+        border-radius: 20px;
+        padding: 1.75rem;
+        height: 100%;
+    }
+    .period-a-card { background: linear-gradient(135deg, rgba(102,126,234,0.08), rgba(102,126,234,0.03)); border: 2px solid rgba(102,126,234,0.2); }
+    .period-b-card { background: linear-gradient(135deg, rgba(118,75,162,0.08), rgba(118,75,162,0.03)); border: 2px solid rgba(118,75,162,0.2); }
+    .period-title { font-size: 1.2rem; font-weight: 700; margin-bottom: 1.25rem; }
+    .period-title.a { color: #667eea; }
+    .period-title.b { color: #764ba2; }
+
+    .metric-row { display: flex; justify-content: space-between; align-items: center; padding: 0.6rem 0; border-bottom: 1px solid rgba(0,0,0,0.06); }
+    .metric-row:last-child { border-bottom: none; }
+    .metric-name { font-size: 0.88rem; color: #6c757d; font-weight: 500; }
+    .metric-value { font-weight: 700; font-size: 1rem; }
+    .metric-value.income  { color: #28a745; }
+    .metric-value.expense { color: #dc3545; }
+    .metric-value.net.positive { color: #28a745; }
+    .metric-value.net.negative { color: #dc3545; }
+    .metric-value.neutral { color: #6c757d; }
+
+    /* ── Growth cards ── */
+    .growth-card {
+        border-radius: 16px;
+        padding: 1.25rem 1.5rem;
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+    .growth-card.income  { background: rgba(40,167,69,0.07);  border: 1px solid rgba(40,167,69,0.2); }
+    .growth-card.expense { background: rgba(220,53,69,0.07);  border: 1px solid rgba(220,53,69,0.2); }
+    .growth-card.net     { background: rgba(102,126,234,0.07);border: 1px solid rgba(102,126,234,0.2);}
+    .growth-card.tx      { background: rgba(255,193,7,0.07);  border: 1px solid rgba(255,193,7,0.2); }
+    .growth-icon {
+        width: 50px; height: 50px; border-radius: 50%;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 1.2rem; color: white; flex-shrink: 0;
+    }
+    .growth-icon.income  { background: linear-gradient(135deg,#28a745,#20c997); }
+    .growth-icon.expense { background: linear-gradient(135deg,#dc3545,#e55353); }
+    .growth-icon.net     { background: linear-gradient(135deg,#667eea,#764ba2); }
+    .growth-icon.tx      { background: linear-gradient(135deg,#ffc107,#fd7e14); }
+    .growth-label { font-size: 0.78rem; color: #6c757d; font-weight: 500; }
+    .growth-amount { font-weight: 700; font-size: 1.05rem; }
+    .growth-pct { font-size: 0.82rem; font-weight: 600; }
+    .text-up   { color: #28a745; }
+    .text-down { color: #dc3545; }
+    .text-flat { color: #6c757d; }
+
+    /* ── Content cards ── */
+    .content-card {
+        background: white;
+        border-radius: 20px;
+        box-shadow: 0 8px 30px rgba(0,0,0,0.07);
+        margin-bottom: 1.5rem;
+        border: 1px solid #f0f0f0;
+    }
+    .content-card .card-header {
+        background: linear-gradient(135deg,#667eea,#764ba2);
+        color: white; border: none;
+        border-radius: 20px 20px 0 0;
+        padding: 1.2rem 1.5rem;
+    }
+    .content-card .card-header h5 { margin: 0; font-weight: 600; }
+
+    /* ── Category comparison table ── */
+    .cat-table { width: 100%; border-collapse: collapse; }
+    .cat-table th { font-size: 0.8rem; color: #6c757d; font-weight: 600; padding: 0.6rem 0.75rem; border-bottom: 2px solid #e9ecef; text-align: right; }
+    .cat-table th:first-child { text-align: left; }
+    .cat-table td { padding: 0.65rem 0.75rem; border-bottom: 1px solid #f0f0f0; font-size: 0.88rem; vertical-align: middle; text-align: right; }
+    .cat-table td:first-child { text-align: left; font-weight: 500; max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .cat-table tr:last-child td { border-bottom: none; }
+    .cat-table tr:hover td { background: rgba(102,126,234,0.03); }
+    .diff-badge {
+        display: inline-flex; align-items: center; gap: 0.2rem;
+        font-size: 0.78rem; font-weight: 700;
+        padding: 0.2rem 0.5rem; border-radius: 8px;
+    }
+    .diff-badge.up   { background: rgba(220,53,69,0.1);  color: #dc3545; }
+    .diff-badge.down { background: rgba(40,167,69,0.1);  color: #28a745; }
+    .diff-badge.flat { background: rgba(108,117,125,0.1);color: #6c757d; }
+
+    /* ── Total Growth summary ── */
+    .total-growth-card {
+        background: linear-gradient(135deg,#667eea,#764ba2);
+        color: white; border-radius: 20px; padding: 2rem;
+        margin-bottom: 1.5rem;
+    }
+    .total-growth-title { font-size: 1.3rem; font-weight: 700; margin-bottom: 1.5rem; }
+    .tg-row { display: flex; justify-content: space-between; align-items: center; padding: 0.75rem 0; border-bottom: 1px solid rgba(255,255,255,0.15); }
+    .tg-row:last-child { border-bottom: none; }
+    .tg-label { font-size: 0.9rem; opacity: 0.85; }
+    .tg-value { font-weight: 700; font-size: 1.1rem; }
+    .tg-pct   { font-size: 0.82rem; opacity: 0.8; background: rgba(255,255,255,0.15); padding: 0.2rem 0.6rem; border-radius: 8px; }
+
+    /* ── Chart ── */
+    .chart-wrap { position: relative; height: 320px; }
+
+    /* ── Empty/loading states ── */
+    .state-empty { text-align: center; padding: 3rem; color: #adb5bd; }
+    .state-empty i { font-size: 3rem; margin-bottom: 1rem; display: block; }
+
+    /* ── Mobile ── */
+    @media (max-width: 767.98px) {
+        .cmp-container { margin: 0; border-radius: 0; padding: 1rem; min-height: 100vh; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+        .cmp-header { padding: 1.5rem; padding-left: 4rem; }
+        .period-inputs { grid-template-columns: 1fr; }
+        .vs-badge { width: 36px; height: 36px; font-size: 0.75rem; transform: rotate(90deg); }
+        .cat-table { font-size: 0.78rem; }
+    }
+</style>
+
+<div class="cmp-container">
+
+    <!-- Header -->
+    <div class="cmp-header">
+        <div class="cmp-header-inner d-flex align-items-center gap-3 flex-wrap">
+            <a href="/dashboard" class="btn btn-sm btn-outline-light" style="border-radius:10px; border:2px solid rgba(255,255,255,0.4);">
+                <i class="fas fa-arrow-left me-1"></i> Dashboard
+            </a>
+            <div>
+                <h1 style="font-size:2rem; font-weight:700; margin:0;">Period Comparison</h1>
+                <p style="margin:0; opacity:0.85; font-size:1rem;">Compare two time periods — understand your financial growth</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Selector ── -->
+    <div class="selector-card">
+        <div class="type-tabs">
+            <button class="type-tab active" data-type="month" onclick="setCompareType('month', this)">
+                <i class="fas fa-calendar-alt me-1"></i> By Month
+            </button>
+            <button class="type-tab" data-type="year" onclick="setCompareType('year', this)">
+                <i class="fas fa-calendar me-1"></i> By Year
+            </button>
+            <button class="type-tab" data-type="day" onclick="setCompareType('day', this)">
+                <i class="fas fa-calendar-day me-1"></i> By Date
+            </button>
+        </div>
+
+        <div class="period-inputs">
+            <!-- Period A -->
+            <div>
+                <div class="period-label" style="color:#667eea;">
+                    <i class="fas fa-circle me-1" style="font-size:0.6rem;"></i> Period A (Baseline)
+                </div>
+                <!-- Month picker -->
+                <div id="inputMonth_a" class="picker-group">
+                    <select id="yearA_month" class="cmp-select mb-2" style="margin-bottom:0.5rem!important;"></select>
+                    <select id="monthA" class="cmp-select"></select>
+                </div>
+                <!-- Year picker -->
+                <div id="inputYear_a" class="picker-group" style="display:none;">
+                    <select id="yearA_year" class="cmp-select"></select>
+                </div>
+                <!-- Day picker -->
+                <div id="inputDay_a" class="picker-group" style="display:none;">
+                    <input type="date" id="dayA" class="cmp-input">
+                </div>
+            </div>
+
+            <!-- VS badge -->
+            <div style="display:flex; align-items:flex-end; justify-content:center; padding-bottom:0.1rem;">
+                <div class="vs-badge">VS</div>
+            </div>
+
+            <!-- Period B -->
+            <div>
+                <div class="period-label" style="color:#764ba2;">
+                    <i class="fas fa-circle me-1" style="font-size:0.6rem;"></i> Period B (Compare)
+                </div>
+                <div id="inputMonth_b" class="picker-group">
+                    <select id="yearB_month" class="cmp-select mb-2" style="margin-bottom:0.5rem!important;"></select>
+                    <select id="monthB" class="cmp-select"></select>
+                </div>
+                <div id="inputYear_b" class="picker-group" style="display:none;">
+                    <select id="yearB_year" class="cmp-select"></select>
+                </div>
+                <div id="inputDay_b" class="picker-group" style="display:none;">
+                    <input type="date" id="dayB" class="cmp-input">
+                </div>
+            </div>
+        </div>
+
+        <button class="btn-compare" id="btnCompare" onclick="runComparison()">
+            <i class="fas fa-code-compare me-2"></i>Compare Now
+        </button>
+    </div>
+
+    <!-- ── Results ── -->
+    <div id="resultSection">
+
+        <!-- Period summaries -->
+        <div class="row g-3 mb-4">
+            <div class="col-12 col-md-6">
+                <div class="period-summary-card period-a-card">
+                    <div class="period-title a" id="labelA">Period A</div>
+                    <div class="metric-row">
+                        <span class="metric-name"><i class="fas fa-arrow-up me-1 text-success"></i>Income</span>
+                        <span class="metric-value income" id="aIncome">-</span>
+                    </div>
+                    <div class="metric-row">
+                        <span class="metric-name"><i class="fas fa-arrow-down me-1 text-danger"></i>Expenses</span>
+                        <span class="metric-value expense" id="aExpenses">-</span>
+                    </div>
+                    <div class="metric-row">
+                        <span class="metric-name"><i class="fas fa-balance-scale me-1 text-primary"></i>Net Cashflow</span>
+                        <span class="metric-value net" id="aNet">-</span>
+                    </div>
+                    <div class="metric-row">
+                        <span class="metric-name"><i class="fas fa-piggy-bank me-1 text-info"></i>Savings Rate</span>
+                        <span class="metric-value neutral" id="aSavings">-</span>
+                    </div>
+                    <div class="metric-row">
+                        <span class="metric-name"><i class="fas fa-receipt me-1 text-muted"></i>Transactions</span>
+                        <span class="metric-value neutral" id="aTxCount">-</span>
+                    </div>
+                </div>
+            </div>
+            <div class="col-12 col-md-6">
+                <div class="period-summary-card period-b-card">
+                    <div class="period-title b" id="labelB">Period B</div>
+                    <div class="metric-row">
+                        <span class="metric-name"><i class="fas fa-arrow-up me-1 text-success"></i>Income</span>
+                        <span class="metric-value income" id="bIncome">-</span>
+                    </div>
+                    <div class="metric-row">
+                        <span class="metric-name"><i class="fas fa-arrow-down me-1 text-danger"></i>Expenses</span>
+                        <span class="metric-value expense" id="bExpenses">-</span>
+                    </div>
+                    <div class="metric-row">
+                        <span class="metric-name"><i class="fas fa-balance-scale me-1 text-primary"></i>Net Cashflow</span>
+                        <span class="metric-value net" id="bNet">-</span>
+                    </div>
+                    <div class="metric-row">
+                        <span class="metric-name"><i class="fas fa-piggy-bank me-1 text-info"></i>Savings Rate</span>
+                        <span class="metric-value neutral" id="bSavings">-</span>
+                    </div>
+                    <div class="metric-row">
+                        <span class="metric-name"><i class="fas fa-receipt me-1 text-muted"></i>Transactions</span>
+                        <span class="metric-value neutral" id="bTxCount">-</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Growth cards -->
+        <div class="row g-3 mb-4">
+            <div class="col-12 col-sm-6 col-lg-3">
+                <div class="growth-card income">
+                    <div class="growth-icon income"><i class="fas fa-arrow-trend-up"></i></div>
+                    <div>
+                        <div class="growth-label">Income Growth</div>
+                        <div class="growth-amount" id="growthIncomeAmt">-</div>
+                        <div class="growth-pct" id="growthIncomePct">-</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-12 col-sm-6 col-lg-3">
+                <div class="growth-card expense">
+                    <div class="growth-icon expense"><i class="fas fa-arrow-trend-down"></i></div>
+                    <div>
+                        <div class="growth-label">Expense Change</div>
+                        <div class="growth-amount" id="growthExpenseAmt">-</div>
+                        <div class="growth-pct" id="growthExpensePct">-</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-12 col-sm-6 col-lg-3">
+                <div class="growth-card net">
+                    <div class="growth-icon net"><i class="fas fa-balance-scale"></i></div>
+                    <div>
+                        <div class="growth-label">Net Cashflow Change</div>
+                        <div class="growth-amount" id="growthNetAmt">-</div>
+                        <div class="growth-pct" id="growthNetPct">-</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-12 col-sm-6 col-lg-3">
+                <div class="growth-card tx">
+                    <div class="growth-icon tx"><i class="fas fa-receipt"></i></div>
+                    <div>
+                        <div class="growth-label">Transaction Count</div>
+                        <div class="growth-amount" id="growthTxAmt">-</div>
+                        <div class="growth-pct" id="growthTxLabel">vs Period A</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Chart -->
+        <div class="content-card mb-4">
+            <div class="card-header">
+                <h5><i class="fas fa-chart-bar me-2"></i>Side-by-Side Overview</h5>
+            </div>
+            <div class="card-body p-3">
+                <div class="chart-wrap">
+                    <canvas id="comparisonChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Category comparison -->
+        <div class="content-card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5><i class="fas fa-layer-group me-2"></i>Expense Breakdown by Category</h5>
+                <span class="badge bg-light text-dark" id="catCount" style="font-size:0.8rem;"></span>
+            </div>
+            <div class="card-body p-0">
+                <div id="categoryTableWrap" style="overflow-x:auto;">
+                    <div class="state-empty">
+                        <i class="fas fa-table"></i>
+                        <p>Category data will appear here</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Category chart (expense bars side by side) -->
+        <div class="content-card mb-4">
+            <div class="card-header">
+                <h5><i class="fas fa-chart-horizontal-bar me-2"></i>Top Expense Categories Comparison</h5>
+            </div>
+            <div class="card-body p-3">
+                <div class="chart-wrap" id="catChartWrap">
+                    <canvas id="categoryChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- ── Total Growth Summary (bottom) ── -->
+        <div class="total-growth-card">
+            <div class="total-growth-title">
+                <i class="fas fa-chart-line me-2"></i>Total Growth Summary
+                — <span id="tgPeriodLabels" style="opacity:0.85; font-size:0.9rem;"></span>
+            </div>
+            <div class="tg-row">
+                <span class="tg-label"><i class="fas fa-arrow-up me-2" style="opacity:0.7;"></i>Income Growth (A → B)</span>
+                <div class="d-flex align-items-center gap-2">
+                    <span class="tg-value" id="tgIncome">-</span>
+                    <span class="tg-pct" id="tgIncomePct">-</span>
+                </div>
+            </div>
+            <div class="tg-row">
+                <span class="tg-label"><i class="fas fa-arrow-down me-2" style="opacity:0.7;"></i>Expense Change (A → B)</span>
+                <div class="d-flex align-items-center gap-2">
+                    <span class="tg-value" id="tgExpense">-</span>
+                    <span class="tg-pct" id="tgExpensePct">-</span>
+                </div>
+            </div>
+            <div class="tg-row">
+                <span class="tg-label"><i class="fas fa-balance-scale me-2" style="opacity:0.7;"></i>Net Cashflow Growth (A → B)</span>
+                <div class="d-flex align-items-center gap-2">
+                    <span class="tg-value" id="tgNet">-</span>
+                    <span class="tg-pct" id="tgNetPct">-</span>
+                </div>
+            </div>
+            <div class="tg-row">
+                <span class="tg-label"><i class="fas fa-piggy-bank me-2" style="opacity:0.7;"></i>Savings Rate A → B</span>
+                <div class="d-flex align-items-center gap-2">
+                    <span class="tg-value" id="tgSavings">-</span>
+                    <span class="tg-pct" id="tgSavingsDiff">-</span>
+                </div>
+            </div>
+        </div>
+
+    </div><!-- /resultSection -->
+
+</div><!-- /cmp-container -->
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+// ── State ────────────────────────────────────────────────────
+let compareType = 'month';
+let comparisonChart = null;
+let categoryChart   = null;
+
+// ── Init ─────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+    buildYearOptions();
+    buildMonthOptions();
+    setCompareType('month', document.querySelector('.type-tab[data-type="month"]'));
+});
+
+// ── Type toggle ───────────────────────────────────────────────
+function setCompareType(type, el) {
+    compareType = type;
+    document.querySelectorAll('.type-tab').forEach(t => t.classList.remove('active'));
+    el.classList.add('active');
+
+    // Show/hide pickers
+    ['month','year','day'].forEach(t => {
+        document.getElementById(`inputMonth_a`).style.display = type === 'month' ? '' : 'none';
+        document.getElementById(`inputMonth_b`).style.display = type === 'month' ? '' : 'none';
+        document.getElementById(`inputYear_a`).style.display  = type === 'year'  ? '' : 'none';
+        document.getElementById(`inputYear_b`).style.display  = type === 'year'  ? '' : 'none';
+        document.getElementById(`inputDay_a`).style.display   = type === 'day'   ? '' : 'none';
+        document.getElementById(`inputDay_b`).style.display   = type === 'day'   ? '' : 'none';
+    });
+
+    // Reset results
+    document.getElementById('resultSection').style.display = 'none';
+}
+
+// ── Build year options ────────────────────────────────────────
+function buildYearOptions() {
+    const now = new Date().getFullYear();
+    const ids = ['yearA_month','yearB_month','yearA_year','yearB_year'];
+    ids.forEach(id => {
+        const sel = document.getElementById(id);
+        if (!sel) return;
+        sel.innerHTML = '';
+        for (let y = now; y >= now - 6; y--) {
+            const opt = document.createElement('option');
+            opt.value = y;
+            opt.textContent = y + (y === now ? ' (Current)' : '');
+            sel.appendChild(opt);
+        }
+    });
+    // Default period B to previous year for year picker
+    const yb = document.getElementById('yearB_year');
+    if (yb && yb.options.length > 1) yb.selectedIndex = 1;
+}
+
+// ── Build month options ───────────────────────────────────────
+function buildMonthOptions() {
+    const months = ['January','February','March','April','May','June',
+                    'July','August','September','October','November','December'];
+    const now = new Date();
+
+    ['A','B'].forEach((side, si) => {
+        const sel = document.getElementById(`month${side}`);
+        if (!sel) return;
+        sel.innerHTML = '';
+        months.forEach((name, i) => {
+            const opt = document.createElement('option');
+            opt.value = (i + 1).toString().padStart(2, '0');
+            opt.textContent = name;
+            sel.appendChild(opt);
+        });
+        // Default A = current month, B = previous month
+        if (side === 'A') {
+            sel.value = (now.getMonth() + 1).toString().padStart(2, '0');
+        } else {
+            const prevM = now.getMonth() === 0 ? 12 : now.getMonth();
+            sel.value = prevM.toString().padStart(2, '0');
+            // Also set year to previous year if January
+            if (now.getMonth() === 0) {
+                const ybm = document.getElementById('yearB_month');
+                if (ybm) ybm.value = (now.getFullYear() - 1).toString();
+            }
+        }
+    });
+
+    // Default day inputs
+    const today = now.toISOString().slice(0, 10);
+    const yest  = new Date(now - 86400000).toISOString().slice(0, 10);
+    const da = document.getElementById('dayA');
+    const db = document.getElementById('dayB');
+    if (da) da.value = today;
+    if (db) db.value = yest;
+}
+
+// ── Helpers ───────────────────────────────────────────────────
+const fmt = (n) => `Rp ${Math.abs(n).toLocaleString('id-ID', {minimumFractionDigits:0,maximumFractionDigits:0})}`;
+const sign = (n) => n > 0 ? '+' : n < 0 ? '−' : '';
+
+function getPeriodStr(side) {
+    if (compareType === 'month') {
+        const year  = document.getElementById(`year${side}_month`).value;
+        const month = document.getElementById(`month${side}`).value;
+        return `${year}-${month}`;
+    } else if (compareType === 'year') {
+        return document.getElementById(`year${side}_year`).value;
+    } else {
+        return document.getElementById(`day${side}`).value; // YYYY-MM-DD
+    }
+}
+
+function pctLabel(pct, invertGood) {
+    if (pct === null || pct === undefined) return '<span class="text-flat">N/A</span>';
+    const good = invertGood ? pct < 0 : pct > 0;
+    const cls  = pct > 0 ? (invertGood ? 'text-down' : 'text-up') :
+                 pct < 0 ? (invertGood ? 'text-up'   : 'text-down') : 'text-flat';
+    return `<span class="${cls}">${sign(pct)}${Math.abs(pct)}%</span>`;
+}
+
+// ── Run comparison ────────────────────────────────────────────
+async function runComparison() {
+    console.log('[CMP] runComparison started');
+
+    const pa = getPeriodStr('A');
+    const pb = getPeriodStr('B');
+    console.log('[CMP] periods:', { compareType, pa, pb });
+
+    if (!pa || !pb) { showInlineError('Please select both periods.'); return; }
+    if (pa === pb)  { showInlineError('Please select two different periods.'); return; }
+
+    const btn = document.getElementById('btnCompare');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Calculating…';
+    clearInlineError();
+
+    let data = null;
+    try {
+        const url = `/api/comparison-data?compare_type=${compareType}&period_a=${pa}&period_b=${pb}`;
+        console.log('[CMP] fetching:', url);
+        const res = await fetch(url);
+        console.log('[CMP] response status:', res.status);
+        if (!res.ok) throw new Error(`Server error: ${res.status}`);
+        data = await res.json();
+        console.log('[CMP] data received:', data);
+    } catch(e) {
+        console.error('[CMP] Fetch error:', e);
+        showInlineError('Could not reach server. Please try again.');
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-code-compare me-2"></i>Compare Now';
+        return;
+    }
+
+    // Show section FIRST
+    const rs = document.getElementById('resultSection');
+    console.log('[CMP] resultSection element:', rs);
+    if (!rs) { console.error('[CMP] resultSection NOT FOUND in DOM'); return; }
+
+    rs.style.display = 'block';
+    console.log('[CMP] resultSection display set to block, computed:', window.getComputedStyle(rs).display);
+
+    // Render text metrics
+    console.log('[CMP] calling renderMetrics...');
+    try { renderMetrics(data); console.log('[CMP] renderMetrics OK'); }
+    catch(e) { console.error('[CMP] renderMetrics ERROR:', e); }
+
+    console.log('[CMP] calling renderTotalGrowth...');
+    try { renderTotalGrowth(data); console.log('[CMP] renderTotalGrowth OK'); }
+    catch(e) { console.error('[CMP] renderTotalGrowth ERROR:', e); }
+
+    console.log('[CMP] calling renderCategoryTable...');
+    try { renderCategoryTable(data.category_compare, data.period_a.label, data.period_b.label); console.log('[CMP] renderCategoryTable OK'); }
+    catch(e) { console.error('[CMP] renderCategoryTable ERROR:', e); }
+
+    // Defer charts until after reflow
+    requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+            console.log('[CMP] deferred chart render, canvas exists:', !!document.getElementById('comparisonChart'));
+
+            try { renderOverviewChart(data.chart_data); console.log('[CMP] renderOverviewChart OK'); }
+            catch(e) { console.error('[CMP] renderOverviewChart ERROR:', e); }
+
+            try { renderCategoryChart(data.category_compare, data.period_a.label, data.period_b.label); console.log('[CMP] renderCategoryChart OK'); }
+            catch(e) { console.error('[CMP] renderCategoryChart ERROR:', e); }
+
+            console.log('[CMP] final resultSection display:', window.getComputedStyle(rs).display);
+            rs.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+    });
+
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fas fa-code-compare me-2"></i>Compare Now';
+}
+
+function showInlineError(msg) {
+    let el = document.getElementById('cmpInlineError');
+    if (!el) {
+        el = document.createElement('div');
+        el.id = 'cmpInlineError';
+        el.style.cssText = 'background:#fff3cd;border:1px solid #ffc107;color:#856404;padding:.75rem 1rem;border-radius:12px;margin-top:1rem;font-weight:500;';
+        document.querySelector('.selector-card').appendChild(el);
+    }
+    el.innerHTML = `<i class="fas fa-exclamation-triangle me-2"></i>${msg}`;
+    el.style.display = 'block';
+}
+function clearInlineError() {
+    const el = document.getElementById('cmpInlineError');
+    if (el) el.style.display = 'none';
+}
+
+// ── Render metrics (text-only, no charts) ─────────────────────
+function renderMetrics(data) {
+    const a = data.period_a;
+    const b = data.period_b;
+    const g = data.growth;
+
+    // Labels
+    setText('labelA', a.label);
+    setText('labelB', b.label);
+
+    // Period A
+    setText('aIncome',   fmt(a.income));
+    setText('aExpenses', fmt(a.expenses));
+    const aNetEl = document.getElementById('aNet');
+    if (aNetEl) {
+        aNetEl.textContent = (a.net >= 0 ? '+' : '−') + fmt(a.net);
+        aNetEl.className   = 'metric-value net ' + (a.net >= 0 ? 'positive' : 'negative');
+    }
+    setText('aSavings',  a.savings_rate + '%');
+    setText('aTxCount',  a.tx_count + ' transactions');
+
+    // Period B
+    setText('bIncome',   fmt(b.income));
+    setText('bExpenses', fmt(b.expenses));
+    const bNetEl = document.getElementById('bNet');
+    if (bNetEl) {
+        bNetEl.textContent = (b.net >= 0 ? '+' : '−') + fmt(b.net);
+        bNetEl.className   = 'metric-value net ' + (b.net >= 0 ? 'positive' : 'negative');
+    }
+    setText('bSavings',  b.savings_rate + '%');
+    setText('bTxCount',  b.tx_count + ' transactions');
+
+    // Growth cards
+    renderGrowthCard('Income',  g.income_change,  g.income_pct,  false);
+    renderGrowthCard('Expense', g.expense_change, g.expense_pct, true);
+    renderGrowthCard('Net',     g.net_change,     g.net_pct,     false);
+
+    const txDiff = g.tx_change;
+    const txEl = document.getElementById('growthTxAmt');
+    if (txEl) {
+        txEl.textContent = (txDiff >= 0 ? '+' : '') + txDiff + ' transactions';
+        txEl.className   = 'growth-amount ' + (txDiff > 0 ? 'text-up' : txDiff < 0 ? 'text-down' : 'text-flat');
+    }
+}
+
+function setText(id, value) {
+    const el = document.getElementById(id);
+    if (el) el.textContent = value;
+}
+
+function renderGrowthCard(key, change, pct, invertGood) {
+    const aId = `growth${key}Amt`;
+    const pId = `growth${key}Pct`;
+    const aEl = document.getElementById(aId);
+    const pEl = document.getElementById(pId);
+    if (!aEl || !pEl) return;
+
+    const prefix = change > 0 ? '+' : change < 0 ? '−' : '';
+    aEl.textContent = prefix + fmt(Math.abs(change));
+    const good = invertGood ? change < 0 : change > 0;
+    aEl.className = 'growth-amount ' + (change > 0 ? (invertGood ? 'text-down' : 'text-up') : change < 0 ? (invertGood ? 'text-up' : 'text-down') : 'text-flat');
+    pEl.innerHTML = pct !== null ? pctLabel(pct, invertGood) + ' vs Period A' : '<span class="text-flat">vs Period A</span>';
+}
+
+// ── Overview chart ────────────────────────────────────────────
+function renderOverviewChart(cd) {
+    const ctx = document.getElementById('comparisonChart').getContext('2d');
+    if (comparisonChart) comparisonChart.destroy();
+
+    comparisonChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: cd.labels,
+            datasets: [
+                {
+                    label: cd.label_a,
+                    data: cd.period_a,
+                    backgroundColor: 'rgba(102,126,234,0.7)',
+                    borderColor: '#667eea',
+                    borderWidth: 2,
+                    borderRadius: 8,
+                },
+                {
+                    label: cd.label_b,
+                    data: cd.period_b,
+                    backgroundColor: 'rgba(118,75,162,0.7)',
+                    borderColor: '#764ba2',
+                    borderWidth: 2,
+                    borderRadius: 8,
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'top' },
+                tooltip: {
+                    callbacks: {
+                        label: ctx => ` ${ctx.dataset.label}: Rp ${ctx.raw.toLocaleString('id-ID')}`
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        callback: v => 'Rp ' + (v >= 1e6 ? (v/1e6).toFixed(1)+'M' : v >= 1e3 ? (v/1e3).toFixed(0)+'K' : v)
+                    },
+                    grid: { color: 'rgba(0,0,0,0.06)' }
+                },
+                x: { grid: { display: false } }
+            }
+        }
+    });
+}
+
+// ── Category table ────────────────────────────────────────────
+function renderCategoryTable(cats, labelA, labelB) {
+    const wrap = document.getElementById('categoryTableWrap');
+    document.getElementById('catCount').textContent = cats.length + ' categories';
+
+    if (!cats || cats.length === 0) {
+        wrap.innerHTML = '<div class="state-empty"><i class="fas fa-inbox"></i><p>No expense categories found</p></div>';
+        return;
+    }
+
+    const rows = cats.slice(0, 15).map((c, i) => {
+        const diff     = c.diff;
+        const diffSign = diff > 0 ? '+' : diff < 0 ? '−' : '';
+        const badgeCls = diff > 0 ? 'up' : diff < 0 ? 'down' : 'flat';
+        const arrow    = diff > 0 ? '↑' : diff < 0 ? '↓' : '→';
+        const pctStr   = c.diff_pct !== null ? `${diffSign}${Math.abs(c.diff_pct)}%` : 'N/A';
+        return `
+            <tr>
+                <td title="${c.name}">${i+1}. ${c.name}</td>
+                <td>Rp ${c.amount_a.toLocaleString('id-ID',{minimumFractionDigits:0})}</td>
+                <td>Rp ${c.amount_b.toLocaleString('id-ID',{minimumFractionDigits:0})}</td>
+                <td>
+                    <span class="diff-badge ${badgeCls}">
+                        ${arrow} ${diffSign}Rp ${Math.abs(diff).toLocaleString('id-ID',{minimumFractionDigits:0})}
+                    </span>
+                </td>
+                <td><span class="${badgeCls === 'up' ? 'text-danger' : badgeCls === 'down' ? 'text-success' : 'text-flat'} fw-semibold">${pctStr}</span></td>
+            </tr>`;
+    }).join('');
+
+    wrap.innerHTML = `
+        <table class="cat-table">
+            <thead>
+                <tr>
+                    <th>Category</th>
+                    <th>${labelA}</th>
+                    <th>${labelB}</th>
+                    <th>Difference</th>
+                    <th>Change %</th>
+                </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+        </table>`;
+}
+
+// ── Category bar chart ────────────────────────────────────────
+function renderCategoryChart(cats, labelA, labelB) {
+    const el = document.getElementById('categoryChart');
+    if (!el) return;
+    if (categoryChart) categoryChart.destroy();
+
+    const top = cats.slice(0, 8);
+    if (top.length === 0) {
+        document.getElementById('catChartWrap').innerHTML =
+            '<div class="state-empty"><i class="fas fa-inbox"></i><p>No category data</p></div>';
+        return;
+    }
+
+    categoryChart = new Chart(el.getContext('2d'), {
+        type: 'bar',
+        data: {
+            labels: top.map(c => c.name.length > 16 ? c.name.slice(0,14)+'…' : c.name),
+            datasets: [
+                {
+                    label: labelA,
+                    data: top.map(c => c.amount_a),
+                    backgroundColor: 'rgba(102,126,234,0.75)',
+                    borderColor: '#667eea',
+                    borderWidth: 2,
+                    borderRadius: 6,
+                },
+                {
+                    label: labelB,
+                    data: top.map(c => c.amount_b),
+                    backgroundColor: 'rgba(118,75,162,0.75)',
+                    borderColor: '#764ba2',
+                    borderWidth: 2,
+                    borderRadius: 6,
+                }
+            ]
+        },
+        options: {
+            indexAxis: 'y',
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'top' },
+                tooltip: {
+                    callbacks: {
+                        label: ctx => ` ${ctx.dataset.label}: Rp ${ctx.raw.toLocaleString('id-ID')}`
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    beginAtZero: true,
+                    ticks: {
+                        callback: v => 'Rp ' + (v >= 1e6 ? (v/1e6).toFixed(1)+'M' : v >= 1e3 ? (v/1e3).toFixed(0)+'K' : v)
+                    },
+                    grid: { color: 'rgba(0,0,0,0.06)' }
+                },
+                y: { grid: { display: false } }
+            }
+        }
+    });
+}
+
+// ── Total growth summary ──────────────────────────────────────
+function renderTotalGrowth(data) {
+    const a = data.period_a;
+    const b = data.period_b;
+    const g = data.growth;
+
+    document.getElementById('tgPeriodLabels').textContent = `${a.label} → ${b.label}`;
+
+    const fmtChange = (val) => {
+        if (val === null || val === undefined) return '-';
+        const prefix = val > 0 ? '+' : val < 0 ? '−' : '';
+        return prefix + fmt(Math.abs(val));
+    };
+    const fmtPct = (pct, cls) => {
+        if (pct === null || pct === undefined) return '-';
+        const s = pct > 0 ? '+' : pct < 0 ? '−' : '';
+        return `${s}${Math.abs(pct)}%`;
+    };
+
+    // Income
+    document.getElementById('tgIncome').textContent    = fmtChange(g.income_change);
+    document.getElementById('tgIncome').style.color    = g.income_change >= 0 ? '#90ee90' : '#ff9999';
+    document.getElementById('tgIncomePct').textContent = fmtPct(g.income_pct);
+
+    // Expense
+    document.getElementById('tgExpense').textContent    = fmtChange(g.expense_change);
+    document.getElementById('tgExpense').style.color    = g.expense_change <= 0 ? '#90ee90' : '#ff9999';
+    document.getElementById('tgExpensePct').textContent = fmtPct(g.expense_pct);
+
+    // Net
+    document.getElementById('tgNet').textContent    = fmtChange(g.net_change);
+    document.getElementById('tgNet').style.color    = g.net_change >= 0 ? '#90ee90' : '#ff9999';
+    document.getElementById('tgNetPct').textContent = fmtPct(g.net_pct);
+
+    // Savings rate delta
+    const srDiff = b.savings_rate - a.savings_rate;
+    document.getElementById('tgSavings').textContent   = `${a.savings_rate}% → ${b.savings_rate}%`;
+    document.getElementById('tgSavingsDiff').textContent =
+        (srDiff > 0 ? '+' : '') + srDiff.toFixed(1) + ' pts';
+    document.getElementById('tgSavingsDiff').style.color = srDiff >= 0 ? 'rgba(255,255,255,0.9)' : '#ff9999';
+}
+</script>
+{% endblock %}

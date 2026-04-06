@@ -575,7 +575,7 @@
             -ms-user-select: none;
             user-select: none;
         }
-        
+
         .dashboard-container input,
         .dashboard-container textarea {
             -webkit-user-select: text;
@@ -583,6 +583,122 @@
             -ms-user-select: text;
             user-select: text;
         }
+    }
+
+    /* ── Financial Intelligence Styles ─────────────────────── */
+
+    /* Net cashflow card colour variants */
+    .stats-icon.positive { background: linear-gradient(135deg, #28a745 0%, #20c997 100%); }
+    .stats-icon.negative { background: linear-gradient(135deg, #dc3545 0%, #c82333 100%); }
+    .stats-icon.neutral  { background: linear-gradient(135deg, #6c757d 0%, #495057 100%); }
+    .stats-icon.danger   { background: linear-gradient(135deg, #dc3545 0%, #e55353 100%); }
+    .stats-icon.success  { background: linear-gradient(135deg, #28a745 0%, #2ecc71 100%); }
+
+    /* Savings rate progress bar */
+    .savings-rate-bar-wrap {
+        background: #e9ecef;
+        border-radius: 8px;
+        height: 8px;
+        margin-top: 0.5rem;
+        overflow: hidden;
+    }
+    .savings-rate-bar-fill {
+        height: 100%;
+        border-radius: 8px;
+        transition: width 0.8s ease;
+        background: linear-gradient(90deg, #28a745, #20c997);
+    }
+    .savings-rate-bar-fill.negative {
+        background: linear-gradient(90deg, #dc3545, #e55353);
+    }
+
+    /* Category breakdown */
+    .category-breakdown-item {
+        margin-bottom: 1rem;
+    }
+    .category-bar-label {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 0.35rem;
+        gap: 0.5rem;
+    }
+    .category-bar-name {
+        font-weight: 500;
+        font-size: 0.9rem;
+        color: #343a40;
+        flex: 1;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .category-bar-meta {
+        font-size: 0.82rem;
+        color: #6c757d;
+        white-space: nowrap;
+        text-align: right;
+    }
+    .category-bar-track {
+        background: #f0f2f5;
+        border-radius: 6px;
+        height: 10px;
+        overflow: hidden;
+    }
+    .category-bar-fill {
+        height: 100%;
+        border-radius: 6px;
+        transition: width 0.7s ease;
+    }
+    .category-bar-fill.expense { background: linear-gradient(90deg, #dc3545, #e55353); }
+    .category-bar-fill.income  { background: linear-gradient(90deg, #28a745, #20c997); }
+
+    /* Rank badge */
+    .rank-badge {
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.72rem;
+        font-weight: 700;
+        color: white;
+        flex-shrink: 0;
+        margin-right: 0.5rem;
+    }
+    .rank-badge.rank-1 { background: #ffc107; color: #333; }
+    .rank-badge.rank-2 { background: #adb5bd; }
+    .rank-badge.rank-3 { background: #cd7f32; }
+    .rank-badge.rank-n { background: #dee2e6; color: #6c757d; }
+
+    /* Breakdown toggle buttons */
+    .breakdown-tab { cursor: pointer; border-radius: 10px !important; font-size: 0.85rem; }
+    .breakdown-tab.active { background: linear-gradient(135deg, #667eea, #764ba2) !important; color: white !important; border-color: transparent !important; }
+
+    /* Insight highlight cards */
+    .insight-card {
+        border-radius: 15px;
+        padding: 1rem 1.25rem;
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+    .insight-card.biggest  { background: rgba(220, 53, 69, 0.07); border: 1px solid rgba(220, 53, 69, 0.2); }
+    .insight-card.smallest { background: rgba(40, 167, 69, 0.07); border: 1px solid rgba(40, 167, 69, 0.2); }
+    .insight-icon {
+        width: 44px; height: 44px; border-radius: 50%;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 1.1rem; color: white; flex-shrink: 0;
+    }
+    .insight-icon.red   { background: linear-gradient(135deg, #dc3545, #e55353); }
+    .insight-icon.green { background: linear-gradient(135deg, #28a745, #20c997); }
+    .insight-label { font-size: 0.78rem; color: #6c757d; font-weight: 500; }
+    .insight-name  { font-weight: 600; font-size: 0.95rem; color: #343a40; }
+    .insight-amount { font-weight: 700; font-size: 1.05rem; }
+
+    @media (max-width: 575.98px) {
+        .category-bar-name { font-size: 0.8rem; }
+        .rank-badge { width: 20px; height: 20px; font-size: 0.65rem; }
     }
 </style>
 
@@ -633,6 +749,12 @@
         <div class="quick-access-container">
             <button type="button" class="btn btn-outline-light quick-access-btn" data-bs-toggle="modal" data-bs-target="#quickAccessModal">
                 <i class="fas fa-bolt me-2"></i><span data-translate="dashboard.quick_access">Quick Access</span>
+            </button>
+            <a href="/comparison" class="btn btn-outline-light quick-access-btn ms-2" title="Compare two periods">
+                <i class="fas fa-code-compare me-2"></i><span>Compare Periods</span>
+            </a>
+            <button type="button" class="btn btn-outline-warning quick-access-btn ms-2" onclick="startDashboardTour()" title="Start Interactive Tour">
+                <i class="fas fa-play me-2"></i><span>Start Tour</span>
             </button>
         </div>
     </div>
@@ -803,6 +925,125 @@
                         </div>
                     </div>
 
+    <!-- ── Financial Health Row ─────────────────────────────── -->
+    <div class="row g-3 mb-4 mt-2">
+
+        <!-- Net Cashflow -->
+        <div class="col-12 col-sm-6 col-lg-3">
+            <div class="card stats-card h-100">
+                <div class="card-body">
+                    <div class="stats-icon neutral" id="netCashflowIcon">
+                        <i class="fas fa-balance-scale"></i>
+                    </div>
+                    <h5 class="stats-label">Net Cashflow</h5>
+                    <h3 class="stats-value" id="netCashflowValue">-</h3>
+                    <small class="text-muted">Income − Expenses</small>
+                </div>
+            </div>
+        </div>
+
+        <!-- Savings Rate -->
+        <div class="col-12 col-sm-6 col-lg-3">
+            <div class="card stats-card h-100">
+                <div class="card-body">
+                    <div class="stats-icon" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                        <i class="fas fa-piggy-bank"></i>
+                    </div>
+                    <h5 class="stats-label">Savings Rate</h5>
+                    <h3 class="stats-value" id="savingsRateValue">-</h3>
+                    <div class="savings-rate-bar-wrap">
+                        <div class="savings-rate-bar-fill" id="savingsRateBar" style="width:0%"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Biggest Expense Category -->
+        <div class="col-12 col-sm-6 col-lg-3">
+            <div class="card stats-card h-100">
+                <div class="card-body">
+                    <div class="stats-icon danger">
+                        <i class="fas fa-arrow-trend-up"></i>
+                    </div>
+                    <h5 class="stats-label">Biggest Expense</h5>
+                    <div class="stats-value text-truncate" id="biggestExpenseName" style="font-size:1.1rem;">-</div>
+                    <small class="text-danger fw-bold" id="biggestExpenseAmount">-</small>
+                </div>
+            </div>
+        </div>
+
+        <!-- Most Economical Category -->
+        <div class="col-12 col-sm-6 col-lg-3">
+            <div class="card stats-card h-100">
+                <div class="card-body">
+                    <div class="stats-icon success">
+                        <i class="fas fa-leaf"></i>
+                    </div>
+                    <h5 class="stats-label">Most Economical</h5>
+                    <div class="stats-value text-truncate" id="smallestExpenseName" style="font-size:1.1rem;">-</div>
+                    <small class="text-success fw-bold" id="smallestExpenseAmount">-</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Category Intelligence Panel ───────────────────────── -->
+    <div class="row g-4 mt-0 mb-4">
+        <div class="col-12">
+            <div class="card content-card">
+                <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+                    <h5 class="mb-0">
+                        <i class="fas fa-chart-bar me-2"></i>
+                        Spending by Category
+                    </h5>
+                    <div class="d-flex gap-2">
+                        <button id="tabExpense" class="btn btn-sm breakdown-tab active"
+                                onclick="switchCategoryView('expense')">
+                            <i class="fas fa-arrow-down me-1"></i>Expenses
+                        </button>
+                        <button id="tabIncome" class="btn btn-sm breakdown-tab btn-outline-secondary"
+                                onclick="switchCategoryView('income')">
+                            <i class="fas fa-arrow-up me-1"></i>Income
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <!-- Insight strip (largest / smallest) -->
+                    <div class="row g-3 mb-4" id="categoryInsightStrip" style="display:none;">
+                        <div class="col-12 col-sm-6">
+                            <div class="insight-card biggest">
+                                <div class="insight-icon red"><i class="fas fa-fire"></i></div>
+                                <div>
+                                    <div class="insight-label">Highest Spend</div>
+                                    <div class="insight-name" id="insightBigName">-</div>
+                                    <div class="insight-amount text-danger" id="insightBigAmt">-</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-12 col-sm-6">
+                            <div class="insight-card smallest">
+                                <div class="insight-icon green"><i class="fas fa-seedling"></i></div>
+                                <div>
+                                    <div class="insight-label">Lowest Spend</div>
+                                    <div class="insight-name" id="insightSmallName">-</div>
+                                    <div class="insight-amount text-success" id="insightSmallAmt">-</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Category bars -->
+                    <div id="categoryBreakdownContainer">
+                        <div class="text-center py-4 text-muted">
+                            <i class="fas fa-chart-bar fa-3x mb-3"></i>
+                            <p>Loading category breakdown…</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Top Tags Section -->
     <div class="row g-4 mt-4">
         <div class="col-12">
@@ -947,6 +1188,9 @@ document.addEventListener('DOMContentLoaded', function() {
         initializeCurrentButton();
         initializeDashboardBalanceToggle();
         initializeDashboardLanguage();
+        
+        // Start dashboard tour for new users
+        startDashboardTour();
     }, 100);
     
     // Prevent zoom and pan gestures on mobile
@@ -1505,6 +1749,177 @@ function updateDashboardData(data) {
     
     // Update recent transactions
     updateRecentTransactions(data.recent_transactions);
+
+    // ── New financial intelligence panels ──────────────────
+    updateFinancialHealth(data);
+    updateCategoryBreakdown(data.category_breakdown, 'expense');
+}
+
+// ── Financial Health ──────────────────────────────────────────
+
+function updateFinancialHealth(data) {
+    const fmt = (n) => `Rp ${Math.abs(n).toLocaleString('id-ID', {minimumFractionDigits:0,maximumFractionDigits:0})}`;
+
+    // Net cashflow card
+    const ncv = document.getElementById('netCashflowValue');
+    const nci = document.getElementById('netCashflowIcon');
+    if (ncv && data.net_cashflow !== undefined) {
+        const nc = parseFloat(data.net_cashflow);
+        const prefix = nc >= 0 ? '+' : '-';
+        ncv.textContent = prefix + fmt(nc);
+        ncv.style.color = nc >= 0 ? '#28a745' : '#dc3545';
+        if (nci) {
+            nci.className = 'stats-icon ' + (nc > 0 ? 'positive' : nc < 0 ? 'negative' : 'neutral');
+        }
+    }
+
+    // Savings rate
+    const srv = document.getElementById('savingsRateValue');
+    const srb = document.getElementById('savingsRateBar');
+    if (srv && data.savings_rate !== undefined) {
+        const sr = parseFloat(data.savings_rate);
+        srv.textContent = sr.toFixed(1) + '%';
+        srv.style.color = sr >= 20 ? '#28a745' : sr >= 0 ? '#ffc107' : '#dc3545';
+        if (srb) {
+            const width = Math.min(Math.abs(sr), 100);
+            srb.style.width = width + '%';
+            srb.className = 'savings-rate-bar-fill' + (sr < 0 ? ' negative' : '');
+        }
+    }
+
+    // Biggest expense category
+    const bn = document.getElementById('biggestExpenseName');
+    const ba = document.getElementById('biggestExpenseAmount');
+    const cb = data.category_breakdown;
+    if (bn && ba && cb && cb.largest_expense) {
+        const le = cb.largest_expense;
+        bn.textContent = le.name;
+        ba.textContent = fmt(le.amount) + ' (' + le.percentage + '%)';
+    } else if (bn) {
+        bn.textContent = '-';
+        if (ba) ba.textContent = 'No data';
+    }
+
+    // Smallest expense category
+    const sn = document.getElementById('smallestExpenseName');
+    const sa = document.getElementById('smallestExpenseAmount');
+    if (sn && sa && cb && cb.smallest_expense) {
+        const se = cb.smallest_expense;
+        sn.textContent = se.name;
+        sa.textContent = fmt(se.amount) + ' (' + se.percentage + '%)';
+    } else if (sn) {
+        sn.textContent = '-';
+        if (sa) sa.textContent = 'No data';
+    }
+}
+
+// ── Category Breakdown ────────────────────────────────────────
+
+let _categoryBreakdownData = null;
+
+function switchCategoryView(type) {
+    // Toggle tab styles
+    const tabExp = document.getElementById('tabExpense');
+    const tabInc = document.getElementById('tabIncome');
+    if (tabExp && tabInc) {
+        if (type === 'expense') {
+            tabExp.classList.add('active');
+            tabInc.classList.remove('active');
+        } else {
+            tabInc.classList.add('active');
+            tabExp.classList.remove('active');
+        }
+    }
+    if (_categoryBreakdownData) {
+        renderCategoryBars(_categoryBreakdownData[type === 'expense' ? 'expenses' : 'income'], type);
+        updateInsightStrip(_categoryBreakdownData, type);
+    }
+}
+
+function updateCategoryBreakdown(breakdown, defaultType) {
+    _categoryBreakdownData = breakdown;
+    if (!breakdown) return;
+    renderCategoryBars(breakdown[defaultType === 'expense' ? 'expenses' : 'income'], defaultType);
+    updateInsightStrip(breakdown, defaultType);
+}
+
+function updateInsightStrip(breakdown, type) {
+    const strip = document.getElementById('categoryInsightStrip');
+    if (!strip) return;
+
+    if (type === 'expense' && breakdown.expenses && breakdown.expenses.length > 0) {
+        const biggest  = breakdown.expenses[0];
+        const smallest = breakdown.expenses[breakdown.expenses.length - 1];
+        const fmt = (n) => `Rp ${n.toLocaleString('id-ID', {minimumFractionDigits:0,maximumFractionDigits:0})}`;
+
+        const ib = document.getElementById('insightBigName');
+        const ia = document.getElementById('insightBigAmt');
+        const is = document.getElementById('insightSmallName');
+        const iSa = document.getElementById('insightSmallAmt');
+
+        if (ib) ib.textContent = biggest.name;
+        if (ia) ia.textContent = fmt(biggest.amount) + ' (' + biggest.percentage + '%)';
+
+        if (breakdown.expenses.length > 1) {
+            if (is) is.textContent = smallest.name;
+            if (iSa) iSa.textContent = fmt(smallest.amount) + ' (' + smallest.percentage + '%)';
+            strip.style.display = '';
+        } else {
+            strip.style.display = 'none';
+        }
+    } else {
+        strip.style.display = 'none';
+    }
+}
+
+function renderCategoryBars(items, type) {
+    const container = document.getElementById('categoryBreakdownContainer');
+    if (!container) return;
+
+    if (!items || items.length === 0) {
+        container.innerHTML = `
+            <div class="text-center py-4 text-muted">
+                <i class="fas fa-inbox fa-3x mb-3"></i>
+                <p>No ${type} data for this period</p>
+            </div>`;
+        return;
+    }
+
+    const fmt = (n) => `Rp ${n.toLocaleString('id-ID', {minimumFractionDigits:0,maximumFractionDigits:0})}`;
+
+    // Show max 10 categories
+    const displayed = items.slice(0, 10);
+    const rankClass = (i) => i === 0 ? 'rank-1' : i === 1 ? 'rank-2' : i === 2 ? 'rank-3' : 'rank-n';
+    const rankLabel = (i) => (i + 1).toString();
+
+    container.innerHTML = displayed.map((item, i) => `
+        <div class="category-breakdown-item">
+            <div class="category-bar-label">
+                <div class="d-flex align-items-center flex-1 min-w-0">
+                    <span class="rank-badge ${rankClass(i)}">${rankLabel(i)}</span>
+                    <span class="category-bar-name" title="${item.name}">${item.name}</span>
+                </div>
+                <div class="category-bar-meta">
+                    <span class="fw-semibold ${type === 'expense' ? 'text-danger' : 'text-success'}">${fmt(item.amount)}</span>
+                    &nbsp;<span class="text-muted">${item.percentage}%</span>
+                    &nbsp;<span class="text-muted">(${item.count} tx)</span>
+                </div>
+            </div>
+            <div class="category-bar-track">
+                <div class="category-bar-fill ${type}" style="width:${item.percentage}%"></div>
+            </div>
+        </div>
+    `).join('');
+
+    // If there are more than 10, show a summary line
+    if (items.length > 10) {
+        const rest = items.slice(10);
+        const restTotal = rest.reduce((s, x) => s + x.amount, 0);
+        container.innerHTML += `
+            <div class="text-muted small mt-2 text-center">
+                + ${rest.length} more categor${rest.length === 1 ? 'y' : 'ies'} totalling ${fmt(restTotal)}
+            </div>`;
+    }
 }
 
 function updateBalanceComparisonInfo(data) {

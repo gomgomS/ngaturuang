@@ -412,6 +412,13 @@ def api_dashboard_data():
         
         # Get recent transactions (limit to 5, excluding system categories)
         recent_transactions = filtered_transactions[:5]
+
+        # Category breakdown (ranked largest to smallest)
+        category_breakdown = generate_category_breakdown(filtered_transactions)
+
+        # Financial health metrics
+        net_cashflow = total_income - total_expenses
+        savings_rate = round((net_cashflow / total_income * 100) if total_income > 0 else 0, 1)
         
         # Generate chart data based on filter type (using filtered transactions)
         if day and month:
@@ -448,7 +455,10 @@ def api_dashboard_data():
             "previous_month_income": previous_month_income,
             "previous_month_income_improvement": previous_month_income_improvement,
             "previous_month_expenses": previous_month_expenses,
-            "previous_month_expenses_improvement": previous_month_expenses_improvement
+            "previous_month_expenses_improvement": previous_month_expenses_improvement,
+            "category_breakdown": category_breakdown,
+            "net_cashflow": net_cashflow,
+            "savings_rate": savings_rate
         })
         
     except Exception as e:
@@ -510,6 +520,57 @@ def api_balance_analysis():
     except Exception as e:
         print(f"Error in api_balance_analysis: {e}")
         return jsonify({"error": "Internal server error"}), 500
+
+def generate_category_breakdown(transactions):
+    """Group transactions by category, return ranked breakdown for expenses and income"""
+    try:
+        expense_by_cat = {}
+        income_by_cat = {}
+
+        for tx in transactions:
+            cat_id = tx.get("category_id") or "uncategorized"
+            snap = tx.get("_snap") or {}
+            cat_path = snap.get("category_path") or []
+            if cat_path:
+                cat_name = cat_path[-1]
+            else:
+                cat_name = cat_id.replace("_", " ").title() if cat_id else "Uncategorized"
+
+            amount = float(tx.get("amount", 0))
+            tx_type = tx.get("type", "")
+
+            if tx_type == "expense":
+                if cat_id not in expense_by_cat:
+                    expense_by_cat[cat_id] = {"name": cat_name, "amount": 0, "count": 0}
+                expense_by_cat[cat_id]["amount"] += amount
+                expense_by_cat[cat_id]["count"] += 1
+            elif tx_type == "income":
+                if cat_id not in income_by_cat:
+                    income_by_cat[cat_id] = {"name": cat_name, "amount": 0, "count": 0}
+                income_by_cat[cat_id]["amount"] += amount
+                income_by_cat[cat_id]["count"] += 1
+
+        expense_list = sorted(expense_by_cat.values(), key=lambda x: x["amount"], reverse=True)
+        income_list = sorted(income_by_cat.values(), key=lambda x: x["amount"], reverse=True)
+
+        total_expense = sum(item["amount"] for item in expense_list)
+        for item in expense_list:
+            item["percentage"] = round((item["amount"] / total_expense * 100) if total_expense > 0 else 0, 1)
+
+        total_income = sum(item["amount"] for item in income_list)
+        for item in income_list:
+            item["percentage"] = round((item["amount"] / total_income * 100) if total_income > 0 else 0, 1)
+
+        return {
+            "expenses": expense_list,
+            "income": income_list,
+            "largest_expense": expense_list[0] if expense_list else None,
+            "smallest_expense": expense_list[-1] if len(expense_list) > 1 else None,
+        }
+    except Exception as e:
+        print(f"Error generating category breakdown: {e}")
+        return {"expenses": [], "income": [], "largest_expense": None, "smallest_expense": None}
+
 
 def generate_monthly_chart_data(transactions, year, month_num):
     """Generate chart data for a specific month"""
@@ -661,6 +722,137 @@ def generate_yearly_chart_data(transactions, year):
             "income": [],
             "expenses": []
         }
+
+def get_period_bounds(compare_type, period_str):
+    """Return (start_dt, end_dt, label) for a given period string."""
+    if compare_type == "year":
+        y = int(period_str)
+        start = datetime(y, 1, 1)
+        end   = datetime(y + 1, 1, 1)
+        label = str(y)
+    elif compare_type == "month":
+        y, m = int(period_str[:4]), int(period_str[5:7])
+        start = datetime(y, m, 1)
+        end   = datetime(y + 1, 1, 1) if m == 12 else datetime(y, m + 1, 1)
+        label = start.strftime("%B %Y")
+    else:  # day
+        from datetime import timedelta
+        y, m, d = int(period_str[:4]), int(period_str[5:7]), int(period_str[8:10])
+        start = datetime(y, m, d)
+        end   = start + timedelta(days=1)
+        label = start.strftime("%d %B %Y")
+    return start, end, label
+
+
+def summarise_period(transactions, label):
+    """Aggregate a list of filtered transactions into a period summary dict."""
+    system_cats = {"transfer", "balance_adjustment"}
+    txs = [t for t in transactions if t.get("category_id") not in system_cats]
+    income   = sum(float(t.get("amount", 0)) for t in txs if t.get("type") == "income")
+    expenses = sum(float(t.get("amount", 0)) for t in txs if t.get("type") == "expense")
+    net      = income - expenses
+    savings_rate = round((net / income * 100) if income > 0 else 0, 1)
+    breakdown = generate_category_breakdown(txs)
+    return {
+        "label":        label,
+        "income":       income,
+        "expenses":     expenses,
+        "net":          net,
+        "savings_rate": savings_rate,
+        "tx_count":     len(txs),
+        "category_breakdown": breakdown,
+    }
+
+
+def pct_change(old, new):
+    """Return percentage change, or None if old is zero."""
+    if old == 0:
+        return None
+    return round((new - old) / abs(old) * 100, 1)
+
+
+@app.route("/api/comparison-data")
+def api_comparison_data():
+    """Compare two time periods side-by-side."""
+    try:
+        user_id = session.get("user_id")
+        if not user_id:
+            return jsonify({"error": "Not authenticated"}), 401
+
+        compare_type = request.args.get("compare_type", "month")   # year | month | day
+        period_a_str = request.args.get("period_a")
+        period_b_str = request.args.get("period_b")
+
+        if not period_a_str or not period_b_str:
+            return jsonify({"error": "period_a and period_b are required"}), 400
+
+        start_a, end_a, label_a = get_period_bounds(compare_type, period_a_str)
+        start_b, end_b, label_b = get_period_bounds(compare_type, period_b_str)
+
+        tx_repo = TransactionRepository()
+        txs_a = tx_repo.get_user_transactions_by_date_range(
+            user_id, int(start_a.timestamp()), int(end_a.timestamp()))
+        txs_b = tx_repo.get_user_transactions_by_date_range(
+            user_id, int(start_b.timestamp()), int(end_b.timestamp()))
+
+        summary_a = summarise_period(txs_a, label_a)
+        summary_b = summarise_period(txs_b, label_b)
+
+        # Growth metrics: A is "baseline", B is "comparison"
+        growth = {
+            "income_change":  summary_b["income"]   - summary_a["income"],
+            "income_pct":     pct_change(summary_a["income"],   summary_b["income"]),
+            "expense_change": summary_b["expenses"] - summary_a["expenses"],
+            "expense_pct":    pct_change(summary_a["expenses"], summary_b["expenses"]),
+            "net_change":     summary_b["net"]       - summary_a["net"],
+            "net_pct":        pct_change(summary_a["net"],      summary_b["net"]),
+            "tx_change":      summary_b["tx_count"]  - summary_a["tx_count"],
+        }
+
+        # Merge category lists for the comparison table
+        all_cat_names = {}
+        for item in (summary_a["category_breakdown"]["expenses"] +
+                     summary_b["category_breakdown"]["expenses"]):
+            all_cat_names[item["name"]] = True
+        category_compare = []
+        def find_cat(lst, name):
+            return next((x for x in lst if x["name"] == name), {"amount": 0, "percentage": 0})
+        for name in all_cat_names:
+            ca = find_cat(summary_a["category_breakdown"]["expenses"], name)
+            cb = find_cat(summary_b["category_breakdown"]["expenses"], name)
+            diff = cb["amount"] - ca["amount"]
+            category_compare.append({
+                "name": name,
+                "amount_a": ca["amount"],
+                "amount_b": cb["amount"],
+                "diff": diff,
+                "diff_pct": pct_change(ca["amount"], cb["amount"]),
+            })
+        category_compare.sort(key=lambda x: max(x["amount_a"], x["amount_b"]), reverse=True)
+
+        # Chart: side-by-side bars
+        chart_data = {
+            "labels": ["Income", "Expenses", "Net Cashflow"],
+            "period_a": [summary_a["income"], summary_a["expenses"], max(summary_a["net"], 0)],
+            "period_b": [summary_b["income"], summary_b["expenses"], max(summary_b["net"], 0)],
+            "label_a": label_a,
+            "label_b": label_b,
+        }
+
+        return jsonify({
+            "compare_type":     compare_type,
+            "period_a":         summary_a,
+            "period_b":         summary_b,
+            "growth":           growth,
+            "category_compare": category_compare,
+            "chart_data":       chart_data,
+        })
+
+    except Exception as e:
+        print(f"Error in api_comparison_data: {e}")
+        import traceback; traceback.print_exc()
+        return jsonify({"error": "Internal server error"}), 500
+
 
 def calculate_balance_from_transactions(user_id, end_timestamp, start_timestamp=None):
     """Calculate total balance based on latest transaction balance_after for each wallet up to selected date"""
@@ -987,6 +1179,13 @@ def goals():
         return auth_check
     
     return render_template("goals.html")
+
+@app.route("/comparison")
+def comparison():
+    auth_check = require_login()
+    if auth_check:
+        return auth_check
+    return render_template("comparison.html")
 
 @app.route("/accounts")
 def accounts():
@@ -3117,7 +3316,8 @@ def api_register():
             "username": username,
             "password": password,  # In production, hash the password
             "created_at": datetime.now().timestamp(),
-            "updated_at": datetime.now().timestamp()
+            "updated_at": datetime.now().timestamp(),
+            "tour_completed": False  # New users start with tour not completed
         }
         
         # Save user to database
@@ -3168,6 +3368,54 @@ def api_login():
     except Exception as e:
         print(f"Error in api_login: {e}")
         return jsonify({"error": "Login failed"}), 500
+
+# Tour API endpoints
+@app.route("/api/tour/status", methods=["GET"])
+def api_tour_status():
+    """Get the current tour completion status for the logged-in user"""
+    user_id = session.get("user_id")
+    if not user_id:
+        return jsonify({"error": "Not authenticated"}), 401
+    
+    users = UserRepository()
+    user = users.find_by_id(user_id)
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+    
+    return jsonify({
+        "tour_completed": user.get("tour_completed", False),
+        "user_id": user_id
+    })
+
+@app.route("/api/tour/complete", methods=["POST"])
+def api_tour_complete():
+    """Mark the tour as completed for the logged-in user"""
+    user_id = session.get("user_id")
+    if not user_id:
+        return jsonify({"error": "Not authenticated"}), 401
+    
+    users = UserRepository()
+    success = users.update_tour_status(user_id, True)
+
+    if success:
+        return jsonify({"message": "Tour marked as completed", "tour_completed": True})
+    else:
+        return jsonify({"error": "Failed to update tour status"}), 500
+
+@app.route("/api/tour/reset", methods=["POST"])
+def api_tour_reset():
+    """Reset the tour status for the logged-in user (for testing purposes)"""
+    user_id = session.get("user_id")
+    if not user_id:
+        return jsonify({"error": "Not authenticated"}), 401
+    
+    users = UserRepository()
+    success = users.update_tour_status(user_id, False)
+
+    if success:
+        return jsonify({"message": "Tour status reset", "tour_completed": False})
+    else:
+        return jsonify({"error": "Failed to reset tour status"}), 500
 
 @app.route("/logout")
 def logout():

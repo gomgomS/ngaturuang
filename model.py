@@ -34,6 +34,7 @@ db: Dict[str, Dict[str, Any]] = {
         "activation_token": "",
         "is_email_active": False,
         "is_wms_registered": False,
+        "tour_completed": False,  # Track if user has completed the interactive tour
         "is_kini_registered": False,
         "advance_setting": {
             "pixel_id": "",
