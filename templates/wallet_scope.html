@@ -1,0 +1,404 @@
+{% extends "layout.html" %}
+
+{% block head %}
+<style>
+body { background: linear-gradient(135deg, #0f2027 0%, #203a43 50%, #2c5364 100%); min-height: 100vh; }
+
+.ws-container { margin: 1.5rem; }
+
+/* ── Header card ── */
+.ws-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 24px;
+    padding: 2rem;
+    color: white;
+    margin-bottom: 1.5rem;
+    position: relative;
+    overflow: hidden;
+}
+.ws-header::before {
+    content:'';position:absolute;inset:0;
+    background: radial-gradient(circle at 80% 20%, rgba(255,255,255,0.15) 0%, transparent 60%);
+}
+.ws-header-inner { position:relative; z-index:1; }
+.ws-back-btn {
+    background: rgba(255,255,255,0.15);
+    border: 1.5px solid rgba(255,255,255,0.3);
+    color: white;
+    border-radius: 12px;
+    padding: 0.4rem 1rem;
+    font-size: 0.85rem;
+    font-weight: 500;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    transition: all 0.2s;
+    margin-bottom: 1.25rem;
+}
+.ws-back-btn:hover { background: rgba(255,255,255,0.25); color: white; }
+
+.ws-wallet-name { font-size: 1.6rem; font-weight: 700; margin: 0 0 0.25rem; }
+.ws-scope-badge {
+    background: rgba(255,255,255,0.2);
+    border-radius: 20px;
+    padding: 0.3rem 0.9rem;
+    font-size: 0.8rem;
+    font-weight: 500;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+/* ── Stat cards ── */
+.stat-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; margin-bottom: 1.5rem; }
+@media(min-width:768px){ .stat-grid { grid-template-columns: repeat(4, 1fr); } }
+
+.stat-card {
+    background: rgba(255,255,255,0.08);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 18px;
+    padding: 1.25rem 1.5rem;
+    color: white;
+}
+.stat-label { font-size: 0.75rem; opacity: 0.7; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.4rem; }
+.stat-value { font-size: 1.25rem; font-weight: 700; }
+.stat-sub   { font-size: 0.72rem; opacity: 0.6; margin-top: 0.2rem; }
+.stat-card.income  { border-color: rgba(72,199,142,0.4);  }
+.stat-card.expense { border-color: rgba(255,100,100,0.4); }
+.stat-card.net     { border-color: rgba(102,126,234,0.5); }
+
+.income-val  { color: #48c78e; }
+.expense-val { color: #ff6464; }
+.net-pos     { color: #48c78e; }
+.net-neg     { color: #ff6464; }
+
+/* ── Chart card ── */
+.chart-card {
+    background: rgba(255,255,255,0.06);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 20px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+    color: white;
+}
+.chart-card h6 { font-size: 0.9rem; font-weight: 600; opacity: 0.85; margin-bottom: 1rem; }
+.chart-wrap { position: relative; height: 220px; }
+
+/* ── Transaction list ── */
+.tx-card {
+    background: rgba(255,255,255,0.06);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 20px;
+    padding: 1.25rem 1.5rem;
+    color: white;
+}
+.tx-card h6 { font-size: 0.9rem; font-weight: 600; opacity: 0.85; margin-bottom: 1rem; }
+.tx-row {
+    display: flex;
+    align-items: center;
+    padding: 0.75rem 0;
+    border-bottom: 1px solid rgba(255,255,255,0.07);
+    gap: 0.75rem;
+}
+.tx-row:last-child { border-bottom: none; }
+.tx-icon {
+    width: 36px; height: 36px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; font-size: 0.85rem;
+}
+.tx-icon.income  { background: rgba(72,199,142,0.2); color: #48c78e; }
+.tx-icon.expense { background: rgba(255,100,100,0.2); color: #ff6464; }
+.tx-info { flex: 1; min-width: 0; }
+.tx-cat  { font-size: 0.82rem; font-weight: 600; }
+.tx-note { font-size: 0.73rem; opacity: 0.55; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tx-right { text-align: right; flex-shrink: 0; }
+.tx-amount { font-size: 0.9rem; font-weight: 700; }
+.tx-bal    { font-size: 0.7rem; opacity: 0.5; }
+.tx-date   { font-size: 0.7rem; opacity: 0.5; }
+.empty-tx  { text-align: center; padding: 2.5rem; opacity: 0.5; }
+
+/* ── Global mode toggle ── */
+.mode-toggle { display: flex; gap: 0.4rem; }
+.toggle-btn {
+    background: rgba(255,255,255,0.1);
+    border: 1.5px solid rgba(255,255,255,0.25);
+    color: rgba(255,255,255,0.75);
+    border-radius: 12px;
+    padding: 0.45rem 1.1rem;
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+.toggle-btn:hover { background: rgba(255,255,255,0.18); color: white; }
+.toggle-btn.active {
+    background: rgba(255,255,255,0.95);
+    border-color: transparent;
+    color: #667eea;
+}
+.chart-subtitle {
+    font-size: 0.75rem;
+    opacity: 0.5;
+    margin-bottom: 1rem;
+}
+/* base-amount card hides in scope-only mode */
+.stat-card.base-card { transition: opacity 0.2s; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="ws-container">
+
+    <!-- ── Header ── -->
+    <div class="ws-header">
+        <div class="ws-header-inner">
+            <!-- top row: back + global toggle -->
+            <div class="d-flex align-items-center justify-content-between mb-3">
+                <a href="/accounts?scope_id={{ scope_id }}" class="ws-back-btn" style="margin-bottom:0;">
+                    <i class="fas fa-arrow-left"></i> Back
+                </a>
+                <div class="mode-toggle">
+                    <button id="btnWithBase" class="toggle-btn active" onclick="setMode('with')">
+                        <i class="fas fa-database me-1"></i>With Base
+                    </button>
+                    <button id="btnScopeOnly" class="toggle-btn" onclick="setMode('scope')">
+                        <i class="fas fa-seedling me-1"></i>Scope Only
+                    </button>
+                </div>
+            </div>
+
+            <!-- wallet info + dynamic headline balance -->
+            <div class="d-flex align-items-end gap-3 flex-wrap">
+                <div>
+                    <h2 class="ws-wallet-name">
+                        <i class="fas fa-{% if wallet.type == 'bank' %}university{% elif wallet.type == 'ewallet' %}mobile-alt{% elif wallet.type == 'cash' %}money-bill-wave{% elif wallet.type == 'crypto' %}coins{% else %}wallet{% endif %} me-2" style="opacity:0.8;"></i>
+                        {{ wallet.name if wallet else 'Account' }}
+                    </h2>
+                    <div class="ws-scope-badge">
+                        <i class="fas fa-tag" style="font-size:0.7rem;"></i>
+                        {{ scope.name if scope else 'Scope' }}
+                    </div>
+                </div>
+                <div class="ms-auto text-end">
+                    <div id="hdrBalLabel" style="font-size:0.75rem;opacity:0.7;">Current Balance</div>
+                    <div id="hdrBalValue" style="font-size:1.8rem;font-weight:700;">Rp {{ current_balance|currency }}</div>
+                    <div id="hdrBalSub" style="font-size:0.72rem;opacity:0.6;">Base: Rp {{ base_amount|currency }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Stat cards ── -->
+    <div class="stat-grid">
+        <div class="stat-card base-card" id="baseCard">
+            <div class="stat-label">Base Amount</div>
+            <div class="stat-value">Rp {{ base_amount|currency }}</div>
+            <div class="stat-sub">Balance before scope started</div>
+        </div>
+        <div class="stat-card income">
+            <div class="stat-label">Total Income</div>
+            <div class="stat-value income-val">Rp {{ total_income|currency }}</div>
+            <div class="stat-sub">In this scope</div>
+        </div>
+        <div class="stat-card expense">
+            <div class="stat-label">Total Expense</div>
+            <div class="stat-value expense-val">Rp {{ total_expense|currency }}</div>
+            <div class="stat-sub">In this scope</div>
+        </div>
+        <div class="stat-card net">
+            <div class="stat-label">Net Flow</div>
+            <div class="stat-value {{ 'net-pos' if net >= 0 else 'net-neg' }}">
+                {{ '+' if net >= 0 else '' }}Rp {{ net|currency }}
+            </div>
+            <div class="stat-sub">Income − Expense</div>
+        </div>
+    </div>
+
+    <!-- ── Growth Chart ── -->
+    <div class="chart-card">
+        <div class="d-flex align-items-center justify-content-between mb-1">
+            <h6 class="mb-0"><i class="fas fa-chart-line me-2"></i>Balance Growth</h6>
+        </div>
+        <div id="chartSubtitle" class="chart-subtitle">Actual account balance over time</div>
+        <div class="chart-wrap">
+            <canvas id="growthChart"></canvas>
+        </div>
+    </div>
+
+    <!-- ── Transaction list ── -->
+    <div class="tx-card">
+        <h6><i class="fas fa-list me-2"></i>Transactions in this scope ({{ transactions|length }})</h6>
+        {% if transactions %}
+            {% for tx in transactions %}
+            <div class="tx-row">
+                <div class="tx-icon {{ tx.type }}">
+                    <i class="fas fa-{% if tx.type == 'income' %}arrow-down{% else %}arrow-up{% endif %}"></i>
+                </div>
+                <div class="tx-info">
+                    <div class="tx-cat">{{ (tx._snap.category_path[-1] if tx._snap and tx._snap.category_path else tx.category_id or 'Uncategorized') }}</div>
+                    <div class="tx-note">{{ tx.note or '—' }}</div>
+                </div>
+                <div class="tx-right">
+                    <div class="tx-amount {{ 'income-val' if tx.type == 'income' else 'expense-val' }}">
+                        {{ '+' if tx.type == 'income' else '-' }}Rp {{ tx.amount|currency }}
+                    </div>
+                    <div class="tx-bal">bal: Rp {{ tx.balance_after|currency if tx.balance_after else '—' }}</div>
+                    <div class="tx-date">{{ tx.timestamp|timestamp_to_date }}</div>
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <div class="empty-tx">
+                <i class="fas fa-inbox fa-2x mb-2 d-block"></i>
+                No transactions in this scope for this account
+            </div>
+        {% endif %}
+    </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+(function() {
+    const points   = {{ chart_points | tojson }};
+    const baseAmt  = {{ base_amount }};
+    if (!points.length) return;
+
+    const labels   = points.map(p => {
+        const d = new Date(p.ts * 1000);
+        return d.toLocaleDateString('id-ID', { day:'2-digit', month:'short' });
+    });
+    const balances      = points.map(p => p.bal);               // with base
+    const scopeOnly     = points.map(p => p.bal - baseAmt);     // without base
+
+    const ctx = document.getElementById('growthChart').getContext('2d');
+
+    function makeGrad(color1, color2) {
+        const g = ctx.createLinearGradient(0, 0, 0, 220);
+        g.addColorStop(0, color1);
+        g.addColorStop(1, color2);
+        return g;
+    }
+
+    let chart = null;
+
+    function buildChart(mode) {
+        const isWith  = mode !== 'scope';
+        const data    = isWith ? balances : scopeOnly;
+        const minV    = Math.min(...data);
+        const maxV    = Math.max(...data);
+        const color   = isWith ? '#667eea' : '#48c78e';
+        const grad    = isWith
+            ? makeGrad('rgba(102,126,234,0.45)', 'rgba(102,126,234,0.02)')
+            : makeGrad('rgba(72,199,142,0.4)',   'rgba(72,199,142,0.02)');
+
+        if (chart) chart.destroy();
+
+        chart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels,
+                datasets: [{
+                    label: isWith ? 'Balance' : 'Scope Growth',
+                    data,
+                    borderColor: color,
+                    borderWidth: 2.5,
+                    backgroundColor: grad,
+                    fill: true,
+                    tension: 0.35,
+                    pointRadius: points.length <= 30 ? 4 : 0,
+                    pointHoverRadius: 6,
+                    pointBackgroundColor: '#fff',
+                    pointBorderColor: color,
+                    pointBorderWidth: 2,
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { mode: 'index', intersect: false },
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        backgroundColor: 'rgba(20,20,40,0.9)',
+                        titleColor: '#ccc',
+                        bodyColor: '#fff',
+                        padding: 12,
+                        callbacks: {
+                            label: c => {
+                                const v = c.parsed.y;
+                                const prefix = (!isWith && v >= 0) ? '+' : '';
+                                return prefix + 'Rp ' + v.toLocaleString('id-ID');
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        grid:  { color: 'rgba(255,255,255,0.06)' },
+                        ticks: { color: 'rgba(255,255,255,0.5)', font: { size: 11 },
+                                 maxTicksLimit: 8, maxRotation: 0 },
+                    },
+                    y: {
+                        grid:  { color: 'rgba(255,255,255,0.06)' },
+                        ticks: {
+                            color: 'rgba(255,255,255,0.5)', font: { size: 11 },
+                            callback: v => {
+                                const abs = Math.abs(v);
+                                const sign = v < 0 ? '-' : ((!isWith && v > 0) ? '+' : '');
+                                if (abs >= 1_000_000) return sign + 'Rp ' + (abs/1_000_000).toFixed(1) + 'M';
+                                if (abs >= 1_000)     return sign + 'Rp ' + (abs/1_000).toFixed(0) + 'K';
+                                return sign + 'Rp ' + abs;
+                            }
+                        },
+                        suggestedMin: isWith ? minV * 0.98 : Math.min(minV * 1.1, minV - Math.abs(minV) * 0.05),
+                        suggestedMax: maxV * 1.02,
+                    }
+                }
+            }
+        });
+    }
+
+    const fmt = v => 'Rp ' + v.toLocaleString('id-ID');
+
+    window.setMode = function(mode) {
+        const isScope = mode === 'scope';
+
+        // Toggle buttons
+        document.getElementById('btnWithBase').classList.toggle('active', !isScope);
+        document.getElementById('btnScopeOnly').classList.toggle('active',  isScope);
+
+        // Header balance
+        const curBal = {{ current_balance }};
+        const netVal = {{ net }};
+        document.getElementById('hdrBalLabel').textContent = isScope ? 'Net Flow (Scope)' : 'Current Balance';
+        document.getElementById('hdrBalValue').textContent = isScope
+            ? (netVal >= 0 ? '+' : '') + fmt(netVal)
+            : fmt(curBal);
+        document.getElementById('hdrBalSub').textContent = isScope
+            ? 'Income − Expense within scope'
+            : 'Base: ' + fmt({{ base_amount }});
+
+        // Base card visibility
+        const baseCard = document.getElementById('baseCard');
+        baseCard.style.opacity  = isScope ? '0.35' : '1';
+        baseCard.style.filter   = isScope ? 'grayscale(1)' : '';
+
+        // Chart subtitle + rebuild
+        document.getElementById('chartSubtitle').textContent = isScope
+            ? 'Net growth within this scope (base amount excluded)'
+            : 'Actual account balance over time';
+        buildChart(mode);
+    };
+
+    // initial render
+    buildChart('with');
+})();
+</script>
+{% endblock %}

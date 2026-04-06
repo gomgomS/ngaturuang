@@ -414,6 +414,9 @@
             <button class="btn btn-action" id="quickAddTransaction" style="background: linear-gradient(135deg, #28a745 0%, #20c997 100%); border: none; color: white; border-radius: 15px; box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2); transition: all 0.3s ease;">
                 <i class="fas fa-plus"></i>
             </button>
+            <button class="btn btn-action" id="quickTransferBtn" style="background: linear-gradient(135deg, #17a2b8 0%, #0dcaf0 100%); border: none; color: white; border-radius: 15px; box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2); transition: all 0.3s ease;">
+                <i class="fas fa-exchange-alt"></i>
+            </button>
         </div>
     </div>
 
@@ -597,7 +600,7 @@
                                 </label>
                                 <div class="input-group input-group-lg">
                                     <span class="input-group-text" style="background: linear-gradient(135deg, #28a745 0%, #20c997 100%); color: white; border: none; border-radius: 15px 0 0 15px; font-weight: 600;">Rp</span>
-                                    <input type="number" class="form-control" id="transactionAmount" name="amount" placeholder="Enter amount" min="0" step="0.01" required style="border-radius: 0 15px 15px 0; border: 2px solid #e9ecef; padding: 0.75rem 1rem; font-size: 1.1rem; transition: all 0.3s ease;">
+                                    <input type="text" inputmode="numeric" class="form-control" id="transactionAmount" name="amount" placeholder="0" required style="border-radius: 0 15px 15px 0; border: 2px solid #e9ecef; padding: 0.75rem 1rem; font-size: 1.1rem; transition: all 0.3s ease;">
                                 </div>
                             </div>
                         </div>
@@ -637,16 +640,6 @@
                             </div>
                         </div>
                         
-                        <!-- Description -->
-                        <div class="row mb-4">
-                            <div class="col-12 mb-3">
-                                <label for="transactionDescription" class="form-label fw-semibold" style="color: #495057; font-size: 1rem;">
-                                    <i class="fas fa-comment me-2 text-primary"></i>Description
-                                </label>
-                                <input type="text" class="form-control" id="transactionDescription" name="description" placeholder="What is this transaction for?" style="border-radius: 15px; border: 2px solid #e9ecef; padding: 0.75rem 1rem; font-size: 1rem; transition: all 0.3s ease;">
-                            </div>
-                        </div>
-                        
                         <!-- Date & Tags -->
                         <div class="row mb-4">
                             <div class="col-12 col-md-6 mb-3">
@@ -681,6 +674,102 @@
                         </button>
                         <button type="button" class="btn btn-success flex-fill" id="saveQuickTransaction" style="border-radius: 15px; padding: 0.75rem 1.5rem; font-weight: 600; background: linear-gradient(135deg, #28a745 0%, #20c997 100%); border: none; box-shadow: 0 5px 15px rgba(40, 167, 69, 0.3);">
                             <i class="fas fa-save me-2"></i>Save Transaction
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Transfer Modal -->
+    <div class="modal fade" id="quickTransferModal" tabindex="-1" aria-labelledby="quickTransferModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-fullscreen-sm-down modal-lg">
+            <div class="modal-content" style="border-radius: 20px; border: none; box-shadow: 0 20px 60px rgba(0,0,0,0.3);">
+                <div class="modal-header" style="background: linear-gradient(135deg, #17a2b8 0%, #0dcaf0 100%); color: white; border-radius: 20px 20px 0 0; padding: 1.5rem; border: none;">
+                    <div class="d-flex align-items-center">
+                        <div class="me-3">
+                            <div style="width: 50px; height: 50px; background: rgba(255,255,255,0.2); border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+                                <i class="fas fa-exchange-alt fa-lg"></i>
+                            </div>
+                        </div>
+                        <div>
+                            <h5 class="modal-title mb-0" id="quickTransferModalLabel" style="font-weight: 600; font-size: 1.3rem;">Quick Transfer</h5>
+                            <small class="opacity-75">Move money between wallets</small>
+                        </div>
+                    </div>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close" style="opacity: 0.8;"></button>
+                </div>
+                <div class="modal-body" style="padding: 2rem; background: #f8f9fa;">
+                    <form id="quickTransferForm">
+                        <!-- From / To Wallets -->
+                        <div class="row mb-4">
+                            <div class="col-12 col-md-6 mb-3">
+                                <label for="qtFromWallet" class="form-label fw-semibold" style="color: #495057; font-size: 1rem;">
+                                    <i class="fas fa-wallet me-2 text-info"></i>From Wallet
+                                </label>
+                                <select class="form-select" id="qtFromWallet" name="from_wallet_id" required style="border-radius: 15px; border: 2px solid #e9ecef; padding: 0.75rem 1rem; font-size: 1rem; transition: all 0.3s ease;">
+                                    <option value="">Select source wallet</option>
+                                </select>
+                                <div id="qtFromBalanceDisplay" class="mt-2" style="display: none;">
+                                    <div class="alert alert-light py-2 mb-0" style="border-radius: 10px;">
+                                        <i class="fas fa-info-circle me-2 text-info"></i>Balance: <strong id="qtFromBalance">Rp 0</strong>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-12 col-md-6 mb-3">
+                                <label for="qtToWallet" class="form-label fw-semibold" style="color: #495057; font-size: 1rem;">
+                                    <i class="fas fa-wallet me-2 text-success"></i>To Wallet
+                                </label>
+                                <select class="form-select" id="qtToWallet" name="to_wallet_id" required style="border-radius: 15px; border: 2px solid #e9ecef; padding: 0.75rem 1rem; font-size: 1rem; transition: all 0.3s ease;">
+                                    <option value="">Select destination wallet</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Amount -->
+                        <div class="row mb-4">
+                            <div class="col-12 mb-3">
+                                <label for="qtAmount" class="form-label fw-semibold" style="color: #495057; font-size: 1rem;">
+                                    <i class="fas fa-money-bill-wave me-2 text-info"></i>Transfer Amount
+                                </label>
+                                <div class="input-group input-group-lg">
+                                    <span class="input-group-text" style="background: linear-gradient(135deg, #17a2b8 0%, #0dcaf0 100%); color: white; border: none; border-radius: 15px 0 0 15px; font-weight: 600;">Rp</span>
+                                    <input type="text" inputmode="numeric" class="form-control" id="qtAmount" name="amount" placeholder="0" required style="border-radius: 0 15px 15px 0; border: 2px solid #e9ecef; padding: 0.75rem 1rem; font-size: 1.1rem; transition: all 0.3s ease;">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Admin Fee -->
+                        <div class="row mb-4">
+                            <div class="col-12 mb-3">
+                                <label for="qtFee" class="form-label fw-semibold" style="color: #495057; font-size: 1rem;">
+                                    <i class="fas fa-receipt me-2 text-secondary"></i>Admin Fee <span class="text-muted fw-normal">(Optional)</span>
+                                </label>
+                                <div class="input-group input-group-lg">
+                                    <span class="input-group-text" style="background: #6c757d; color: white; border: none; border-radius: 15px 0 0 15px; font-weight: 600;">Rp</span>
+                                    <input type="text" inputmode="numeric" class="form-control" id="qtFee" name="admin_fee" placeholder="0" style="border-radius: 0 15px 15px 0; border: 2px solid #e9ecef; padding: 0.75rem 1rem; font-size: 1.1rem; transition: all 0.3s ease;">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Date & Time -->
+                        <div class="row mb-4">
+                            <div class="col-12 mb-3">
+                                <label for="qtTimestamp" class="form-label fw-semibold" style="color: #495057; font-size: 1rem;">
+                                    <i class="fas fa-calendar me-2 text-info"></i>Date &amp; Time
+                                </label>
+                                <input type="datetime-local" class="form-control" id="qtTimestamp" name="timestamp" style="border-radius: 15px; border: 2px solid #e9ecef; padding: 0.75rem 1rem; font-size: 1rem; transition: all 0.3s ease;">
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer" style="padding: 1.5rem 2rem; background: white; border-radius: 0 0 20px 20px; border: none;">
+                    <div class="d-flex gap-3 w-100">
+                        <button type="button" class="btn btn-outline-secondary flex-fill" data-bs-dismiss="modal" style="border-radius: 15px; padding: 0.75rem 1.5rem; font-weight: 600; border: 2px solid #6c757d;">
+                            <i class="fas fa-times me-2"></i>Cancel
+                        </button>
+                        <button type="button" class="btn flex-fill" id="saveQuickTransfer" style="border-radius: 15px; padding: 0.75rem 1.5rem; font-weight: 600; background: linear-gradient(135deg, #17a2b8 0%, #0dcaf0 100%); color: white; border: none; box-shadow: 0 5px 15px rgba(23, 162, 184, 0.3);">
+                            <i class="fas fa-exchange-alt me-2"></i>Transfer
                         </button>
                     </div>
                 </div>
@@ -840,6 +929,13 @@
         quickAddTransactionBtn.addEventListener('click', function() {
             quickTransactionModal.show();
         });
+
+        // Amount number formatting
+        const amountInput = document.getElementById('transactionAmount');
+        amountInput.addEventListener('input', function() {
+            const raw = this.value.replace(/[^0-9]/g, '');
+            this.value = raw ? parseInt(raw, 10).toLocaleString('id-ID') : '';
+        });
         
         // Set default date to current date/time
         function setDefaultDate() {
@@ -920,7 +1016,6 @@
                 scope_id: document.getElementById('transactionScope').value,
                 wallet_id: document.getElementById('transactionWallet').value,
                 category_id: document.getElementById('transactionCategory').value,
-                description: document.getElementById('transactionDescription').value,
                 note: document.getElementById('transactionNote').value,
                 timestamp: document.getElementById('transactionDate').value,
                 tags: document.getElementById('transactionTags').value
@@ -941,7 +1036,6 @@
                     document.getElementById('transactionScope').value = formData.scope_id || '';
                     document.getElementById('transactionWallet').value = formData.wallet_id || '';
                     document.getElementById('transactionCategory').value = formData.category_id || '';
-                    document.getElementById('transactionDescription').value = formData.description || '';
                     document.getElementById('transactionNote').value = formData.note || '';
                     document.getElementById('transactionDate').value = formData.timestamp || '';
                     document.getElementById('transactionTags').value = formData.tags || '';
@@ -972,6 +1066,8 @@
                     transactionData[key] = value ? value.split(',').map(tag => tag.trim()).filter(tag => tag) : [];
                 } else if (key === 'timestamp') {
                     transactionData[key] = value ? Math.floor(new Date(value).getTime() / 1000) : Math.floor(Date.now() / 1000);
+                } else if (key === 'amount') {
+                    transactionData[key] = value.replace(/[^0-9]/g, '');
                 } else {
                     transactionData[key] = value;
                 }
@@ -1073,6 +1169,137 @@
             this.style.transform = 'scale(1)';
         });
         
+        // ── Quick Transfer Modal ──────────────────────────────────────────
+        const quickTransferBtn = document.getElementById('quickTransferBtn');
+        const quickTransferModal = new bootstrap.Modal(document.getElementById('quickTransferModal'));
+
+        quickTransferBtn.addEventListener('click', function() { quickTransferModal.show(); });
+        quickTransferBtn.addEventListener('mouseenter', function() { this.style.transform = 'scale(1.1)'; });
+        quickTransferBtn.addEventListener('mouseleave', function() { this.style.transform = 'scale(1)'; });
+
+        // Load wallets into both selects
+        document.getElementById('quickTransferModal').addEventListener('show.bs.modal', async function() {
+            try {
+                const res = await fetch('/api/wallets/');
+                const wallets = await res.json();
+
+                const fromSel = document.getElementById('qtFromWallet');
+                const toSel   = document.getElementById('qtToWallet');
+                fromSel.innerHTML = '<option value="">Select source wallet</option>';
+                toSel.innerHTML   = '<option value="">Select destination wallet</option>';
+
+                wallets.forEach(w => {
+                    const balance = w.actual_balance || 0;
+                    const label   = `${w.name} (${w.type || 'bank'})`;
+
+                    const optFrom = document.createElement('option');
+                    optFrom.value = w._id;
+                    optFrom.textContent = label;
+                    optFrom.dataset.balance = balance;
+                    if (balance <= 0) { optFrom.disabled = true; optFrom.textContent += ' — Insufficient funds'; }
+                    fromSel.appendChild(optFrom);
+
+                    const optTo = document.createElement('option');
+                    optTo.value = w._id;
+                    optTo.textContent = label;
+                    toSel.appendChild(optTo);
+                });
+            } catch (e) {
+                console.error('Error loading wallets for quick transfer:', e);
+            }
+
+            // Default timestamp
+            const now = new Date();
+            const pad = n => String(n).padStart(2, '0');
+            document.getElementById('qtTimestamp').value =
+                `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
+
+            // Reset balance display
+            document.getElementById('qtFromBalanceDisplay').style.display = 'none';
+        });
+
+        // Show balance when from-wallet changes
+        document.getElementById('qtFromWallet').addEventListener('change', function() {
+            const opt = this.options[this.selectedIndex];
+            const display = document.getElementById('qtFromBalanceDisplay');
+            if (opt && opt.dataset.balance !== undefined && this.value) {
+                const bal = parseFloat(opt.dataset.balance) || 0;
+                document.getElementById('qtFromBalance').textContent = 'Rp ' + bal.toLocaleString('id-ID');
+                display.style.display = 'block';
+            } else {
+                display.style.display = 'none';
+            }
+        });
+
+        // Number formatting for amount & fee
+        ['qtAmount', 'qtFee'].forEach(id => {
+            document.getElementById(id).addEventListener('input', function() {
+                const raw = this.value.replace(/[^0-9]/g, '');
+                this.value = raw ? parseInt(raw, 10).toLocaleString('id-ID') : '';
+            });
+        });
+
+        // Submit transfer
+        document.getElementById('saveQuickTransfer').addEventListener('click', async function() {
+            const fromWalletId = document.getElementById('qtFromWallet').value;
+            const toWalletId   = document.getElementById('qtToWallet').value;
+            const rawAmount    = document.getElementById('qtAmount').value.replace(/[^0-9]/g, '');
+            const rawFee       = document.getElementById('qtFee').value.replace(/[^0-9]/g, '');
+            const timestamp    = document.getElementById('qtTimestamp').value;
+
+            if (!fromWalletId) { showNotification('Please select source wallet', 'warning'); return; }
+            if (!toWalletId)   { showNotification('Please select destination wallet', 'warning'); return; }
+            if (fromWalletId === toWalletId) { showNotification('Source and destination wallets cannot be the same', 'warning'); return; }
+            if (!rawAmount)    { showNotification('Please enter transfer amount', 'warning'); return; }
+
+            const amount   = parseInt(rawAmount, 10);
+            const adminFee = rawFee ? parseInt(rawFee, 10) : 0;
+            const total    = amount + adminFee;
+
+            const fromOpt = document.querySelector(`#qtFromWallet option[value="${fromWalletId}"]`);
+            const balance = fromOpt ? (parseFloat(fromOpt.dataset.balance) || 0) : 0;
+            if (total > balance) {
+                showNotification(`Insufficient balance. Available: Rp ${balance.toLocaleString('id-ID')}, Required: Rp ${total.toLocaleString('id-ID')}`, 'error');
+                return;
+            }
+
+            const btn = this;
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Transferring...';
+            btn.disabled = true;
+
+            try {
+                const body = {
+                    from_wallet_id: fromWalletId,
+                    to_wallet_id: toWalletId,
+                    amount: amount,
+                    admin_fee: adminFee,
+                    timestamp: timestamp ? Math.floor(new Date(timestamp).getTime() / 1000) : Math.floor(Date.now() / 1000)
+                };
+                const res = await fetch('/api/transactions/transfer', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body)
+                });
+                const data = await res.json();
+                if (res.ok && data.message) {
+                    quickTransferModal.hide();
+                    document.getElementById('quickTransferForm').reset();
+                    showNotification('Transfer completed successfully!', 'success');
+                    setTimeout(() => window.location.reload(), 1000);
+                } else {
+                    showNotification('Transfer failed: ' + (data.error || 'Unknown error'), 'error');
+                }
+            } catch (e) {
+                console.error('Transfer error:', e);
+                showNotification('Error completing transfer. Please try again.', 'error');
+            } finally {
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            }
+        });
+        // ─────────────────────────────────────────────────────────────────
+
         // Language switching functionality
         let currentLanguage = localStorage.getItem('selectedLanguage') || 'en';
         let translations = {};

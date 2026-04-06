@@ -590,16 +590,16 @@
                             <i class="fas fa-eye-slash" id="accountsBalanceToggleIcon"></i>
                         </button>
                     </div>
-                    <p class="stats-label mb-0" data-translate="accounts.total_balance">Total Balance</p>
+                    <p class="stats-label mb-0" id="totalBalanceLabel">{% if current_scope_id %}Net ({{ selected_scope.name if selected_scope else 'Scope' }}){% else %}Total Balance{% endif %}</p>
                 </div>
-            </div>          
+            </div>
         </div>
         
                  <!-- Accounts Grid -->
          <div class="row">
              {% for wallet in wallets %}
              <div class="col-12 col-md-6 col-lg-4 mb-3">
-                 <div class="card account-card h-100" data-wallet-id="{{ wallet._id }}" data-wallet-name="{{ wallet.name }}" data-wallet-scopes="{{ (wallet.scopes_with_transactions or [])|join(',') }}" style="cursor: pointer;">
+                 <div class="card account-card h-100" data-wallet-id="{{ wallet._id }}" data-wallet-name="{{ wallet.name }}" style="cursor: pointer;">
                     <div class="card-body d-flex flex-column p-3">
                         <!-- Header with type and plus icon -->
                         <div class="d-flex justify-content-between align-items-center mb-2">
@@ -616,9 +616,20 @@
                         <h6 class="account-name mb-2">{{ wallet.name }}</h6>
                          
                         <!-- Balance -->
-                        <div class="account-balance mb-2" data-wallet-balance="{{ wallet.latest_balance|currency if wallet.latest_balance else '0' }}">
+                        {% if current_scope_id %}
+                        <div class="account-balance mb-2" data-wallet-balance="{{ wallet.scope_net }}">
                             ••••••••
                         </div>
+                        <div class="account-meta" style="font-size:0.72rem;opacity:0.8;margin-bottom:0.25rem;">
+                            <span style="color:rgba(255,255,255,0.75);">In: {{ wallet.scope_income|currency }}</span>
+                            &nbsp;|&nbsp;
+                            <span style="color:rgba(255,255,255,0.75);">Out: {{ wallet.scope_expense|currency }}</span>
+                        </div>
+                        {% else %}
+                        <div class="account-balance mb-2" data-wallet-balance="{{ wallet.latest_balance if wallet.latest_balance else 0 }}">
+                            ••••••••
+                        </div>
+                        {% endif %}
                         
                         <!-- Click indicator -->
                         <div class="text-center click-indicator">
@@ -696,8 +707,12 @@ document.addEventListener('DOMContentLoaded', function() {
              const walletName = this.getAttribute('data-wallet-name');
              
              if (walletId) {
-                 // Redirect to transactions page with wallet filter
-                 window.location.href = `/transactions?wallet_id=${walletId}`;
+                 const currentScopeId = '{{ current_scope_id or "" }}';
+                 if (currentScopeId) {
+                     window.location.href = `/wallet-scope?wallet_id=${walletId}&scope_id=${currentScopeId}`;
+                 } else {
+                     window.location.href = `/transactions?wallet_id=${walletId}`;
+                 }
              }
          });
      });
@@ -708,9 +723,10 @@ function initializeAccountsBalanceToggle() {
     const toggleBalance = document.getElementById('accountsToggleBalance');
     const balanceToggleIcon = document.getElementById('accountsBalanceToggleIcon');
     const totalBalanceElement = document.getElementById('accountsTotalBalance');
-    const walletBalanceElements = document.querySelectorAll('.account-balance[data-wallet-balance]');
-    
-    if (toggleBalance && balanceToggleIcon && totalBalanceElement) {
+
+    if (!toggleBalance || !balanceToggleIcon || !totalBalanceElement) return;
+
+    {
         // Check if balance is hidden from localStorage (default to hidden)
         const isBalanceHidden = localStorage.getItem('accountsBalanceHidden') !== 'false';
         
@@ -739,72 +755,72 @@ function initializeAccountsBalanceToggle() {
 }
 
 function showAllBalances() {
-    // Show total balance
-    const totalBalanceElement = document.getElementById('accountsTotalBalance');
-    if (totalBalanceElement) {
-        // Calculate total from all wallets
-        const walletBalances = document.querySelectorAll('.account-balance[data-wallet-balance]');
-        let total = 0;
-        walletBalances.forEach(element => {
-            const balanceText = element.getAttribute('data-wallet-balance');
-            const balanceValue = parseFloat(balanceText.replace(/[^\d.-]/g, '')) || 0;
-            total += balanceValue;
-        });
-        totalBalanceElement.textContent = `Rp ${total.toLocaleString('id-ID', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
-    }
-    
     // Show individual wallet balances
-    const walletBalanceElements = document.querySelectorAll('.account-balance[data-wallet-balance]');
-    walletBalanceElements.forEach(element => {
-        const balanceText = element.getAttribute('data-wallet-balance');
-        element.textContent = `Rp ${balanceText}`;
+    document.querySelectorAll('.account-balance[data-wallet-balance]').forEach(el => {
+        const raw = parseFloat(el.getAttribute('data-wallet-balance')) || 0;
+        el.textContent = formatRp(raw);
     });
+
+    // Show total balance (sum of all rendered wallet balances)
+    const totalEl = document.getElementById('accountsTotalBalance');
+    if (totalEl) {
+        let total = 0;
+        document.querySelectorAll('.account-balance[data-wallet-balance]').forEach(el => {
+            total += parseFloat(el.getAttribute('data-wallet-balance')) || 0;
+        });
+        totalEl.textContent = formatRp(total);
+    }
 }
 
 function hideAllBalances() {
-    // Hide total balance
-    const totalBalanceElement = document.getElementById('accountsTotalBalance');
-    if (totalBalanceElement) {
-        totalBalanceElement.textContent = '••••••••';
-    }
-    
-    // Hide individual wallet balances
-    const walletBalanceElements = document.querySelectorAll('.account-balance[data-wallet-balance]');
-    walletBalanceElements.forEach(element => {
-        element.textContent = '••••••••';
+    document.getElementById('accountsTotalBalance').textContent = '••••••••';
+    document.querySelectorAll('.account-balance[data-wallet-balance]').forEach(el => {
+        el.textContent = '••••••••';
     });
 }
 
 // Scope Filter Functions
 function initializeScopeFilter() {
-    // Use scopes passed from template
     const scopes = JSON.parse('{{ scopes|tojson|e }}');
+    const currentScopeId = '{{ current_scope_id or "" }}';
+
     populateScopeDropdown(scopes);
-    
+
+    // Mark active scope in dropdown and update header text
+    if (currentScopeId) {
+        const activeItem = document.querySelector(`[data-scope="${currentScopeId}"]`);
+        if (activeItem) {
+            activeItem.classList.add('active');
+            document.querySelectorAll('.scope-dropdown-item').forEach(i => {
+                if (i !== activeItem) i.classList.remove('active');
+            });
+            const txt = document.getElementById('selectedScopeText');
+            if (txt) txt.textContent = activeItem.textContent.trim();
+        }
+        // Mark toggle button as active
+        const toggle = document.getElementById('scopeDropdownToggle');
+        if (toggle) toggle.classList.add('active');
+    }
+
     // Add event listeners to scope dropdown
     const dropdownToggle = document.getElementById('scopeDropdownToggle');
     const dropdownMenu = document.getElementById('scopeDropdownMenu');
-    
-    // Toggle dropdown
+
     dropdownToggle.addEventListener('click', function(e) {
         e.stopPropagation();
         toggleScopeDropdown();
     });
-    
-    // Close dropdown when clicking outside
+
     document.addEventListener('click', function(e) {
         if (!dropdownToggle.contains(e.target) && !dropdownMenu.contains(e.target)) {
             closeScopeDropdown();
         }
     });
-    
-    // Add event listeners to scope dropdown items
+
     const scopeItems = document.querySelectorAll('.scope-dropdown-item');
     scopeItems.forEach(item => {
         item.addEventListener('click', function() {
-            const selectedScope = this.getAttribute('data-scope');
-            const scopeName = this.textContent.trim();
-            selectScope(selectedScope, scopeName);
+            selectScope(this.getAttribute('data-scope'), this.textContent.trim());
         });
     });
 }
@@ -826,24 +842,12 @@ function closeScopeDropdown() {
 }
 
 function selectScope(scopeId, scopeName) {
-    // Update selected scope text
-    const selectedScopeText = document.getElementById('selectedScopeText');
-    selectedScopeText.textContent = scopeName;
-    
-    // Update active state
-    const scopeItems = document.querySelectorAll('.scope-dropdown-item');
-    scopeItems.forEach(item => item.classList.remove('active'));
-    
-    const selectedItem = document.querySelector(`[data-scope="${scopeId}"]`);
-    if (selectedItem) {
-        selectedItem.classList.add('active');
-    }
-    
-    // Filter accounts
-    filterAccountsByScope(scopeId);
-    
-    // Close dropdown
     closeScopeDropdown();
+    if (scopeId === 'all') {
+        window.location.href = '/accounts';
+    } else {
+        window.location.href = '/accounts?scope_id=' + encodeURIComponent(scopeId);
+    }
 }
 
 function populateScopeDropdown(scopes) {
@@ -883,65 +887,8 @@ function populateScopeDropdown(scopes) {
     }
 }
 
-function filterAccountsByScope(scopeId) {
-    const accountCards = document.querySelectorAll('.account-card');
-    
-    if (scopeId === 'all') {
-        // Show all accounts
-        accountCards.forEach(card => {
-            card.style.display = 'block';
-            card.parentElement.style.display = 'block';
-        });
-    } else {
-        // Filter by specific scope - check if this wallet has transactions in this scope
-        accountCards.forEach(card => {
-            const walletScopes = card.getAttribute('data-wallet-scopes');
-            const hasTransactionsInScope = walletScopes && walletScopes.split(',').includes(scopeId);
-            
-            if (hasTransactionsInScope) {
-                // Show this account
-                card.style.display = 'block';
-                card.parentElement.style.display = 'block';
-            } else {
-                // Hide this account
-                card.style.display = 'none';
-                card.parentElement.style.display = 'none';
-            }
-        });
-    }
-    
-    // Update statistics based on visible accounts
-    updateStatisticsForVisibleAccounts();
-}
-
-function updateStatisticsForVisibleAccounts() {
-    const visibleCards = document.querySelectorAll('.account-card:not([style*="display: none"])');
-    const totalAccounts = visibleCards.length;
-    
-    // Update total accounts count
-    const totalAccountsElement = document.querySelector('.stats-value');
-    if (totalAccountsElement) {
-        totalAccountsElement.textContent = totalAccounts;
-    }
-    
-    // Update total balance (only if balances are visible)
-    const isBalanceHidden = localStorage.getItem('accountsBalanceHidden') !== 'false';
-    if (!isBalanceHidden) {
-        let totalBalance = 0;
-        visibleCards.forEach(card => {
-            const balanceElement = card.querySelector('.account-balance[data-wallet-balance]');
-            if (balanceElement) {
-                const balanceText = balanceElement.getAttribute('data-wallet-balance');
-                const balanceValue = parseFloat(balanceText.replace(/[^\d.-]/g, '')) || 0;
-                totalBalance += balanceValue;
-            }
-        });
-        
-        const totalBalanceElement = document.getElementById('accountsTotalBalance');
-        if (totalBalanceElement) {
-            totalBalanceElement.textContent = `Rp ${totalBalance.toLocaleString('id-ID', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
-        }
-    }
+function formatRp(value) {
+    return `Rp ${value.toLocaleString('id-ID', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 }
 
 // Account Transaction Modal Functions

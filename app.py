@@ -747,7 +747,9 @@ def get_period_bounds(compare_type, period_str):
 def summarise_period(transactions, label):
     """Aggregate a list of filtered transactions into a period summary dict."""
     system_cats = {"transfer", "balance_adjustment"}
-    txs = [t for t in transactions if t.get("category_id") not in system_cats]
+    txs = [t for t in transactions
+           if t.get("type") != "transfer"
+           and t.get("category_id") not in system_cats]
     income   = sum(float(t.get("amount", 0)) for t in txs if t.get("type") == "income")
     expenses = sum(float(t.get("amount", 0)) for t in txs if t.get("type") == "expense")
     net      = income - expenses
@@ -852,6 +854,29 @@ def api_comparison_data():
         print(f"Error in api_comparison_data: {e}")
         import traceback; traceback.print_exc()
         return jsonify({"error": "Internal server error"}), 500
+
+
+def get_per_wallet_balances(user_id):
+    """Return {wallet_id_str: balance_after} using the same aggregation as the sidebar total."""
+    try:
+        from config import get_collection
+        coll = get_collection("transactions")
+        current_ts = int(datetime.now().timestamp())
+        pipeline = [
+            {"$match": {"user_id": user_id, "timestamp": {"$lte": current_ts}}},
+            {"$sort": {"wallet_id": 1, "timestamp": -1, "sequence_number": -1}},
+            {"$group": {"_id": "$wallet_id", "latest_tx": {"$first": "$$ROOT"}}},
+        ]
+        result = {}
+        for row in coll.aggregate(pipeline):
+            wid = str(row["_id"])          # normalise to string
+            bal = row["latest_tx"].get("balance_after")
+            if bal is not None:
+                result[wid] = float(bal)
+        return result
+    except Exception as e:
+        print(f"Error in get_per_wallet_balances: {e}")
+        return {}
 
 
 def calculate_balance_from_transactions(user_id, end_timestamp, start_timestamp=None):
@@ -1180,6 +1205,71 @@ def goals():
     
     return render_template("goals.html")
 
+@app.route("/wallet-scope")
+def wallet_scope():
+    auth_check = require_login()
+    if auth_check:
+        return auth_check
+
+    user_id  = session.get("user_id", "demo_user")
+    wallet_id = request.args.get("wallet_id")
+    scope_id  = request.args.get("scope_id")
+
+    if not wallet_id or not scope_id:
+        return redirect("/accounts")
+
+    wallet_repo = WalletRepository()
+    scope_repo  = ScopeRepository()
+    tx_repo     = TransactionRepository()
+
+    wallet = wallet_repo.get_wallet_by_id(wallet_id, user_id)
+    scope  = next((s for s in scope_repo.list_by_user(user_id) if s.get("_id") == scope_id), None)
+
+    # All transactions for this wallet in this scope, oldest first for chart
+    all_txs = tx_repo.get_transactions_with_filters(user_id, {"wallet_id": wallet_id, "scope_id": scope_id}, limit=2000)
+    all_txs_sorted = sorted(all_txs, key=lambda t: (t.get("timestamp", 0), t.get("sequence_number", 0)))
+
+    system_cats = {"transfer", "balance_adjustment"}
+    money_txs = [t for t in all_txs_sorted if t.get("type") != "transfer" and t.get("category_id") not in system_cats]
+
+    # Base amount = balance_before of the very first transaction in this scope for this wallet
+    base_amount = all_txs_sorted[0].get("balance_before", 0) if all_txs_sorted else 0
+    current_balance = all_txs_sorted[-1].get("balance_after", 0) if all_txs_sorted else 0
+
+    total_income  = sum(float(t.get("amount", 0)) for t in money_txs if t.get("type") == "income")
+    total_expense = sum(float(t.get("amount", 0)) for t in money_txs if t.get("type") == "expense")
+    net = total_income - total_expense
+
+    # Chart data: balance_after over time (all txs including transfers to track real balance)
+    chart_points = []
+    for t in all_txs_sorted:
+        if t.get("balance_after") is not None:
+            chart_points.append({
+                "ts":    t.get("timestamp", 0),
+                "bal":   float(t.get("balance_after", 0)),
+                "type":  t.get("type", ""),
+                "amount": float(t.get("amount", 0)),
+            })
+
+    # Recent transactions for the list (newest first, money only)
+    recent_txs = list(reversed(money_txs))
+
+    return render_template(
+        "wallet_scope.html",
+        wallet=wallet,
+        scope=scope,
+        base_amount=base_amount,
+        current_balance=current_balance,
+        total_income=total_income,
+        total_expense=total_expense,
+        net=net,
+        chart_points=chart_points,
+        transactions=recent_txs,
+        wallet_id=wallet_id,
+        scope_id=scope_id,
+    )
+
+
 @app.route("/comparison")
 def comparison():
     auth_check = require_login()
@@ -1193,61 +1283,74 @@ def accounts():
     auth_check = require_login()
     if auth_check:
         return auth_check
-    
+
     user_id = session.get("user_id", "demo_user")
-    
-    # Get repositories
+    scope_id = request.args.get("scope_id") or None
+    if scope_id in (None, "", "all"):
+        scope_id = None
+
     wallet_repo = WalletRepository()
-    scope_repo = ScopeRepository()
+    scope_repo  = ScopeRepository()
     category_repo = CategoryRepository()
-    
-    # Get all wallets for the user
-    wallets = wallet_repo.list_by_user(user_id)
-    
-    # Get all scopes for the user
-    scopes = scope_repo.list_by_user(user_id)
-    
-    # Get all categories for the user (including defaults)
-    categories = category_repo.list_by_user_with_defaults(user_id)
-    
-    # Get transaction repository for scope filtering
-    tx_repo = TransactionRepository()
-    
-    # Calculate balance from latest transaction for each wallet and check scope usage
-    if wallets:
-        current_timestamp = int(datetime.now().timestamp())
-        
-        for wallet in wallets:
-            wallet_id = wallet.get("_id")
-            if wallet_id:
-                # Get latest transaction for this wallet
-                latest_balance = get_latest_wallet_balance(user_id, wallet_id, current_timestamp)
-                # Update the wallet with the latest balance
-                wallet["latest_balance"] = latest_balance
-                
-                # Check which scopes this wallet has transactions in
-                wallet_scopes = set()
-                try:
-                    # Get all transactions for this wallet using filters
-                    wallet_filters = {"wallet_id": wallet_id}
-                    wallet_transactions = tx_repo.get_transactions_with_filters(user_id, wallet_filters, limit=1000)
-                    for tx in wallet_transactions:
-                        if tx.get('scope_id'):
-                            wallet_scopes.add(tx['scope_id'])
-                except Exception as e:
-                    print(f"Error getting wallet transactions: {e}")
-                
-                wallet["scopes_with_transactions"] = list(wallet_scopes)
-            else:
-                wallet["latest_balance"] = 0
-                wallet["scopes_with_transactions"] = []
-    
-    # Ensure lists are passed
-    wallets = wallets or []
-    scopes = scopes or []
-    categories = categories or []
-    
-    return render_template("accounts.html", wallets=wallets, scopes=scopes, categories=categories)
+
+    all_wallets = wallet_repo.list_by_user(user_id) or []
+    scopes      = scope_repo.list_by_user(user_id) or []
+    categories  = category_repo.list_by_user_with_defaults(user_id) or []
+
+    selected_scope = None
+
+    if not scope_id:
+        # No scope — use the same aggregation the sidebar uses (balance_after per wallet)
+        per_wallet = get_per_wallet_balances(user_id)
+        for wallet in all_wallets:
+            wid = str(wallet.get("_id", ""))
+            wallet["latest_balance"] = per_wallet.get(wid, 0)
+        wallets = all_wallets
+
+    elif scope_id:
+        try:
+            tx_repo = TransactionRepository()
+            scope_txs = tx_repo.get_transactions_by_scope(user_id, scope_id, limit=5000)
+
+            system_cats = {"transfer", "balance_adjustment"}
+            wallet_scope_data = {}
+            for tx in scope_txs:
+                if tx.get("type") == "transfer" or tx.get("category_id") in system_cats:
+                    continue
+                wid = tx.get("wallet_id")
+                if not wid:
+                    continue
+                if wid not in wallet_scope_data:
+                    wallet_scope_data[wid] = {"income": 0.0, "expense": 0.0}
+                amount = float(tx.get("amount", 0))
+                if tx.get("type") == "income":
+                    wallet_scope_data[wid]["income"] += amount
+                elif tx.get("type") == "expense":
+                    wallet_scope_data[wid]["expense"] += amount
+
+            scoped_wallets = []
+            for wallet in all_wallets:
+                wid = wallet.get("_id")
+                if wid and wid in wallet_scope_data:
+                    d = wallet_scope_data[wid]
+                    wallet["scope_income"]  = d["income"]
+                    wallet["scope_expense"] = d["expense"]
+                    wallet["scope_net"]     = d["income"] - d["expense"]
+                    scoped_wallets.append(wallet)
+            wallets = scoped_wallets
+            selected_scope = next((s for s in scopes if s.get("_id") == scope_id), None)
+        except Exception as e:
+            print(f"Error loading scope data for accounts: {e}")
+            wallets = all_wallets  # fallback to all on error
+
+    return render_template(
+        "accounts.html",
+        wallets=wallets,
+        scopes=scopes,
+        categories=categories,
+        current_scope_id=scope_id,
+        selected_scope=selected_scope,
+    )
 
 @app.route("/test-data")
 def test_data():
@@ -2880,6 +2983,7 @@ def delete_scope(scope_id):
     except Exception as e:
         print(f"Error in delete_scope: {e}")
         return jsonify({"error": str(e)}), 500
+
 
 @app.route("/api/wallets/", methods=["GET"])
 def list_wallets():
