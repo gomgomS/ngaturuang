@@ -1288,6 +1288,149 @@ def wealth_pulse_page():
     return render_template("wealth_pulse.html")
 
 
+@app.route("/api/smart-parse", methods=["POST"])
+def api_smart_parse():
+    """Parse natural-language transaction text with AI and return structured fields."""
+    import urllib.request, urllib.error, json as _json, time as _time
+    try:
+        user_id = session.get("user_id")
+        if not user_id:
+            return jsonify({"error": "Not authenticated"}), 401
+
+        body    = request.get_json(force=True) or {}
+        text    = (body.get("text") or "").strip()
+        if not text:
+            return jsonify({"error": "text is required"}), 400
+
+        # Load user's wallets and categories for context
+        wallet_repo   = WalletRepository()
+        category_repo = CategoryRepository()
+        wallets    = wallet_repo.list_by_user(user_id) or []
+        categories = category_repo.list_by_user_with_defaults(user_id) or []
+
+        wallet_list   = [{"id": str(w.get("_id","")), "name": w.get("name",""), "type": w.get("type","bank")} for w in wallets]
+        category_list = [{"id": str(c.get("_id",c.get("id",""))), "name": c.get("name","")} for c in categories
+                         if c.get("name","").lower() not in ("transfer","balance adjustment")]
+
+        today_str = datetime.now().strftime("%Y-%m-%d")
+        now_str   = datetime.now().strftime("%Y-%m-%dT%H:%M")
+
+        prompt = f"""You are a financial transaction parser that understands Indonesian and English.
+
+Today's date: {today_str}
+Current time: {now_str}
+
+Available wallets (use exact id):
+{_json.dumps(wallet_list, ensure_ascii=False)}
+
+Available categories (use exact id):
+{_json.dumps(category_list, ensure_ascii=False)}
+
+User input: "{text}"
+
+Parse the input and return ONLY a valid JSON object — no markdown, no explanation:
+{{
+  "type": "income" or "expense",
+  "amount": number or null,
+  "wallet_id": "exact id from wallet list or empty string",
+  "wallet_name": "matched wallet name",
+  "category_id": "exact id from category list or empty string",
+  "category_name": "matched category name",
+  "tags": ["tag1", "tag2"],
+  "note": "brief transaction note",
+  "timestamp": "YYYY-MM-DDTHH:MM"
+}}
+
+Rules:
+- Fuzzy-match wallet name from the input (e.g. "shoppepay"→"ShopeePay", "gopay"→"GoPay", "bca"→"BCA")
+- Match category by semantic meaning (e.g. "makan/mie/nasi/kopi"→Food, "transport/grab/gojek"→Transport)
+- Extract meaningful tags: item names, payment method, place, activity (lowercase, no spaces → use underscore)
+- "hari ini"=today, "kemarin"=yesterday, "tadi"=1-2 hours ago, "pagi"=morning, "siang"=noon, "malam"=evening
+- If amount not mentioned set null
+- Default type to "expense" unless clearly income (gajian, transfer masuk, dapat uang)
+- Return ONLY the JSON, nothing else"""
+
+        ai_result = None
+
+        # ── Try Gemini first ──────────────────────────────────────────────
+        gemini_key = get_gemini_api_key()
+        if gemini_key:
+            try:
+                req_body = _json.dumps({
+                    "contents": [{"role": "user", "parts": [{"text": prompt}]}],
+                    "generationConfig": {"temperature": 0.1, "maxOutputTokens": 512}
+                }).encode("utf-8")
+                model_id = "gemini-1.5-flash-latest"
+                url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_id}:generateContent?key={gemini_key}"
+                for attempt in range(2):
+                    try:
+                        req = urllib.request.Request(url=url, method="POST", data=req_body,
+                                                     headers={"Content-Type": "application/json"})
+                        with urllib.request.urlopen(req, timeout=15) as resp:
+                            rj = _json.loads(resp.read().decode("utf-8"))
+                            raw = (((rj.get("candidates") or [{}])[0].get("content") or {}).get("parts") or [{}])[0].get("text","")
+                            raw = raw.strip().lstrip("```json").lstrip("```").rstrip("```").strip()
+                            ai_result = _json.loads(raw)
+                            break
+                    except (_json.JSONDecodeError, KeyError):
+                        break
+                    except urllib.error.HTTPError as he:
+                        if he.code in (429, 500, 503):
+                            _time.sleep(2 ** attempt); continue
+                        break
+                    except Exception:
+                        break
+            except Exception as ge:
+                print(f"[smart-parse] Gemini error: {ge}")
+
+        # ── Fallback to OpenAI ────────────────────────────────────────────
+        if not ai_result:
+            try:
+                from config import get_openai_api_key
+                oai_key = get_openai_api_key()
+                if oai_key:
+                    req_body = _json.dumps({
+                        "model": "gpt-4o-mini",
+                        "messages": [{"role": "user", "content": prompt}],
+                        "temperature": 0.1, "max_tokens": 512
+                    }).encode("utf-8")
+                    req = urllib.request.Request(
+                        url="https://api.openai.com/v1/chat/completions", method="POST",
+                        data=req_body,
+                        headers={"Content-Type": "application/json", "Authorization": f"Bearer {oai_key}"}
+                    )
+                    with urllib.request.urlopen(req, timeout=15) as resp:
+                        rj   = _json.loads(resp.read().decode("utf-8"))
+                        raw  = (rj.get("choices") or [{}])[0].get("message",{}).get("content","")
+                        raw  = raw.strip().lstrip("```json").lstrip("```").rstrip("```").strip()
+                        ai_result = _json.loads(raw)
+            except Exception as oe:
+                print(f"[smart-parse] OpenAI error: {oe}")
+
+        if not ai_result:
+            return jsonify({"error": "AI parsing failed. Please try again or fill manually."}), 502
+
+        # Sanitise / guarantee required keys
+        ai_result.setdefault("type", "expense")
+        ai_result.setdefault("amount", None)
+        ai_result.setdefault("wallet_id", "")
+        ai_result.setdefault("wallet_name", "")
+        ai_result.setdefault("category_id", "")
+        ai_result.setdefault("category_name", "")
+        ai_result.setdefault("tags", [])
+        ai_result.setdefault("note", "")
+        ai_result.setdefault("timestamp", now_str)
+        if not isinstance(ai_result["tags"], list):
+            ai_result["tags"] = []
+
+        return jsonify(ai_result)
+
+    except Exception as e:
+        print(f"[smart-parse] Error: {e}")
+        import traceback; traceback.print_exc()
+        return jsonify({"error": "Internal server error"}), 500
+
+
 @app.route("/api/wealth-pulse")
 def api_wealth_pulse():
     """Wealth Pulse: full wealth-growth analysis between two specific dates."""

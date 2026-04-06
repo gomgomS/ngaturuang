@@ -249,6 +249,23 @@
             transform: translateY(-2px);
             box-shadow: 0 8px 25px rgba(40, 167, 69, 0.4) !important;
         }
+        #smartInputBtn:hover { transform: scale(1.1); }
+        @keyframes siSpin { to { transform: rotate(360deg); } }
+        .si-chip {
+            background: rgba(168,85,247,0.12); border: 1px solid rgba(168,85,247,0.25);
+            border-radius: 6px; padding: 2px 8px; cursor: pointer; color: rgba(168,85,247,0.8);
+            transition: all .15s;
+        }
+        .si-chip:hover { background: rgba(168,85,247,0.22); color: #a855f7; }
+        .si-tag-pill {
+            display: inline-flex; align-items: center; gap: 4px;
+            background: rgba(168,85,247,0.18); border: 1px solid rgba(168,85,247,0.3);
+            border-radius: 6px; padding: 2px 8px; font-size: .78rem; color: #c084fc;
+        }
+        .si-tag-pill button { background: none; border: none; color: rgba(192,132,252,.6); cursor: pointer; padding: 0; font-size: .7rem; line-height: 1; }
+        .si-tag-pill button:hover { color: #ff6464; }
+        #smartInputModal select option { background: #1a0f2e; color: white; }
+        #siText::placeholder { color: rgba(255,255,255,0.2); }
         
         .btn-outline-secondary:hover {
             transform: translateY(-1px);
@@ -416,6 +433,9 @@
             </button>
             <button class="btn btn-action" id="quickTransferBtn" style="background: linear-gradient(135deg, #17a2b8 0%, #0dcaf0 100%); border: none; color: white; border-radius: 15px; box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2); transition: all 0.3s ease;">
                 <i class="fas fa-exchange-alt"></i>
+            </button>
+            <button class="btn btn-action" id="smartInputBtn" title="Smart Input — describe your transaction" style="background: linear-gradient(135deg, #7c3aed 0%, #a855f7 100%); border: none; color: white; border-radius: 15px; box-shadow: 0 5px 15px rgba(124,58,237,0.35); transition: all 0.3s ease;">
+                <i class="fas fa-wand-magic-sparkles"></i>
             </button>
         </div>
     </div>
@@ -770,6 +790,160 @@
                         </button>
                         <button type="button" class="btn flex-fill" id="saveQuickTransfer" style="border-radius: 15px; padding: 0.75rem 1.5rem; font-weight: 600; background: linear-gradient(135deg, #17a2b8 0%, #0dcaf0 100%); color: white; border: none; box-shadow: 0 5px 15px rgba(23, 162, 184, 0.3);">
                             <i class="fas fa-exchange-alt me-2"></i>Transfer
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Smart Input Modal -->
+    <div class="modal fade" id="smartInputModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-fullscreen-sm-down modal-lg">
+            <div class="modal-content" style="border-radius:20px;border:none;box-shadow:0 20px 60px rgba(0,0,0,0.4);background:#0f0a1e;">
+
+                <!-- Header -->
+                <div class="modal-header" style="background:linear-gradient(135deg,#7c3aed 0%,#a855f7 100%);color:white;border-radius:20px 20px 0 0;padding:1.5rem;border:none;">
+                    <div class="d-flex align-items-center gap-3">
+                        <div style="width:48px;height:48px;background:rgba(255,255,255,0.15);border-radius:50%;display:flex;align-items:center;justify-content:center;">
+                            <i class="fas fa-wand-magic-sparkles fa-lg"></i>
+                        </div>
+                        <div>
+                            <h5 class="modal-title mb-0" style="font-weight:700;font-size:1.2rem;">Smart Input</h5>
+                            <small class="opacity-75">Describe your transaction in plain language</small>
+                        </div>
+                    </div>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" style="opacity:0.7;"></button>
+                </div>
+
+                <div class="modal-body" style="background:#0f0a1e;padding:1.75rem;">
+
+                    <!-- ── Step 1: Text input ── -->
+                    <div id="siStep1">
+                        <div style="position:relative;">
+                            <textarea id="siText" rows="3" placeholder="e.g. hari ini makan mie ayam pake shoppepay 25rb&#10;or: got salary 5jt to BCA&#10;or: beli kopi di indomaret gopay 18000"
+                                style="width:100%;background:rgba(255,255,255,0.06);border:1.5px solid rgba(139,92,246,0.4);border-radius:14px;color:white;padding:1rem 1rem 2.5rem;font-size:0.95rem;resize:none;outline:none;line-height:1.55;font-family:inherit;transition:border-color .2s;"
+                                onfocus="this.style.borderColor='rgba(168,85,247,0.8)'"
+                                onblur="this.style.borderColor='rgba(139,92,246,0.4)'"
+                                onkeydown="if(event.ctrlKey&&event.key==='Enter')siParse()"></textarea>
+                            <span style="position:absolute;bottom:0.6rem;right:0.75rem;font-size:0.68rem;color:rgba(255,255,255,0.25);">Ctrl+Enter to parse</span>
+                        </div>
+                        <div class="d-flex gap-2 flex-wrap mt-2" style="font-size:0.72rem;color:rgba(255,255,255,0.3);">
+                            <span>Examples:</span>
+                            <span class="si-chip" onclick="siSetExample(this)">makan siang warteg gopay 15rb</span>
+                            <span class="si-chip" onclick="siSetExample(this)">transfer from bca to ovo 500k</span>
+                            <span class="si-chip" onclick="siSetExample(this)">gajian bulan ini masuk bca 8jt</span>
+                        </div>
+                        <button onclick="siParse()" id="siParseBtn"
+                            style="width:100%;margin-top:1.25rem;padding:.85rem;background:linear-gradient(135deg,#7c3aed,#a855f7);color:white;border:none;border-radius:14px;font-size:1rem;font-weight:700;cursor:pointer;transition:all .3s;box-shadow:0 6px 20px rgba(124,58,237,0.4);">
+                            <i class="fas fa-wand-magic-sparkles me-2"></i>Parse with AI
+                        </button>
+                    </div>
+
+                    <!-- ── Loading ── -->
+                    <div id="siLoading" style="display:none;text-align:center;padding:2.5rem 1rem;">
+                        <div style="width:48px;height:48px;border:3px solid rgba(168,85,247,0.2);border-top-color:#a855f7;border-radius:50%;animation:siSpin .8s linear infinite;margin:0 auto 1rem;"></div>
+                        <div style="color:rgba(255,255,255,0.5);font-size:0.9rem;">AI is parsing your input…</div>
+                    </div>
+
+                    <!-- ── Step 2: Review & edit ── -->
+                    <div id="siStep2" style="display:none;">
+                        <div style="background:rgba(168,85,247,0.08);border:1px solid rgba(168,85,247,0.2);border-radius:12px;padding:.75rem 1rem;margin-bottom:1.25rem;font-size:0.82rem;color:rgba(255,255,255,0.55);display:flex;align-items:center;gap:.6rem;">
+                            <i class="fas fa-check-circle" style="color:#a855f7;"></i>
+                            AI parsed your input — review and adjust before saving
+                            <button onclick="siReset()" style="margin-left:auto;background:none;border:none;color:rgba(168,85,247,0.7);font-size:0.75rem;cursor:pointer;padding:0;">
+                                <i class="fas fa-redo me-1"></i>Re-type
+                            </button>
+                        </div>
+
+                        <!-- Type toggle -->
+                        <div class="mb-3">
+                            <label style="font-size:0.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:rgba(255,255,255,0.45);margin-bottom:.5rem;display:block;">Transaction Type</label>
+                            <div style="display:flex;gap:.5rem;">
+                                <button id="siTypeExp" onclick="siSetType('expense',this)" class="si-type-btn si-type-active-exp"
+                                    style="flex:1;padding:.6rem;border-radius:10px;font-weight:700;font-size:.88rem;cursor:pointer;border:2px solid rgba(255,100,100,0.5);background:rgba(255,100,100,0.15);color:#ff6464;transition:all .2s;">
+                                    <i class="fas fa-arrow-up me-1"></i>Expense
+                                </button>
+                                <button id="siTypeInc" onclick="siSetType('income',this)"
+                                    style="flex:1;padding:.6rem;border-radius:10px;font-weight:700;font-size:.88rem;cursor:pointer;border:2px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.05);color:rgba(255,255,255,0.4);transition:all .2s;">
+                                    <i class="fas fa-arrow-down me-1"></i>Income
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Amount -->
+                        <div class="mb-3">
+                            <label style="font-size:0.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:rgba(255,255,255,0.45);margin-bottom:.5rem;display:block;">Amount</label>
+                            <div style="display:flex;align-items:center;background:rgba(255,255,255,0.06);border:1.5px solid rgba(139,92,246,0.35);border-radius:12px;overflow:hidden;">
+                                <span style="padding:0 .9rem;color:rgba(255,255,255,0.4);font-weight:700;font-size:.9rem;border-right:1px solid rgba(255,255,255,0.08);">Rp</span>
+                                <input id="siAmount" type="text" inputmode="numeric" placeholder="0"
+                                    style="flex:1;background:none;border:none;color:white;padding:.7rem .9rem;font-size:1rem;font-weight:700;outline:none;"
+                                    oninput="const r=this.value.replace(/[^0-9]/g,'');this.value=r?parseInt(r).toLocaleString('id-ID'):''">
+                            </div>
+                        </div>
+
+                        <!-- Wallet + Category -->
+                        <div class="row g-2 mb-3">
+                            <div class="col-12 col-sm-6">
+                                <label style="font-size:0.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:rgba(255,255,255,0.45);margin-bottom:.5rem;display:block;"><i class="fas fa-wallet me-1"></i>Wallet</label>
+                                <select id="siWallet" style="width:100%;background:#1a0f2e;border:1.5px solid rgba(139,92,246,0.35);border-radius:12px;color:white;padding:.7rem .9rem;font-size:.9rem;outline:none;cursor:pointer;">
+                                    <option value="">Select wallet</option>
+                                </select>
+                            </div>
+                            <div class="col-12 col-sm-6">
+                                <label style="font-size:0.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:rgba(255,255,255,0.45);margin-bottom:.5rem;display:block;"><i class="fas fa-tag me-1"></i>Category</label>
+                                <select id="siCategory" style="width:100%;background:#1a0f2e;border:1.5px solid rgba(139,92,246,0.35);border-radius:12px;color:white;padding:.7rem .9rem;font-size:.9rem;outline:none;cursor:pointer;">
+                                    <option value="">Select category</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Scope -->
+                        <div class="mb-3">
+                            <label style="font-size:0.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:rgba(255,255,255,0.45);margin-bottom:.5rem;display:block;"><i class="fas fa-layer-group me-1"></i>Scope</label>
+                            <select id="siScope" style="width:100%;background:#1a0f2e;border:1.5px solid rgba(139,92,246,0.35);border-radius:12px;color:white;padding:.7rem .9rem;font-size:.9rem;outline:none;cursor:pointer;">
+                                <option value="">No scope</option>
+                            </select>
+                        </div>
+
+                        <!-- Tags -->
+                        <div class="mb-3">
+                            <label style="font-size:0.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:rgba(255,255,255,0.45);margin-bottom:.5rem;display:block;"><i class="fas fa-hashtag me-1"></i>Tags</label>
+                            <div id="siTagsWrap" style="display:flex;flex-wrap:wrap;gap:.4rem;background:rgba(255,255,255,0.06);border:1.5px solid rgba(139,92,246,0.35);border-radius:12px;padding:.55rem .75rem;min-height:42px;cursor:text;" onclick="document.getElementById('siTagInput').focus()">
+                                <!-- tag pills injected here -->
+                                <input id="siTagInput" type="text" placeholder="add tag…"
+                                    style="background:none;border:none;color:white;outline:none;font-size:.82rem;min-width:80px;flex:1;"
+                                    onkeydown="siTagKey(event)">
+                            </div>
+                        </div>
+
+                        <!-- Note + Timestamp -->
+                        <div class="row g-2 mb-3">
+                            <div class="col-12 col-sm-6">
+                                <label style="font-size:0.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:rgba(255,255,255,0.45);margin-bottom:.5rem;display:block;"><i class="fas fa-sticky-note me-1"></i>Note</label>
+                                <input id="siNote" type="text" placeholder="Optional note"
+                                    style="width:100%;background:rgba(255,255,255,0.06);border:1.5px solid rgba(139,92,246,0.35);border-radius:12px;color:white;padding:.7rem .9rem;font-size:.9rem;outline:none;">
+                            </div>
+                            <div class="col-12 col-sm-6">
+                                <label style="font-size:0.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:rgba(255,255,255,0.45);margin-bottom:.5rem;display:block;"><i class="fas fa-clock me-1"></i>Date &amp; Time</label>
+                                <input id="siTimestamp" type="datetime-local"
+                                    style="width:100%;background:rgba(255,255,255,0.06);border:1.5px solid rgba(139,92,246,0.35);border-radius:12px;color:white;padding:.7rem .9rem;font-size:.9rem;outline:none;">
+                            </div>
+                        </div>
+
+                        <input type="hidden" id="siCurrentType" value="expense">
+                    </div>
+
+                </div><!-- /modal-body -->
+
+                <!-- Footer -->
+                <div class="modal-footer" style="background:#0f0a1e;border-radius:0 0 20px 20px;border:none;padding:1.25rem 1.75rem;">
+                    <div class="d-flex gap-2 w-100">
+                        <button type="button" class="btn btn-outline-secondary flex-shrink-0" data-bs-dismiss="modal" style="border-radius:12px;padding:.7rem 1.25rem;font-weight:600;border-color:rgba(255,255,255,0.15);color:rgba(255,255,255,0.5);">
+                            Cancel
+                        </button>
+                        <button id="siSaveBtn" onclick="siSave()" style="flex:1;display:none;padding:.7rem;background:linear-gradient(135deg,#7c3aed,#a855f7);color:white;border:none;border-radius:12px;font-size:.95rem;font-weight:700;cursor:pointer;box-shadow:0 5px 18px rgba(124,58,237,0.4);transition:all .3s;">
+                            <i class="fas fa-save me-2"></i>Save Transaction
                         </button>
                     </div>
                 </div>
@@ -1168,6 +1342,213 @@
         quickAddTransactionBtn.addEventListener('mouseleave', function() {
             this.style.transform = 'scale(1)';
         });
+
+        // ── Smart Input ───────────────────────────────────────────────────────
+        const _siModal = new bootstrap.Modal(document.getElementById('smartInputModal'));
+        document.getElementById('smartInputBtn').addEventListener('click', () => {
+            siReset();
+            _siModal.show();
+            siLoadDropdowns();
+        });
+
+        // Load wallets, categories, scopes into selects
+        async function siLoadDropdowns() {
+            try {
+                const [wRes, cRes, sRes] = await Promise.all([
+                    fetch('/api/wallets/'), fetch('/api/categories/'), fetch('/api/scopes/')
+                ]);
+                const [wallets, cats, scopes] = await Promise.all([wRes.json(), cRes.json(), sRes.json()]);
+
+                window._siWallets    = wallets;
+                window._siCategories = cats;
+
+                const wSel = document.getElementById('siWallet');
+                wSel.innerHTML = '<option value="">Select wallet</option>';
+                wallets.forEach(w => {
+                    const o = document.createElement('option');
+                    o.value = w._id; o.textContent = `${w.name} (${w.type||'bank'})`;
+                    wSel.appendChild(o);
+                });
+
+                const cSel = document.getElementById('siCategory');
+                cSel.innerHTML = '<option value="">Select category</option>';
+                cats.forEach(c => {
+                    if (c.name === 'Transfer' || c.name === 'Balance Adjustment') return;
+                    const o = document.createElement('option');
+                    o.value = c._id; o.textContent = c.name;
+                    cSel.appendChild(o);
+                });
+
+                const sSel = document.getElementById('siScope');
+                sSel.innerHTML = '<option value="">No scope</option>';
+                scopes.forEach(s => {
+                    const o = document.createElement('option');
+                    o.value = s._id; o.textContent = s.name;
+                    sSel.appendChild(o);
+                });
+            } catch(e) { console.error('siLoadDropdowns', e); }
+        }
+
+        window.siSetExample = function(el) {
+            document.getElementById('siText').value = el.textContent.trim();
+        };
+
+        window.siReset = function() {
+            document.getElementById('siStep1').style.display = 'block';
+            document.getElementById('siStep2').style.display = 'none';
+            document.getElementById('siLoading').style.display = 'none';
+            document.getElementById('siSaveBtn').style.display = 'none';
+            document.getElementById('siParseBtn').style.display = 'block';
+        };
+
+        window.siSetType = function(type) {
+            document.getElementById('siCurrentType').value = type;
+            const expBtn = document.getElementById('siTypeExp');
+            const incBtn = document.getElementById('siTypeInc');
+            if (type === 'expense') {
+                expBtn.style.cssText += ';border-color:rgba(255,100,100,0.6);background:rgba(255,100,100,0.18);color:#ff6464;';
+                incBtn.style.cssText += ';border-color:rgba(255,255,255,0.1);background:rgba(255,255,255,0.05);color:rgba(255,255,255,0.35);';
+            } else {
+                incBtn.style.cssText += ';border-color:rgba(72,199,142,0.6);background:rgba(72,199,142,0.18);color:#48c78e;';
+                expBtn.style.cssText += ';border-color:rgba(255,255,255,0.1);background:rgba(255,255,255,0.05);color:rgba(255,255,255,0.35);';
+            }
+        };
+
+        // Tag pill management
+        let _siTags = [];
+        window.siTagKey = function(e) {
+            if (e.key === 'Enter' || e.key === ',') {
+                e.preventDefault();
+                const val = e.target.value.trim().replace(/,/g,'');
+                if (val && !_siTags.includes(val)) { _siTags.push(val); siRenderTags(); }
+                e.target.value = '';
+            } else if (e.key === 'Backspace' && !e.target.value && _siTags.length) {
+                _siTags.pop(); siRenderTags();
+            }
+        };
+        window.siRemoveTag = function(t) {
+            _siTags = _siTags.filter(x => x !== t); siRenderTags();
+        };
+        function siRenderTags() {
+            const wrap = document.getElementById('siTagsWrap');
+            const inp  = document.getElementById('siTagInput');
+            wrap.querySelectorAll('.si-tag-pill').forEach(el => el.remove());
+            _siTags.forEach(t => {
+                const pill = document.createElement('span');
+                pill.className = 'si-tag-pill';
+                pill.innerHTML = `#${t} <button type="button" onclick="siRemoveTag('${t}')">✕</button>`;
+                wrap.insertBefore(pill, inp);
+            });
+        }
+
+        // ── Parse ──────────────────────────────────────────────────────────
+        window.siParse = async function() {
+            const text = document.getElementById('siText').value.trim();
+            if (!text) { showNotification('Please enter a description first', 'warning'); return; }
+
+            document.getElementById('siStep1').style.display = 'none';
+            document.getElementById('siLoading').style.display = 'block';
+
+            try {
+                const res  = await fetch('/api/smart-parse', {
+                    method: 'POST',
+                    headers: {'Content-Type':'application/json'},
+                    body: JSON.stringify({text})
+                });
+                const data = await res.json();
+                if (!res.ok) {
+                    showNotification(data.error || 'AI parsing failed', 'error');
+                    siReset(); return;
+                }
+                siPopulateReview(data);
+            } catch(e) {
+                showNotification('Network error during parsing', 'error');
+                siReset();
+            } finally {
+                document.getElementById('siLoading').style.display = 'none';
+            }
+        };
+
+        function siPopulateReview(d) {
+            // Type
+            siSetType(d.type || 'expense');
+
+            // Amount
+            const amt = d.amount;
+            document.getElementById('siAmount').value = amt ? parseInt(amt).toLocaleString('id-ID') : '';
+
+            // Wallet
+            if (d.wallet_id) document.getElementById('siWallet').value = d.wallet_id;
+
+            // Category
+            if (d.category_id) document.getElementById('siCategory').value = d.category_id;
+
+            // Tags
+            _siTags = Array.isArray(d.tags) ? d.tags.map(t => String(t).trim()).filter(Boolean) : [];
+            siRenderTags();
+
+            // Note
+            document.getElementById('siNote').value = d.note || '';
+
+            // Timestamp
+            document.getElementById('siTimestamp').value = d.timestamp || '';
+
+            document.getElementById('siStep2').style.display = 'block';
+            document.getElementById('siSaveBtn').style.display = 'block';
+        }
+
+        // ── Save ───────────────────────────────────────────────────────────
+        window.siSave = async function() {
+            const amtRaw = document.getElementById('siAmount').value.replace(/[^0-9]/g,'');
+            const walletId   = document.getElementById('siWallet').value;
+            const categoryId = document.getElementById('siCategory').value;
+            const type       = document.getElementById('siCurrentType').value;
+            const ts         = document.getElementById('siTimestamp').value;
+
+            if (!amtRaw)    { showNotification('Please enter an amount', 'warning'); return; }
+            if (!walletId)  { showNotification('Please select a wallet', 'warning'); return; }
+            if (!type)      { showNotification('Please select transaction type', 'warning'); return; }
+
+            const btn = document.getElementById('siSaveBtn');
+            const orig = btn.innerHTML;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Saving…';
+            btn.disabled = true;
+
+            const payload = {
+                type,
+                amount: amtRaw,
+                wallet_id: walletId,
+                category_id: categoryId || undefined,
+                scope_id: document.getElementById('siScope').value || undefined,
+                note: document.getElementById('siNote').value || undefined,
+                tags: _siTags,
+                timestamp: ts ? Math.floor(new Date(ts).getTime() / 1000) : Math.floor(Date.now() / 1000)
+            };
+            // remove undefined keys
+            Object.keys(payload).forEach(k => payload[k] === undefined && delete payload[k]);
+
+            try {
+                const res = await fetch('/api/transactions/', {
+                    method: 'POST',
+                    headers: {'Content-Type':'application/json'},
+                    body: JSON.stringify(payload)
+                });
+                if (res.ok) {
+                    bootstrap.Modal.getInstance(document.getElementById('smartInputModal')).hide();
+                    showNotification('Transaction saved! ✨', 'success');
+                    setTimeout(() => window.location.reload(), 900);
+                } else {
+                    const err = await res.json();
+                    showNotification('Save failed: ' + (err.error || 'Unknown error'), 'error');
+                }
+            } catch(e) {
+                showNotification('Network error while saving', 'error');
+            } finally {
+                btn.innerHTML = orig; btn.disabled = false;
+            }
+        };
+        // ─────────────────────────────────────────────────────────────────────
+
         
         // ── Quick Transfer Modal ──────────────────────────────────────────
         const quickTransferBtn = document.getElementById('quickTransferBtn');
