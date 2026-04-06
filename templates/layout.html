@@ -251,6 +251,7 @@
         }
         #smartInputBtn:hover { transform: scale(1.1); }
         @keyframes siSpin { to { transform: rotate(360deg); } }
+        @keyframes siPulse { 0% { opacity: 0.5; } 50% { opacity: 1; } 100% { opacity: 0.5; } }
         .si-chip {
             background: rgba(168,85,247,0.12); border: 1px solid rgba(168,85,247,0.25);
             border-radius: 6px; padding: 2px 8px; cursor: pointer; color: rgba(168,85,247,0.8);
@@ -826,6 +827,15 @@
                                 onfocus="this.style.borderColor='rgba(168,85,247,0.8)'"
                                 onblur="this.style.borderColor='rgba(139,92,246,0.4)'"
                                 onkeydown="if(event.ctrlKey&&event.key==='Enter')siParse()"></textarea>
+                            
+                            <!-- Microphone Button -->
+                            <button id="siMicBtn" type="button" onclick="siToggleMic()"
+                                style="position:absolute; bottom:0.75rem; left:0.75rem; background:rgba(168,85,247,0.15); border:1px solid rgba(168,85,247,0.3); border-radius:50%; width:28px; height:28px; display:flex; align-items:center; justify-content:center; color:#a855f7; cursor:pointer; transition:all .2s; z-index:5;"
+                                title="Use Microphone">
+                                <i class="fas fa-microphone" style="font-size:0.8rem;"></i>
+                            </button>
+                            <span id="siMicStatus" style="position:absolute; bottom:0.85rem; left:2.8rem; font-size:0.75rem; color:#a855f7; display:none; animation: siPulse 1.5s infinite;">Listening...</span>
+
                             <span style="position:absolute;bottom:0.6rem;right:0.75rem;font-size:0.68rem;color:rgba(255,255,255,0.25);">Ctrl+Enter to parse</span>
                         </div>
                         <div class="d-flex gap-2 flex-wrap mt-2" style="font-size:0.72rem;color:rgba(255,255,255,0.3);">
@@ -1344,7 +1354,300 @@
         });
 
         // ── Smart Input ───────────────────────────────────────────────────────
+        
+        // ── Smart Input Mic ──────────────────────────────────────────────────
+        let _siRecognition = null;
+        let _siMediaRecorder = null;
+        let _siAudioChunks = [];
+        let _siIsListening = false;
+        let _siFinalTranscript = '';
+        let _siOriginalText = '';
+
+        // Auto timers
+        let _siSilenceTimer = null;
+        let _siSilenceInterval = null;
+        let _siSilenceRemaining = 4;
+        let _siAudioContext = null;
+        let _siVolumeInterval = null;
+
+        let _siAutoSaveTimer = null;
+        let _siAutoSaveRemaining = 8;
+        let _siAutoSaveInterval = null;
+
+        function siClearSilenceTimer() {
+            clearInterval(_siSilenceInterval);
+            clearTimeout(_siSilenceTimer);
+            if (_siVolumeInterval) clearInterval(_siVolumeInterval);
+            if (_siAudioContext && _siAudioContext.state !== 'closed') {
+                try { _siAudioContext.close(); } catch(e) {}
+            }
+            const reqStatus = document.getElementById('siMicStatus');
+            if (reqStatus && reqStatus.innerHTML.includes('auto-parse')) {
+                reqStatus.innerHTML = 'Listening...';
+            }
+            _siAudioContext = null;
+        }
+
+        function siResetSilenceTimer() {
+            clearInterval(_siSilenceInterval);
+            clearTimeout(_siSilenceTimer);
+            _siSilenceRemaining = 4;
+            
+            const reqStatus = document.getElementById('siMicStatus');
+            if (reqStatus && _siIsListening) {
+                reqStatus.innerHTML = `Listening... (auto-parse in ${_siSilenceRemaining}s)`;
+            }
+
+            _siSilenceInterval = setInterval(() => {
+                _siSilenceRemaining--;
+                if (_siSilenceRemaining > 0 && reqStatus && _siIsListening) {
+                    reqStatus.innerHTML = `Listening... (auto-parse in ${_siSilenceRemaining}s)`;
+                }
+            }, 1000);
+
+            _siSilenceTimer = setTimeout(() => {
+                siClearSilenceTimer();
+                siStopMic(true); // true means auto flag
+            }, 4000);
+        }
+
+        function siMonitorVolume(stream) {
+            try {
+                _siAudioContext = new (window.AudioContext || window.webkitAudioContext)();
+                const analyser = _siAudioContext.createAnalyser();
+                const source = _siAudioContext.createMediaStreamSource(stream);
+                source.connect(analyser);
+                analyser.fftSize = 256;
+                const dataArray = new Uint8Array(analyser.frequencyBinCount);
+                
+                _siVolumeInterval = setInterval(() => {
+                    analyser.getByteFrequencyData(dataArray);
+                    let sum = 0;
+                    for(let i=0; i<dataArray.length; i++) sum += dataArray[i];
+                    let volume = sum / dataArray.length;
+                    
+                    if (volume > 15) { // Reset if voice detected
+                        siResetSilenceTimer();
+                    }
+                }, 200);
+            } catch(e) {}
+        }
+
+        function siClearAutoSave() {
+            clearInterval(_siAutoSaveInterval);
+            _siAutoSaveInterval = null;
+            const btn = document.getElementById('siSaveBtn');
+            if (btn && btn.innerHTML.includes('(')) {
+                btn.innerHTML = `<i class="fas fa-save me-2"></i>Save Transaction`;
+            }
+        }
+
+        window.siClearAutoSave = siClearAutoSave; // Expose globally for HTML handlers
+
+        function siStartAutoSave() {
+            siClearAutoSave();
+            _siAutoSaveRemaining = 8;
+            const btn = document.getElementById('siSaveBtn');
+            if (!btn) return;
+            btn.innerHTML = `<i class="fas fa-save me-2"></i>Save Transaction (${_siAutoSaveRemaining}s)`;
+            
+            _siAutoSaveInterval = setInterval(() => {
+                _siAutoSaveRemaining--;
+                if (_siAutoSaveRemaining > 0) {
+                    btn.innerHTML = `<i class="fas fa-save me-2"></i>Save Transaction (${_siAutoSaveRemaining}s)`;
+                } else {
+                    siClearAutoSave();
+                    siSave();
+                }
+            }, 1000);
+            
+            // Attach UI listeners to cancel auto-save
+            const step2 = document.getElementById('siStep2');
+            if (step2) {
+                step2.onclick = siClearAutoSave;
+                step2.oninput = siClearAutoSave;
+            }
+        }
+
+        function siSetMicState(state) {
+            const btn = document.getElementById('siMicBtn');
+            const status = document.getElementById('siMicStatus');
+            if (!btn || !status) return;
+            
+            if (state === 'idle') {
+                btn.style.background = 'rgba(168,85,247,0.15)';
+                btn.style.borderColor = 'rgba(168,85,247,0.3)';
+                btn.style.color = '#a855f7';
+                btn.innerHTML = '<i class="fas fa-microphone" style="font-size:0.8rem;"></i>';
+                status.style.display = 'none';
+                status.style.animation = 'siPulse 1.5s infinite';
+                status.innerHTML = 'Listening...';
+                btn.disabled = false;
+            } else if (state === 'recording') {
+                btn.style.background = 'rgba(255,100,100,0.15)';
+                btn.style.borderColor = 'rgba(255,100,100,0.3)';
+                btn.style.color = '#ff6464';
+                btn.innerHTML = '<i class="fas fa-stop" style="font-size:0.8rem;"></i>';
+                status.style.display = 'inline-block';
+                status.style.animation = 'siPulse 1.5s infinite';
+                status.innerHTML = 'Listening...';
+                btn.disabled = false;
+                siResetSilenceTimer(); // Start silence detector
+            } else if (state === 'loading') {
+                btn.style.background = 'rgba(168,85,247,0.15)';
+                btn.style.borderColor = 'rgba(168,85,247,0.3)';
+                btn.style.color = '#a855f7';
+                btn.innerHTML = '<i class="fas fa-spinner fa-spin" style="font-size:0.8rem;"></i>';
+                status.style.display = 'inline-block';
+                status.style.animation = 'none';
+                status.innerHTML = 'Transcribing...';
+                btn.disabled = true;
+            }
+        }
+
+        function siInitMicNative() {
+            if (!_siRecognition) {
+                const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+                _siRecognition = new SpeechRecognition();
+                _siRecognition.continuous = true;
+                _siRecognition.interimResults = true;
+                _siRecognition.lang = 'id-ID'; 
+                
+                _siRecognition.onstart = function() {
+                    _siIsListening = true;
+                    _siFinalTranscript = '';
+                    const textarea = document.getElementById('siText');
+                    _siOriginalText = textarea.value;
+                    if (_siOriginalText && !_siOriginalText.endsWith(' ') && !_siOriginalText.endsWith('\n')) {
+                        _siOriginalText += ' ';
+                    }
+                    siSetMicState('recording');
+                };
+                
+                _siRecognition.onerror = function(event) {
+                    if (event.error !== 'no-speech' && event.error !== 'aborted') {
+                       showNotification('Microphone error: ' + event.error, 'error');
+                    }
+                    siStopMic();
+                };
+                
+                _siRecognition.onend = function() {
+                    siStopMic();
+                };
+                
+                _siRecognition.onresult = function(event) {
+                    siResetSilenceTimer(); // reset on active speech
+                    let interimTranscript = '';
+                    for (let i = event.resultIndex; i < event.results.length; ++i) {
+                        if (event.results[i].isFinal) {
+                            _siFinalTranscript += event.results[i][0].transcript;
+                        } else {
+                            interimTranscript += event.results[i][0].transcript;
+                        }
+                    }
+                    const textarea = document.getElementById('siText');
+                    textarea.value = _siOriginalText + _siFinalTranscript + interimTranscript;
+                };
+            }
+            return true;
+        }
+
+        window.siToggleMic = async function() {
+            if (!_siIsListening) {
+                const hasNativeAPI = ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window);
+                
+                if (hasNativeAPI) {
+                    siInitMicNative();
+                    try {
+                        _siRecognition.start();
+                    } catch(e) { }
+                } else if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+                    try {
+                        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                        _siMediaRecorder = new MediaRecorder(stream);
+                        _siAudioChunks = [];
+                        _siIsListening = true;
+                        
+                        _siMediaRecorder.ondataavailable = e => {
+                            if (e.data.size > 0) _siAudioChunks.push(e.data);
+                        };
+                        
+                        _siMediaRecorder.onstop = async () => {
+                            const audioBlob = new Blob(_siAudioChunks, { type: 'audio/webm' });
+                            stream.getTracks().forEach(track => track.stop());
+                            siClearSilenceTimer();
+                            
+                            siSetMicState('loading');
+                            try {
+                                const formData = new FormData();
+                                formData.append('audio', audioBlob, 'recording.webm');
+                                
+                                const res = await fetch('/api/transcribe', {
+                                    method: 'POST',
+                                    body: formData
+                                });
+                                
+                                const data = await res.json();
+                                if (res.ok && data.text) {
+                                    const textarea = document.getElementById('siText');
+                                    const currentText = textarea.value;
+                                    textarea.value = currentText ? currentText.trim() + ' ' + data.text : data.text;
+                                    if (_autoParseRequested) {
+                                        _autoParseRequested = false;
+                                        siParse();
+                                    }
+                                } else {
+                                    showNotification(data.error || 'Transcription failed', 'error');
+                                }
+                            } catch (e) {
+                                showNotification('Network error during transcription', 'error');
+                            } finally {
+                                _siIsListening = false;
+                                siSetMicState('idle');
+                            }
+                        };
+                        
+                        _siMediaRecorder.start();
+                        siSetMicState('recording');
+                        siMonitorVolume(stream);
+                        
+                    } catch (e) {
+                        showNotification('Microphone access denied or error.', 'error');
+                        _siIsListening = false;
+                        siSetMicState('idle');
+                    }
+                } else {
+                    showNotification('Speech recording is not supported in this browser.', 'warning');
+                }
+            } else {
+                siStopMic();
+            }
+        };
+
+        let _autoParseRequested = false;
+
+        function siStopMic(autoParse = false) {
+            siClearSilenceTimer();
+            if (_siIsListening) {
+                if (_siRecognition) {
+                    try { _siRecognition.stop(); } catch(e) {}
+                    _siIsListening = false;
+                    siSetMicState('idle');
+                    if (autoParse) siParse();
+                } else if (_siMediaRecorder) {
+                    _autoParseRequested = autoParse;
+                    try { _siMediaRecorder.stop(); } catch(e) {}
+                }
+            } else {
+                siSetMicState('idle');
+            }
+        }
+        // ─────────────────────────────────────────────────────────────────────
+
         const _siModal = new bootstrap.Modal(document.getElementById('smartInputModal'));
+        document.getElementById('smartInputModal').addEventListener('hidden.bs.modal', () => {
+            if (typeof siStopMic === 'function') siStopMic();
+        });
         document.getElementById('smartInputBtn').addEventListener('click', () => {
             siReset();
             _siModal.show();
@@ -1394,6 +1697,8 @@
         };
 
         window.siReset = function() {
+            if (typeof siClearAutoSave === 'function') siClearAutoSave();
+            if (typeof siStopMic === 'function') siStopMic();
             document.getElementById('siStep1').style.display = 'block';
             document.getElementById('siStep2').style.display = 'none';
             document.getElementById('siLoading').style.display = 'none';
@@ -1443,6 +1748,7 @@
 
         // ── Parse ──────────────────────────────────────────────────────────
         window.siParse = async function() {
+            if (typeof siStopMic === 'function') siStopMic();
             const text = document.getElementById('siText').value.trim();
             if (!text) { showNotification('Please enter a description first', 'warning'); return; }
 
@@ -1495,6 +1801,9 @@
 
             document.getElementById('siStep2').style.display = 'block';
             document.getElementById('siSaveBtn').style.display = 'block';
+            
+            // Start Auto Save timer
+            if (typeof siStartAutoSave === 'function') siStartAutoSave();
         }
 
         // ── Save ───────────────────────────────────────────────────────────

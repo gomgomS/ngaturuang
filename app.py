@@ -1288,6 +1288,62 @@ def wealth_pulse_page():
     return render_template("wealth_pulse.html")
 
 
+@app.route("/api/transcribe", methods=["POST"])
+def api_transcribe():
+    """Transcribe audio using OpenAI Whisper fallback."""
+    import urllib.request, urllib.error, json as _json, uuid
+    from config import get_openai_api_key
+    
+    auth_check = require_login()
+    if auth_check:
+        return jsonify({"error": "Not authenticated"}), 401
+        
+    if "audio" not in request.files:
+        return jsonify({"error": "No audio file provided"}), 400
+        
+    audio_file = request.files["audio"]
+    oai_key = get_openai_api_key()
+    
+    if not oai_key:
+        return jsonify({"error": "Speech transcription is not configured on the server"}), 501
+        
+    try:
+        audio_data = audio_file.read()
+        filename = audio_file.filename or "audio.webm"
+        boundary = f"----WebKitFormBoundary{uuid.uuid4().hex}"
+        
+        body = []
+        body.append(f"--{boundary}\r\nContent-Disposition: form-data; name=\"model\"\r\n\r\nwhisper-1\r\n".encode("utf-8"))
+        body.append(f"--{boundary}\r\nContent-Disposition: form-data; name=\"file\"; filename=\"{filename}\"\r\nContent-Type: audio/webm\r\n\r\n".encode("utf-8"))
+        body.append(audio_data)
+        body.append(f"\r\n--{boundary}--\r\n".encode("utf-8"))
+        
+        req_data = b"".join(body)
+        
+        req = urllib.request.Request(
+            url="https://api.openai.com/v1/audio/transcriptions",
+            method="POST",
+            data=req_data,
+            headers={
+                "Content-Type": f"multipart/form-data; boundary={boundary}",
+                "Authorization": f"Bearer {oai_key}"
+            }
+        )
+        
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            rj = _json.loads(resp.read().decode("utf-8"))
+            return jsonify({"text": rj.get("text", "")})
+            
+    except urllib.error.HTTPError as he:
+        err_msg = he.read().decode("utf-8")
+        print(f"[transcribe] HTTP Error: {err_msg}")
+        return jsonify({"error": f"Transcription API error: {he.code}"}), 502
+    except Exception as e:
+        print(f"[transcribe] Error: {e}")
+        import traceback; traceback.print_exc()
+        return jsonify({"error": "Failed to transcribe audio"}), 500
+
+
 @app.route("/api/smart-parse", methods=["POST"])
 def api_smart_parse():
     """Parse natural-language transaction text with AI and return structured fields."""
