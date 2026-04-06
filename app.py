@@ -1341,12 +1341,23 @@ def api_wealth_pulse():
         burn_rate     = round(total_expense / days, 0) if days > 0 else 0
         income_vel    = round(total_income  / days, 0) if days > 0 else 0
 
+        # ── Category id → name lookup from DB ──────────────────────────
+        cat_repo   = CategoryRepository()
+        db_cats    = cat_repo.list_by_user_with_defaults(user_id) or []
+        cat_id_map = {str(c.get("_id", c.get("id", ""))): c.get("name", "") for c in db_cats}
+
+        def resolve_cat(t):
+            snap = t.get("_snap") or {}
+            path = snap.get("category_path") or []
+            if path:
+                return path[-1]
+            cid = str(t.get("category_id") or "")
+            return cat_id_map.get(cid) or cid or "Uncategorized"
+
         # ── Category breakdown ──────────────────────────────────────────
         cat_income, cat_expense = {}, {}
         for t in money_txs:
-            snap = t.get("_snap") or {}
-            path = snap.get("category_path") or []
-            name = path[-1] if path else (t.get("category_id") or "Uncategorized")
+            name = resolve_cat(t)
             amt  = float(t.get("amount", 0))
             if t.get("type") == "income":
                 cat_income[name]  = cat_income.get(name, 0) + amt
