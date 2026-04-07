@@ -402,6 +402,19 @@ body { background: #0b0f1a; min-height: 100vh; }
             </div>
         </div>
 
+        <!-- Fund transfers -->
+        <div class="section-card" style="margin-top:1.5rem;" id="transferSection">
+            <div class="section-head">
+                <div style="width:32px;height:32px;border-radius:10px;background:rgba(247,201,72,.15);display:flex;align-items:center;justify-content:center;color:#f7c948;flex-shrink:0;">
+                    <i class="fas fa-arrows-left-right"></i>
+                </div>
+                <h6>Fund Transfers <span id="transferTotalBadge" style="margin-left:8px;font-size:.75rem;font-weight:500;color:#94a3b8;"></span></h6>
+            </div>
+            <div class="section-body" id="transferList">
+                <div class="empty-state"><i class="fas fa-arrows-left-right"></i>No transfers this period</div>
+            </div>
+        </div>
+
         <!-- Expert insights -->
         <div class="section-card" style="margin-top:1.5rem;">
             <div class="section-head">
@@ -531,6 +544,9 @@ function renderResults(d) {
 
     // ── Wallets
     renderWallets(d.wallet_breakdown);
+
+    // ── Transfers
+    renderTransfers(d.transfer_movements, d.total_transferred);
 
     // ── Insights
     renderInsights(d.insights);
@@ -674,6 +690,43 @@ function renderWallets(wallets) {
                 <div class="wallet-chg ${up ? 'up' : 'down'}">
                     ${up ? '+' : '−'}${fmt(w.change)} (${pct})
                 </div>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+// ── Fund Transfers ────────────────────────────────────────────────────────────
+function renderTransfers(items, totalTransferred) {
+    const el    = document.getElementById('transferList');
+    const badge = document.getElementById('transferTotalBadge');
+    const sec   = document.getElementById('transferSection');
+
+    if (!items || !items.length) {
+        el.innerHTML = '<div class="empty-state"><i class="fas fa-arrows-left-right"></i>No transfers this period</div>';
+        badge.textContent = '';
+        return;
+    }
+
+    badge.textContent = `${items.length} transfer${items.length > 1 ? 's' : ''} · ${fmtS(totalTransferred)} moved`;
+
+    el.innerHTML = items.map(m => {
+        const fee = m.admin_fee > 0
+            ? `<span style="color:#94a3b8;font-size:.75rem;margin-left:6px;">+${fmtS(m.admin_fee)} fee</span>`
+            : '';
+        const note = m.note ? `<div style="font-size:.75rem;color:#64748b;margin-top:2px;">${m.note}</div>` : '';
+        return `
+        <div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.05);">
+            <div style="flex:1;min-width:0;">
+                <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+                    <span style="color:#e2e8f0;font-weight:500;font-size:.875rem;">${m.from_wallet}</span>
+                    <i class="fas fa-arrow-right" style="color:#f7c948;font-size:.7rem;"></i>
+                    <span style="color:#e2e8f0;font-weight:500;font-size:.875rem;">${m.to_wallet}</span>
+                </div>
+                ${note}
+            </div>
+            <div style="text-align:right;flex-shrink:0;">
+                <div style="color:#f7c948;font-weight:600;font-size:.9rem;">${fmtS(m.amount)}${fee}</div>
+                <div style="color:#64748b;font-size:.72rem;">${m.date}</div>
             </div>
         </div>`;
     }).join('');

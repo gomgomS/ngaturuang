@@ -1553,6 +1553,15 @@ def api_wealth_pulse():
             cid = str(t.get("category_id") or "")
             return cat_id_map.get(cid) or cid or "Uncategorized"
 
+        # Exclude 'transfer' category by resolved name (fund movements, not income/expense)
+        money_txs = [t for t in money_txs if resolve_cat(t).lower() != "transfer"]
+        total_income  = sum(float(t.get("amount", 0)) for t in money_txs if t.get("type") == "income")
+        total_expense = sum(float(t.get("amount", 0)) for t in money_txs if t.get("type") == "expense")
+        net_cashflow  = total_income - total_expense
+        savings_rate  = round((net_cashflow / total_income * 100) if total_income > 0 else 0, 1)
+        burn_rate     = round(total_expense / days, 0) if days > 0 else 0
+        income_vel    = round(total_income  / days, 0) if days > 0 else 0
+
         # ── Category breakdown ──────────────────────────────────────────
         cat_income, cat_expense = {}, {}
         for t in money_txs:
@@ -1589,6 +1598,45 @@ def api_wealth_pulse():
                 "change_pct": pct_change(bal_a, bal_b),
             })
         wallet_breakdown.sort(key=lambda x: abs(x["change"]), reverse=True)
+
+        # ── Transfer movements (for context — not income/expense) ───────
+        wallet_id_map = {str(w.get("_id", "")): w.get("name", "") for w in wallets}
+        transfer_movements = []
+        seen_transfer_ids = set()
+        for t in period_txs:
+            meta  = t.get("transfer_metadata") or {}
+            ttype = t.get("type")
+            tid   = str(t.get("_id", ""))
+            amt   = float(t.get("amount", 0))
+            ts    = t.get("timestamp", 0)
+            date_str = datetime.fromtimestamp(ts).strftime("%Y-%m-%d") if ts else ""
+
+            if meta.get("transfer_type") == "outgoing":
+                if tid not in seen_transfer_ids:
+                    seen_transfer_ids.add(tid)
+                    from_name = wallet_id_map.get(str(t.get("wallet_id", "")), "Unknown")
+                    transfer_movements.append({
+                        "from_wallet": from_name,
+                        "to_wallet":   meta.get("to_wallet_name", "Unknown"),
+                        "amount":      amt,
+                        "admin_fee":   float(t.get("admin_fee", 0)),
+                        "date":        date_str,
+                        "note":        t.get("note", "") or t.get("description", ""),
+                    })
+            elif ttype == "transfer" and meta.get("transfer_type") != "incoming":
+                if tid not in seen_transfer_ids:
+                    seen_transfer_ids.add(tid)
+                    from_name = wallet_id_map.get(str(t.get("wallet_id", "")), "Unknown")
+                    transfer_movements.append({
+                        "from_wallet": from_name,
+                        "to_wallet":   t.get("to_wallet_name", "") or "Unknown",
+                        "amount":      amt,
+                        "admin_fee":   float(t.get("admin_fee", 0)),
+                        "date":        date_str,
+                        "note":        t.get("note", "") or t.get("description", ""),
+                    })
+        transfer_movements.sort(key=lambda x: x["date"], reverse=True)
+        total_transferred = sum(m["amount"] for m in transfer_movements)
 
         # ── Wealth Score (0–100) ────────────────────────────────────────
         # Savings Rate  → max 35 pts  (target ≥ 30 %)
@@ -1703,6 +1751,8 @@ def api_wealth_pulse():
             "projections": projections,
             "insights": insights,
             "tx_count": len(money_txs),
+            "transfer_movements": transfer_movements,
+            "total_transferred": total_transferred,
         })
 
     except Exception as e:
