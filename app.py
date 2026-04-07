@@ -1602,20 +1602,25 @@ def api_wealth_pulse():
         # ── Transfer movements (for context — not income/expense) ───────
         wallet_id_map = {str(w.get("_id", "")): w.get("name", "") for w in wallets}
         transfer_movements = []
+        seen_transfers = set()   # dedup key: (from_wallet_id, to_wallet_id, amount, date)
         for t in period_txs:
             if t.get("category_id") != "transfer" and not t.get("is_transfer"):
                 continue
-            # Only capture the outgoing side to avoid showing each transfer twice
-            if t.get("type") != "expense":
+            ts           = t.get("timestamp", 0)
+            date_str     = datetime.fromtimestamp(ts).strftime("%Y-%m-%d") if ts else ""
+            from_wid     = str(t.get("from_wallet_id", "") or t.get("wallet_id", ""))
+            to_wid       = str(t.get("to_wallet_id", ""))
+            amt          = float(t.get("amount", 0))
+            dedup_key    = (from_wid, to_wid, amt, date_str)
+            if dedup_key in seen_transfers:
                 continue
-            ts       = t.get("timestamp", 0)
-            date_str = datetime.fromtimestamp(ts).strftime("%Y-%m-%d") if ts else ""
-            from_name = wallet_id_map.get(str(t.get("from_wallet_id", "") or t.get("wallet_id", "")), "Unknown")
-            to_name   = wallet_id_map.get(str(t.get("to_wallet_id", "")), "Unknown")
+            seen_transfers.add(dedup_key)
+            from_name = wallet_id_map.get(from_wid, "Unknown")
+            to_name   = wallet_id_map.get(to_wid, "Unknown")
             transfer_movements.append({
                 "from_wallet": from_name,
                 "to_wallet":   to_name,
-                "amount":      float(t.get("amount", 0)),
+                "amount":      amt,
                 "admin_fee":   float(t.get("admin_fee", 0)),
                 "date":        date_str,
                 "note":        t.get("note", "") or t.get("description", ""),
