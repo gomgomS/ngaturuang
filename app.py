@@ -1602,39 +1602,24 @@ def api_wealth_pulse():
         # ── Transfer movements (for context — not income/expense) ───────
         wallet_id_map = {str(w.get("_id", "")): w.get("name", "") for w in wallets}
         transfer_movements = []
-        seen_transfer_ids = set()
         for t in period_txs:
-            meta  = t.get("transfer_metadata") or {}
-            ttype = t.get("type")
-            tid   = str(t.get("_id", ""))
-            amt   = float(t.get("amount", 0))
-            ts    = t.get("timestamp", 0)
+            if t.get("category_id") != "transfer" and not t.get("is_transfer"):
+                continue
+            # Only capture the outgoing side to avoid showing each transfer twice
+            if t.get("type") != "expense":
+                continue
+            ts       = t.get("timestamp", 0)
             date_str = datetime.fromtimestamp(ts).strftime("%Y-%m-%d") if ts else ""
-
-            if meta.get("transfer_type") == "outgoing":
-                if tid not in seen_transfer_ids:
-                    seen_transfer_ids.add(tid)
-                    from_name = wallet_id_map.get(str(t.get("wallet_id", "")), "Unknown")
-                    transfer_movements.append({
-                        "from_wallet": from_name,
-                        "to_wallet":   meta.get("to_wallet_name", "Unknown"),
-                        "amount":      amt,
-                        "admin_fee":   float(t.get("admin_fee", 0)),
-                        "date":        date_str,
-                        "note":        t.get("note", "") or t.get("description", ""),
-                    })
-            elif ttype == "transfer" and meta.get("transfer_type") != "incoming":
-                if tid not in seen_transfer_ids:
-                    seen_transfer_ids.add(tid)
-                    from_name = wallet_id_map.get(str(t.get("wallet_id", "")), "Unknown")
-                    transfer_movements.append({
-                        "from_wallet": from_name,
-                        "to_wallet":   t.get("to_wallet_name", "") or "Unknown",
-                        "amount":      amt,
-                        "admin_fee":   float(t.get("admin_fee", 0)),
-                        "date":        date_str,
-                        "note":        t.get("note", "") or t.get("description", ""),
-                    })
+            from_name = wallet_id_map.get(str(t.get("from_wallet_id", "") or t.get("wallet_id", "")), "Unknown")
+            to_name   = wallet_id_map.get(str(t.get("to_wallet_id", "")), "Unknown")
+            transfer_movements.append({
+                "from_wallet": from_name,
+                "to_wallet":   to_name,
+                "amount":      float(t.get("amount", 0)),
+                "admin_fee":   float(t.get("admin_fee", 0)),
+                "date":        date_str,
+                "note":        t.get("note", "") or t.get("description", ""),
+            })
         transfer_movements.sort(key=lambda x: x["date"], reverse=True)
         total_transferred = sum(m["amount"] for m in transfer_movements)
 
