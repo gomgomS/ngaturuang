@@ -26,4 +26,18 @@ class UserRepository(MongoRepository):
         result = self.collection.update_one({"_id": user_id}, update)
         return result.matched_count > 0
 
+    def update_shopeepay_config(self, user_id: str, wallet_id: str, scope_id: str) -> bool:
+        """Update shopeepay_ocr_config fields."""
+        update = {"$set": {"shopeepay_ocr_config": {"wallet_id": wallet_id, "scope_id": scope_id}}}
+        try:
+            obj_id = ObjectId(user_id)
+            result = self.collection.update_one({"_id": obj_id}, update)
+            if result.matched_count > 0:
+                return True
+        except Exception:
+            pass
+        # Fallback: _id stored as plain string
+        result = self.collection.update_one({"_id": user_id}, update)
+        return result.matched_count > 0
+
 

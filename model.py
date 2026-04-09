@@ -71,6 +71,10 @@ db: Dict[str, Dict[str, Any]] = {
         },
         "kyc_verified": False,
         "hold_status": False,
+        "shopeepay_ocr_config": {
+            "wallet_id": "",
+            "scope_id": "",
+        },
     },
 
     "db_user_questionaire_upload": {

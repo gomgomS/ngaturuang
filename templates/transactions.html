@@ -496,9 +496,14 @@
                 <!-- Desktop Header -->
                 <div class="d-none d-lg-flex justify-content-between align-items-center mb-4">
                     <h3 class="h4 mb-0" data-translate="transactions.transaction_history">Transaction History</h3>
-                    <button class="btn btn-outline-secondary" onclick="window.location.href='/transactions-type'">
-                        <i class="fas fa-arrow-left"></i> <span data-translate="transactions.back_to_menu">Back to Menu</span>
-                                </button>
+                    <div>
+                        <button class="btn btn-outline-warning" style="border: none; color: white; background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);" onclick="window.location.href='/ocr-scan'">
+                            <i class="fas fa-camera"></i> <span data-translate="transactions.ocr_scan">OCR Scan</span>
+                        </button>
+                        <button class="btn btn-outline-secondary ms-2" onclick="window.location.href='/transactions-type'">
+                            <i class="fas fa-arrow-left"></i> <span data-translate="transactions.back_to_menu">Back to Menu</span>
+                        </button>
+                    </div>
             </div>
 
 

@@ -1,0 +1,525 @@
+{% extends 'layout.html' %}
+
+{% block head %}
+<style>
+    .gradient-text {
+        background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+    }
+
+    .ocr-card {
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(20px);
+        border-radius: 20px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        /* padding: 2rem; */
+        margin-bottom: 2rem;
+        border: none;
+    }
+
+    .upload-zone {
+        border: 2px dashed #cbd5e1;
+        border-radius: 15px;
+        padding: 3rem 2rem;
+        text-align: center;
+        background: #f8fafc;
+        transition: all 0.3s ease;
+        cursor: pointer;
+    }
+
+    .upload-zone:hover,
+    .upload-zone.dragover {
+        border-color: #f97316;
+        background: #fff7ed;
+    }
+
+    .config-card {
+        background: linear-gradient(135deg, #475569 0%, #334155 100%);
+        color: white;
+        border-radius: 15px;
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+    }
+
+    #loading-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.7);
+        z-index: 9999;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        flex-direction: column;
+        color: white;
+    }
+
+    .spinner {
+        width: 50px;
+        height: 50px;
+        border: 5px solid rgba(255, 255, 255, 0.3);
+        border-radius: 50%;
+        border-top-color: #f97316;
+        animation: spin 1s ease-in-out infinite;
+    }
+
+    @keyframes spin {
+        to {
+            transform: rotate(360deg);
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-3 px-lg-5 py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="fw-bold mb-0"><i class="fas fa-camera gradient-text me-2"></i> OCR Scanner</h2>
+            <p class="text-muted mb-0">Automatically extract transactions from your ShopeePay screenshots.</p>
+        </div>
+        <button class="btn btn-outline-secondary" onclick="window.history.back()">
+            <i class="fas fa-arrow-left"></i> Back
+        </button>
+    </div>
+
+    <!-- Configuration Validation/View -->
+    <div class="config-card" id="configSection">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5 class="mb-0"><i class="fas fa-cog me-2"></i> ShopeePay Settings</h5>
+            <button class="btn btn-sm btn-light" id="btnEditConfig">Edit Settings</button>
+        </div>
+
+        <div id="configDisplay">
+            <p class="mb-1 text-light"><strong>Wallet:</strong> <span id="displayWallet">Loading...</span></p>
+            <p class="mb-0 text-light"><strong>Scope:</strong> <span id="displayScope">Loading...</span></p>
+        </div>
+
+        <div id="configForm" style="display: none;">
+            <div class="row g-3">
+                <div class="col-md-5">
+                    <label class="form-label text-light">Target Wallet</label>
+                    <select class="form-select" id="configWallet">
+                        <option value="">Select Wallet...</option>
+                        {% for w in wallets %}
+                        <option value="{{ w._id }}">{{ w.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-5">
+                    <label class="form-label text-light">Target Scope</label>
+                    <select class="form-select" id="configScope">
+                        <option value="">No Scope</option>
+                        {% for s in scopes %}
+                        <option value="{{ s._id }}">{{ s.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2 d-flex align-items-end">
+                    <button class="btn btn-warning w-100" id="btnSaveConfig" style="font-weight: bold;">Save</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Scanner Interface -->
+    <div class="ocr-card" id="uploadCard" style="display: none;">
+        <h5 class="fw-bold mb-3">Upload Screenshot</h5>
+        <div class="upload-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
+            <i class="fas fa-cloud-upload-alt fa-3x text-muted mb-3"></i>
+            <h5 class="text-dark">Click or drag image here</h5>
+            <p class="text-muted small mb-0">Supported formats: JPG, PNG. Optimal for ShopeePay history.</p>
+            <input type="file" id="fileInput" accept="image/*" style="display: none;"
+                onchange="handleFiles(this.files)">
+        </div>
+    </div>
+
+    <!-- Review Interface -->
+    <div class="ocr-card" id="reviewCard" style="display: none;">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5 class="fw-bold mb-0">Review Parsed Transactions</h5>
+            <button class="btn btn-outline-secondary btn-sm" onclick="resetUpload()">Upload Another</button>
+        </div>
+
+        <div id="resultBody" class="row g-3">
+            <!-- Populated via JS -->
+        </div>
+
+        <div class="d-flex justify-content-end mt-4">
+            <button class="btn btn-success px-4 py-2" id="btnConfirm" style="border-radius: 12px; font-weight: 600;">
+                <i class="fas fa-check me-2"></i>Import <span id="importCount">0</span> Transactions
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Loading overlay -->
+<div id="loading-overlay">
+    <div class="spinner mb-3"></div>
+    <h4 id="loading-msg">Analyzing Image...</h4>
+    <p class="text-white-50">This may take a few seconds.</p>
+</div>
+
+<!-- Raw config payload from server securely -->
+<script>
+    const INITIAL_CONFIG = {{ ocr_config | tojson | safe }};
+    const WALLETS = [
+        {% for w in wallets %}{ id: "{{ w._id }}", name: "{{ w.name }}" }, {% endfor %}
+    ];
+    const SCOPES = [
+        {% for s in scopes %}{ id: "{{ s._id }}", name: "{{ s.name }}" }, {% endfor %}
+    ];
+    const CATEGORIES = [
+        {% for c in categories %}{ id: "{{ c._id }}", name: "{{ c.name }}", type: "{{ c.type }}" }, {% endfor %}
+    ];
+</script>
+
+<script>
+    let currentWalletId = INITIAL_CONFIG.wallet_id || "";
+    let currentScopeId = INITIAL_CONFIG.scope_id || "";
+    let parsedDataList = [];
+
+    document.addEventListener("DOMContentLoaded", () => {
+        updateConfigDisplay();
+
+        if (!currentWalletId) {
+            // Force config mapping first
+            document.getElementById("configDisplay").style.display = "none";
+            document.getElementById("configForm").style.display = "block";
+            document.getElementById("btnEditConfig").style.display = "none";
+        } else {
+            // Config ready, show upload
+            document.getElementById("uploadCard").style.display = "block";
+        }
+
+        // Dropzone handlers
+        const dropZone = document.getElementById('dropZone');
+
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, preventDefaults, false);
+        });
+
+        function preventDefaults(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropZone.addEventListener(eventName, () => dropZone.classList.add('dragover'), false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, () => dropZone.classList.remove('dragover'), false);
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            const files = e.dataTransfer.files;
+            if (files.length) handleFiles(files);
+        });
+    });
+
+    document.getElementById("btnEditConfig").addEventListener("click", () => {
+        document.getElementById("configDisplay").style.display = "none";
+        document.getElementById("configForm").style.display = "block";
+        document.getElementById("btnEditConfig").style.display = "none";
+
+        document.getElementById("configWallet").value = currentWalletId;
+        document.getElementById("configScope").value = currentScopeId;
+    });
+
+    document.getElementById("btnSaveConfig").addEventListener("click", async () => {
+        const wId = document.getElementById("configWallet").value;
+        const sId = document.getElementById("configScope").value;
+        if (!wId) {
+            alert("Wallet mapping is required for ShopeePay!");
+            return;
+        }
+
+        try {
+            const rs = await fetch("/api/ocr-scan/config", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ wallet_id: wId, scope_id: sId })
+            });
+            const data = await rs.json();
+            if (data.success) {
+                currentWalletId = wId;
+                currentScopeId = sId;
+                updateConfigDisplay();
+
+                document.getElementById("configDisplay").style.display = "block";
+                document.getElementById("configForm").style.display = "none";
+                document.getElementById("btnEditConfig").style.display = "block";
+                document.getElementById("uploadCard").style.display = "block";
+            } else {
+                alert("Failed to save config: " + (data.error || "Unknown"));
+            }
+        } catch (e) {
+            alert("Error saving config.");
+        }
+    });
+
+    function updateConfigDisplay() {
+        const wObj = WALLETS.find(x => x.id === currentWalletId);
+        const sObj = SCOPES.find(x => x.id === currentScopeId);
+
+        document.getElementById("displayWallet").innerText = wObj ? wObj.name : "Not configured";
+        document.getElementById("displayScope").innerText = sObj ? sObj.name : "None selected";
+    }
+
+    async function handleFiles(files) {
+        if (!files.length) return;
+        const file = files[0];
+
+        if (!file.type.startsWith('image/')) {
+            alert("Please upload a valid image file.");
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append("image", file);
+
+        showLoading("Extracting Text using OCR...");
+
+        try {
+            const resp = await fetch("/api/ocr-scan/upload", {
+                method: "POST",
+                body: formData
+            });
+            const data = await resp.json();
+            hideLoading();
+
+            if (data.success) {
+                parsedDataList = data.transactions;
+                renderResults();
+            } else {
+                alert("Error analyzing image: " + (data.error || "Unknown"));
+            }
+
+        } catch (e) {
+            hideLoading();
+            alert("Network error talking to OCR backend.");
+        }
+    }
+
+    function renderResults() {
+        document.getElementById("uploadCard").style.display = "none";
+        document.getElementById("reviewCard").style.display = "block";
+
+        const tbody = document.getElementById("resultBody");
+        tbody.innerHTML = "";
+
+        if (parsedDataList.length === 0) {
+            tbody.innerHTML = "<div class='col-12 text-center text-muted py-5'>No transactions to display.</div>";
+            document.getElementById("btnConfirm").disabled = true;
+            document.getElementById("importCount").innerText = "0";
+            return;
+        }
+
+        parsedDataList.forEach((tx, i) => {
+            if (tx._included === undefined) {
+                tx._included = !tx.is_duplicate;
+            }
+
+            const dateStr = new Date(tx.timestamp * 1000).toLocaleString();
+
+            let catOptions = CATEGORIES.map(c =>
+                `<option value="${c.id}" ${c.name.toLowerCase() === tx.category.toLowerCase() ? 'selected' : ''}>${c.name}</option>`
+            ).join('');
+
+            let txScopeId = tx.scope_id || currentScopeId;
+            let scopeOptions = SCOPES.map(s =>
+                `<option value="${s.id}" ${s.id === txScopeId ? 'selected' : ''}>${s.name}</option>`
+            ).join('');
+
+            let tagsValue = tx.tags ? tx.tags.join(', ') : "";
+
+            let cardBgClass = tx._included ? "bg-white" : "bg-warning bg-opacity-10";
+            let switchHtml = "";
+            let dupeBadge = "";
+
+            if (tx.is_duplicate) {
+                dupeBadge = `<span class="badge bg-warning text-dark me-2 border border-warning"><i class="fas fa-exclamation-triangle"></i> Exists</span>`;
+                switchHtml = `
+                    <div class="form-check form-switch d-inline-block ms-2 mb-0 align-middle">
+                        <input class="form-check-input border-secondary" style="cursor: pointer;" type="checkbox" id="toggle_${i}" ${tx._included ? 'checked' : ''} onchange="toggleTx(${i}, this.checked)">
+                        <label class="form-check-label small" for="toggle_${i}" style="cursor: pointer;">Force Include</label>
+                    </div>
+                `;
+            }
+
+            tbody.innerHTML += `
+                <div class="col-md-6 col-12 tx-card-container" data-index="${i}">
+                    <div class="card shadow-sm border h-100" style="border-radius: 15px;">
+                        <div class="card-header ${cardBgClass} border-0 d-flex justify-content-between align-items-center px-4 pt-4 pb-2" id="card_header_${i}" style="transition: background-color 0.3s;">
+                            <div>
+                                ${dupeBadge}
+                                <span class="text-muted small"><i class="fas fa-clock me-1"></i>${dateStr}</span>
+                                ${switchHtml}
+                            </div>
+                            <button class="btn btn-outline-danger btn-delete-tx" onclick="deleteTx(${i})" title="Delete"><i class="fas fa-trash"></i></button>
+                        </div>
+                        <div class="card-body ${cardBgClass} px-4 pb-4 pt-2" id="card_body_${i}" style="transition: background-color 0.3s; border-radius: 0 0 15px 15px;">
+                            <div class="row g-3 mb-3">
+                                <div class="col-6">
+                                    <label class="small text-muted mb-2 fw-bold form-label">Type</label>
+                                    <select class="form-select py-2 tx-type">
+                                        <option value="income" ${tx.type === 'income' ? 'selected' : ''}>INCOME</option>
+                                        <option value="expense" ${tx.type === 'expense' ? 'selected' : ''}>EXPENSE</option>
+                                    </select>
+                                </div>
+                                <div class="col-6">
+                                    <label class="small text-muted mb-2 fw-bold form-label">Amount</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text border-end-0 bg-light">Rp</span>
+                                        <input type="number" class="form-control py-2 border-start-0 ps-0 tx-amount" value="${tx.amount}">
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="row g-3 mb-3">
+                                <div class="col-12">
+                                    <label class="small text-muted mb-2 fw-bold form-label">Note</label>
+                                    <input type="text" class="form-control py-2 tx-note" value="${tx.note}">
+                                </div>
+                            </div>
+                            <div class="row g-3 mb-3">
+                                <div class="col-6">
+                                    <label class="small text-muted mb-2 fw-bold form-label">Scope</label>
+                                    <select class="form-select py-2 tx-scope">
+                                        <option value="">No Scope</option>
+                                        ${scopeOptions}
+                                    </select>
+                                </div>
+                                <div class="col-6">
+                                    <label class="small text-muted mb-2 fw-bold form-label">Category</label>
+                                    <select class="form-select py-2 tx-category">
+                                        ${catOptions}
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="row g-3">
+                                <div class="col-12">
+                                    <label class="small text-muted mb-2 fw-bold form-label">Tags</label>
+                                    <input type="text" class="form-control py-2 tx-tags" value="${tagsValue}" placeholder="comma separated">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+
+        updateCount();
+    }
+
+    window.toggleTx = function (index, checked) {
+        parsedDataList[index]._included = checked;
+
+        const header = document.getElementById(`card_header_${index}`);
+        const body = document.getElementById(`card_body_${index}`);
+
+        if (checked) {
+            header.classList.remove("bg-warning", "bg-opacity-10");
+            header.classList.add("bg-white");
+            body.classList.remove("bg-warning", "bg-opacity-10");
+            body.classList.add("bg-white");
+        } else {
+            header.classList.add("bg-warning", "bg-opacity-10");
+            header.classList.remove("bg-white");
+            body.classList.add("bg-warning", "bg-opacity-10");
+            body.classList.remove("bg-white");
+        }
+
+        updateCount();
+    };
+
+    window.updateCount = function () {
+        let count = parsedDataList.filter(x => x._included).length;
+        document.getElementById("importCount").innerText = `${count} / ${parsedDataList.length}`;
+        document.getElementById("btnConfirm").disabled = count === 0;
+    };
+
+    window.deleteTx = function (index) {
+        if (confirm("Remove this transaction?")) {
+            parsedDataList.splice(index, 1);
+            renderResults();
+        }
+    };
+
+    document.getElementById("btnConfirm").addEventListener("click", async () => {
+        const cards = document.querySelectorAll("#resultBody .tx-card-container");
+        const validTxs = [];
+
+        cards.forEach(card => {
+            const idx = parseInt(card.getAttribute("data-index"));
+            const baseTx = parsedDataList[idx];
+
+            if (baseTx._included) {
+                const typeVal = card.querySelector(".tx-type").value;
+                const amtVal = parseFloat(card.querySelector(".tx-amount").value);
+                const noteVal = card.querySelector(".tx-note").value;
+                const tagsVal = card.querySelector(".tx-tags").value.split(',').map(s => s.trim()).filter(s => s);
+                const catVal = card.querySelector(".tx-category").value;
+                const txScopeVal = card.querySelector(".tx-scope").value;
+
+                validTxs.push({
+                    ...baseTx,
+                    type: typeVal,
+                    amount: amtVal,
+                    note: noteVal,
+                    tags: tagsVal,
+                    category_id: catVal,
+                    scope_id: txScopeVal
+                });
+            }
+        });
+
+        if (validTxs.length === 0) return;
+
+        showLoading("Saving transactions...");
+
+        try {
+            const rs = await fetch("/api/ocr-scan/confirm", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    transactions: validTxs,
+                    wallet_id: currentWalletId,
+                    scope_id: currentScopeId
+                })
+            });
+            const data = await rs.json();
+            hideLoading();
+
+            if (data.success) {
+                alert(`Successfully imported ${data.inserted_count} transactions!`);
+                window.location.href = "/dashboard";
+            } else {
+                alert("Failed to insert: " + data.error);
+            }
+        } catch (e) {
+            hideLoading();
+            alert("Error confirming transactions.");
+        }
+    });
+
+    function resetUpload() {
+        document.getElementById("fileInput").value = "";
+        parsedDataList = [];
+        document.getElementById("reviewCard").style.display = "none";
+        document.getElementById("uploadCard").style.display = "block";
+    }
+
+    function showLoading(msg) {
+        document.getElementById("loading-msg").innerText = msg;
+        document.getElementById("loading-overlay").style.display = "flex";
+    }
+
+    function hideLoading() {
+        document.getElementById("loading-overlay").style.display = "none";
+    }
+</script>
+{% endblock %}

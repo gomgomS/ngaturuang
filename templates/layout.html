@@ -426,18 +426,46 @@
     <!-- Mobile Toggle Buttons -->
     <div class="d-lg-none position-fixed top-0 start-0 p-3" style="z-index: 1050;">
         <div class="d-flex flex-column gap-2">
-            <button class="btn btn-action" id="sidebarToggle" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border: none; color: white; border-radius: 15px; box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2); transition: opacity 0.3s ease;">
+            <button class="btn btn-action shadow-sm" id="sidebarToggle" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border: none; color: white; border-radius: 15px; transition: opacity 0.3s ease;">
                 <i class="fas fa-bars"></i>
             </button>
-            <button class="btn btn-action" id="quickAddTransaction" style="background: linear-gradient(135deg, #28a745 0%, #20c997 100%); border: none; color: white; border-radius: 15px; box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2); transition: all 0.3s ease;">
-                <i class="fas fa-plus"></i>
+
+            <!-- Speed Dial FAB -->
+            <button class="btn btn-action shadow-sm" id="fabMenuToggleBtn" style="background: linear-gradient(135deg, #ff416c 0%, #ff4b2b 100%); border: none; color: white; border-radius: 15px; transition: all 0.3s ease;" onclick="toggleFabMenu()">
+                <i class="fas fa-plus" id="fabMenuIcon" style="transition: transform 0.3s ease;"></i>
             </button>
-            <button class="btn btn-action" id="quickTransferBtn" style="background: linear-gradient(135deg, #17a2b8 0%, #0dcaf0 100%); border: none; color: white; border-radius: 15px; box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2); transition: all 0.3s ease;">
-                <i class="fas fa-exchange-alt"></i>
-            </button>
-            <button class="btn btn-action" id="smartInputBtn" title="Smart Input — describe your transaction" style="background: linear-gradient(135deg, #7c3aed 0%, #a855f7 100%); border: none; color: white; border-radius: 15px; box-shadow: 0 5px 15px rgba(124,58,237,0.35); transition: all 0.3s ease;">
-                <i class="fas fa-wand-magic-sparkles"></i>
-            </button>
+
+            <!-- Expanded Buttons -->
+            <div id="fabExpandedMenu" class="d-none flex-column gap-2" style="animation: fadeIn 0.2s ease-out;">
+                <button class="btn btn-action shadow-sm" id="quickAddTransaction" title="Standard Input" style="background: linear-gradient(135deg, #28a745 0%, #20c997 100%); border: none; color: white; border-radius: 15px; transition: all 0.3s ease;">
+                    <i class="fas fa-pencil-alt"></i>
+                </button>
+                <button class="btn btn-action shadow-sm" id="quickTransferBtn" title="Transfer" style="background: linear-gradient(135deg, #17a2b8 0%, #0dcaf0 100%); border: none; color: white; border-radius: 15px; transition: all 0.3s ease;">
+                    <i class="fas fa-exchange-alt"></i>
+                </button>
+                <button class="btn btn-action shadow-sm" id="smartInputBtn" title="Smart Input" data-bs-toggle="modal" data-bs-target="#smartInputModal" style="background: linear-gradient(135deg, #7c3aed 0%, #a855f7 100%); border: none; color: white; border-radius: 15px; transition: all 0.3s ease;">
+                    <i class="fas fa-wand-magic-sparkles"></i>
+                </button>
+                <button class="btn btn-action shadow-sm" id="ocrScanBtn" title="OCR Scan" onclick="window.location.href='/ocr-scan'" style="background: linear-gradient(135deg, #f97316 0%, #ea580c 100%); border: none; color: white; border-radius: 15px; transition: all 0.3s ease;">
+                    <i class="fas fa-camera"></i>
+                </button>
+            </div>
+            
+            <script>
+                function toggleFabMenu() {
+                    const menu = document.getElementById('fabExpandedMenu');
+                    const icon = document.getElementById('fabMenuIcon');
+                    if (menu.classList.contains('d-none')) {
+                        menu.classList.remove('d-none');
+                        menu.classList.add('d-flex');
+                        icon.style.transform = 'rotate(45deg)';
+                    } else {
+                        menu.classList.add('d-none');
+                        menu.classList.remove('d-flex');
+                        icon.style.transform = 'rotate(0deg)';
+                    }
+                }
+            </script>
         </div>
     </div>
 
@@ -517,6 +545,9 @@
                     <!-- <a class="nav-link text-white-50 mb-2" href="/balance">
                         <i class="fas fa-balance-scale me-2"></i><span data-translate="navigation.balance">Balance</span>
                     </a> -->
+                    <a class="nav-link text-white-50 mb-2" href="/cash-management">
+                        <i class="fas fa-money-bill-wave me-2"></i><span>Cash Management</span>
+                    </a>
                     <a class="nav-link text-white-50 mb-2" href="/comparison">
                         <i class="fas fa-code-compare me-2"></i><span>Compare Periods</span>
                     </a>

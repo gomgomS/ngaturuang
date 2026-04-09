@@ -13,6 +13,12 @@ from config import ensure_indexes
 # from model import index_specs
 from config import get_gemini_api_key
 from mm.repositories.manual_balance import ManualBalanceRepository
+import traceback
+
+try:
+    from mm.ocr import parse_trx_from_image
+except ImportError:
+    parse_trx_from_image = None
 
 app = Flask(__name__)
 app.secret_key = "your-secret-key-here"
@@ -1286,6 +1292,14 @@ def wealth_pulse_page():
     if auth_check:
         return auth_check
     return render_template("wealth_pulse.html")
+
+
+@app.route("/cash-management")
+def cash_management_page():
+    auth_check = require_login()
+    if auth_check:
+        return auth_check
+    return render_template("cash_management.html")
 
 
 @app.route("/api/transcribe", methods=["POST"])
@@ -3072,6 +3086,109 @@ def api_ai_chat_get():
     except Exception as e:
         print(f"Error in api_ai_chat_get: {e}")
         return jsonify({"error": str(e)}), 500
+@app.route("/api/cash/summary")
+def api_cash_summary():
+    """Return cash balance and cash transactions for the current user."""
+    try:
+        user_id = session.get("user_id")
+        if not user_id:
+            return jsonify({"error": "Not authenticated"}), 401
+
+        repo = TransactionRepository()
+        txs  = repo.find_many(
+            {"user_id": user_id, "wallet_id": "cash"},
+            limit=500,
+            sort=[("timestamp", -1)]
+        )
+
+        balance = 0.0
+        for t in txs:
+            amt = float(t.get("amount", 0))
+            if t.get("type") == "income":
+                balance += amt
+            elif t.get("type") == "expense":
+                balance -= amt
+
+        # Format for frontend
+        formatted = []
+        for t in txs:
+            ts = t.get("timestamp", 0)
+            formatted.append({
+                "_id":        t.get("_id", ""),
+                "type":       t.get("type", ""),
+                "amount":     float(t.get("amount", 0)),
+                "note":       t.get("note", "") or t.get("description", ""),
+                "date":       datetime.fromtimestamp(ts).strftime("%Y-%m-%d") if ts else "",
+                "timestamp":  ts,
+                "auto":       bool(t.get("source_transaction_id")),
+                "source_tx":  t.get("source_transaction_id", ""),
+            })
+
+        return jsonify({"balance": balance, "transactions": formatted})
+    except Exception as e:
+        print(f"Error in api_cash_summary: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/cash/entry", methods=["POST"])
+def api_cash_entry():
+    """Manually add a cash in or cash out entry."""
+    try:
+        import time
+        user_id = session.get("user_id")
+        if not user_id:
+            return jsonify({"error": "Not authenticated"}), 401
+
+        body = request.get_json(force=True) or {}
+        entry_type = body.get("type")  # "income" or "expense"
+        amount     = float(body.get("amount", 0))
+        note       = body.get("note", "")
+        ts         = int(body.get("timestamp") or time.time())
+
+        if entry_type not in ("income", "expense"):
+            return jsonify({"error": "type must be 'income' or 'expense'"}), 400
+        if amount <= 0:
+            return jsonify({"error": "amount must be positive"}), 400
+
+        repo = TransactionRepository()
+        _id  = repo.insert_one({
+            "user_id":    user_id,
+            "wallet_id":  "cash",
+            "type":       entry_type,
+            "amount":     amount,
+            "note":       note,
+            "timestamp":  ts,
+            "created_at": int(time.time()),
+            "category_id": "cash_manual",
+        })
+        return jsonify({"_id": _id}), 201
+    except Exception as e:
+        print(f"Error in api_cash_entry: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/cash/entry/<entry_id>", methods=["DELETE"])
+def api_cash_delete(entry_id):
+    """Delete a manual cash entry (auto entries from tarik tunai cannot be deleted here)."""
+    try:
+        user_id = session.get("user_id")
+        if not user_id:
+            return jsonify({"error": "Not authenticated"}), 401
+
+        repo = TransactionRepository()
+        tx   = repo.get_transaction_by_id(entry_id, user_id)
+        if not tx or tx.get("wallet_id") != "cash":
+            return jsonify({"error": "Entry not found"}), 404
+        if tx.get("source_transaction_id"):
+            return jsonify({"error": "Auto-generated entries cannot be deleted here. Delete the original Tarik Tunai transaction instead."}), 400
+
+        repo.delete_by_id(entry_id)
+        return jsonify({"message": "Deleted"})
+    except Exception as e:
+        print(f"Error in api_cash_delete: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
 @app.route("/api/transactions/", methods=["GET"])
 def list_transactions():
     """Get semua transaksi untuk user"""
@@ -3101,6 +3218,22 @@ def create_transaction():
         
         repo = TransactionRepository()
         _id = repo.insert_one(body)
+
+        # Auto cash-in: when user does "Tarik Tunai", mirror it as cash income
+        if body.get("category_id") == "withdraw_cash":
+            import time as _time
+            repo.insert_one({
+                "user_id":               user_id,
+                "wallet_id":             "cash",
+                "type":                  "income",
+                "amount":                float(body.get("amount", 0)),
+                "note":                  body.get("note", "") or "Tarik Tunai",
+                "timestamp":             int(body.get("timestamp") or _time.time()),
+                "created_at":            int(_time.time()),
+                "category_id":           "withdraw_cash",
+                "source_transaction_id": _id,
+            })
+
         return jsonify({"_id": _id}), 201
     except Exception as e:
         print(f"Error in create_transaction: {e}")
@@ -4173,6 +4306,158 @@ def balance_history(manual_balance_id):
         print(f"Error in balance_history: {e}")
         return "Error loading balance history", 500
 
+@app.route("/ocr-scan")
+def ocr_scan():
+    try:
+        user_id = session.get("user_id")
+        if not user_id:
+            return redirect("/login")
+        
+        user_repo = UserRepository()
+        user_data = user_repo.find_by_id(user_id)
+        ocr_config = user_data.get("shopeepay_ocr_config", {"wallet_id": "", "scope_id": ""}) if user_data else {}
+        
+        wallet_repo = WalletRepository()
+        scope_repo = ScopeRepository()
+        category_repo = CategoryRepository()
+        
+        wallets = wallet_repo.list_by_user(user_id)
+        scopes = scope_repo.list_by_user(user_id)
+        
+        # We need ALL categories, including the default ones so the UI can populate them
+        categories = category_repo.list_by_user_with_defaults(user_id)
+        
+        # Ensure ObjectId is converted to string for safe jinja parsing later
+        for c in categories:
+            if "_id" in c:
+                c["_id"] = str(c["_id"])
+        
+        return render_template("ocr_scan.html", wallets=wallets, scopes=scopes, categories=categories, ocr_config=ocr_config)
+    except Exception as e:
+        print(f"Error loading ocr scan page: {e}")
+        return "Error loading page", 500
+
+@app.route("/api/ocr-scan/config", methods=["POST"])
+def update_ocr_config():
+    try:
+        user_id = session.get("user_id")
+        if not user_id:
+            return jsonify({"success": False, "error": "Not authenticated"}), 401
+            
+        data = request.json
+        wallet_id = data.get("wallet_id", "")
+        scope_id = data.get("scope_id", "")
+        
+        user_repo = UserRepository()
+        success = user_repo.update_shopeepay_config(user_id, wallet_id, scope_id)
+        
+        return jsonify({"success": success})
+    except Exception as e:
+        print(f"Error updating config: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@app.route("/api/ocr-scan/upload", methods=["POST"])
+def process_ocr_upload():
+    try:
+        user_id = session.get("user_id")
+        if not user_id:
+            return jsonify({"success": False, "error": "Not authenticated"}), 401
+            
+        if 'image' not in request.files:
+            return jsonify({"success": False, "error": "No image provided"}), 400
+            
+        file = request.files['image']
+        image_bytes = file.read()
+        
+        if parse_trx_from_image:
+            parsed_txs = parse_trx_from_image(image_bytes)
+        else:
+            return jsonify({"success": False, "error": "OCR module not available. Please install easyocr."}), 500
+            
+        # Check against existing transactions to flag duplicates
+        tx_repo = TransactionRepository()
+        user_txs = tx_repo.get_user_transactions_simple(user_id, limit=2000)
+        
+        for p_tx in parsed_txs:
+            try:
+                p_date_str = datetime.fromtimestamp(p_tx['timestamp']).strftime("%d %b %Y")
+                p_amt = float(p_tx["amount"])
+                p_type = str(p_tx.get("type", "")).strip().lower()
+            except Exception:
+                p_tx["is_duplicate"] = False
+                continue
+                
+            is_dup = False
+            for u_tx in user_txs:
+                u_timestamp = u_tx.get('timestamp', 0)
+                if not isinstance(u_timestamp, (int, float)):
+                    continue
+                    
+                u_date_str = datetime.fromtimestamp(u_timestamp).strftime("%d %b %Y")
+                
+                try:
+                    u_amt = float(u_tx.get("amount", 0))
+                    u_type = str(u_tx.get("type", "expense")).strip().lower()
+                except Exception:
+                    continue
+                
+                # Robust matching: same day, exact same amount, same type
+                if u_date_str == p_date_str and u_amt == p_amt and u_type == p_type:
+                    is_dup = True
+                    break
+            
+            p_tx["is_duplicate"] = is_dup
+            
+        return jsonify({"success": True, "transactions": parsed_txs})
+    except Exception as e:
+        print(f"Error processing OCR upload: {e}")
+        traceback.print_exc()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@app.route("/api/ocr-scan/confirm", methods=["POST"])
+def confirm_ocr_scan():
+    try:
+        user_id = session.get("user_id")
+        if not user_id:
+            return jsonify({"success": False, "error": "Not authenticated"}), 401
+            
+        data = request.json
+        transactions = data.get("transactions", [])
+        wallet_id = data.get("wallet_id")
+        scope_id = data.get("scope_id")
+        
+        if not wallet_id:
+            return jsonify({"success": False, "error": "Wallet is required"}), 400
+            
+        tx_repo = TransactionRepository()
+        
+        inserted_count = 0
+        for tx in transactions:
+            fallback_id = "income_general" if tx["type"] == "income" else "expense_general"
+            cat_id = tx.get("category_id")
+            if not cat_id:
+                cat_id = fallback_id
+            
+            new_tx = {
+                "user_id": user_id,
+                "amount": float(tx["amount"]),
+                "currency": "IDR",
+                "type": tx["type"],
+                "scope_id": tx.get("scope_id") or scope_id,
+                "wallet_id": wallet_id,
+                "category_id": str(cat_id),
+                "tags": tx.get("tags", []),
+                "note": tx.get("note", ""),
+                "timestamp": tx.get("timestamp", int(datetime.now().timestamp()))
+            }
+            res = tx_repo.insert_one(new_tx)
+            if res:
+                inserted_count += 1
+            
+        return jsonify({"success": True, "inserted_count": inserted_count})
+    except Exception as e:
+        print(f"Error confirming OCR scan: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
 # Flask CLI will handle running the application
 # The start.sh script sets FLASK_APP=app.py and runs flask run
-

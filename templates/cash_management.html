@@ -1,0 +1,315 @@
+{% extends "layout.html" %}
+
+{% block head %}
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+* { font-family: 'Inter', sans-serif; box-sizing: border-box; }
+body { background: #0b0f1a; min-height: 100vh; }
+
+.cm-wrap { padding: 1.5rem; max-width: 860px; margin: 0 auto; }
+
+/* Header */
+.cm-header {
+    background: linear-gradient(135deg, #0f172a 0%, #052e16 50%, #0f172a 100%);
+    border: 1px solid rgba(72,199,142,0.3);
+    border-radius: 24px;
+    padding: 2rem;
+    margin-bottom: 1.5rem;
+    position: relative;
+    overflow: hidden;
+}
+.cm-header::before {
+    content:''; position:absolute; inset:0;
+    background: radial-gradient(ellipse at 70% 50%, rgba(72,199,142,0.12) 0%, transparent 60%);
+    pointer-events: none;
+}
+.cm-header-inner { position: relative; z-index: 1; }
+.cm-title { font-size: 1.9rem; font-weight: 800; color: #fff; margin: 0; }
+.cm-sub   { color: rgba(255,255,255,0.5); font-size: 0.9rem; margin-top: 0.2rem; }
+
+/* Balance card */
+.cm-balance {
+    background: rgba(72,199,142,0.08);
+    border: 1px solid rgba(72,199,142,0.25);
+    border-radius: 18px;
+    padding: 1.5rem 2rem;
+    margin-bottom: 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+.cm-balance-label { color: rgba(255,255,255,0.5); font-size: .85rem; font-weight: 500; margin-bottom: .3rem; }
+.cm-balance-amount { font-size: 2rem; font-weight: 800; color: #48c78e; }
+
+/* Add entry form */
+.cm-card {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 18px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+.cm-card h6 {
+    color: #fff;
+    font-weight: 700;
+    font-size: .95rem;
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.cm-input {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 12px;
+    color: #fff;
+    padding: .65rem 1rem;
+    font-size: .9rem;
+    width: 100%;
+    outline: none;
+    transition: border-color .2s;
+}
+.cm-input:focus { border-color: rgba(72,199,142,0.5); }
+.cm-input::placeholder { color: rgba(255,255,255,0.3); }
+.cm-input option { background: #1e293b; }
+.btn-cash-in  { background: rgba(72,199,142,.15); border: 1px solid rgba(72,199,142,.4); color: #48c78e; border-radius: 12px; padding: .6rem 1.3rem; font-weight: 600; font-size: .875rem; cursor: pointer; transition: background .2s; }
+.btn-cash-in:hover  { background: rgba(72,199,142,.28); }
+.btn-cash-out { background: rgba(255,100,100,.12); border: 1px solid rgba(255,100,100,.35); color: #ff6464; border-radius: 12px; padding: .6rem 1.3rem; font-weight: 600; font-size: .875rem; cursor: pointer; transition: background .2s; }
+.btn-cash-out:hover { background: rgba(255,100,100,.25); }
+
+/* Transaction list */
+.tx-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+.tx-row:last-child { border-bottom: none; }
+.tx-icon {
+    width: 36px; height: 36px; border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: .85rem; flex-shrink: 0;
+}
+.tx-icon.in  { background: rgba(72,199,142,.15); color: #48c78e; }
+.tx-icon.out { background: rgba(255,100,100,.12); color: #ff6464; }
+.tx-info { flex: 1; min-width: 0; }
+.tx-note { color: #e2e8f0; font-size: .875rem; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tx-date { color: #64748b; font-size: .75rem; margin-top: 2px; }
+.tx-auto-badge { display: inline-block; font-size: .65rem; background: rgba(247,201,72,.15); color: #f7c948; border-radius: 6px; padding: 1px 6px; margin-left: 6px; vertical-align: middle; }
+.tx-amount { font-weight: 700; font-size: .95rem; flex-shrink: 0; }
+.tx-amount.in  { color: #48c78e; }
+.tx-amount.out { color: #ff6464; }
+.btn-del { background: none; border: none; color: #475569; cursor: pointer; padding: 4px 6px; border-radius: 8px; transition: color .2s; }
+.btn-del:hover { color: #ff6464; }
+.empty-state { text-align: center; padding: 2rem; color: #475569; font-size: .9rem; }
+.empty-state i { display: block; font-size: 2rem; margin-bottom: .5rem; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="cm-wrap">
+
+    <!-- Header -->
+    <div class="cm-header">
+        <div class="cm-header-inner">
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:.5rem;">
+                <div style="width:44px;height:44px;border-radius:14px;background:rgba(72,199,142,.2);display:flex;align-items:center;justify-content:center;color:#48c78e;font-size:1.2rem;">
+                    <i class="fas fa-money-bill-wave"></i>
+                </div>
+                <div>
+                    <div class="cm-title">Cash Management</div>
+                    <div class="cm-sub">Track your physical cash — in &amp; out</div>
+                </div>
+            </div>
+            <div style="color:rgba(255,255,255,0.4);font-size:.8rem;margin-top:.5rem;">
+                <i class="fas fa-info-circle me-1"></i>
+                Tarik Tunai transactions are recorded here automatically.
+            </div>
+        </div>
+    </div>
+
+    <!-- Balance -->
+    <div class="cm-balance">
+        <div>
+            <div class="cm-balance-label">Current Cash Balance</div>
+            <div class="cm-balance-amount" id="cashBalance">—</div>
+        </div>
+        <div style="display:flex;gap:1.5rem;flex-wrap:wrap;">
+            <div style="text-align:right;">
+                <div class="cm-balance-label">Total Cash In</div>
+                <div style="font-size:1.1rem;font-weight:700;color:#48c78e;" id="totalIn">—</div>
+            </div>
+            <div style="text-align:right;">
+                <div class="cm-balance-label">Total Cash Out</div>
+                <div style="font-size:1.1rem;font-weight:700;color:#ff6464;" id="totalOut">—</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Entry -->
+    <div class="cm-card">
+        <h6><i class="fas fa-plus-circle" style="color:#48c78e;"></i> Add Cash Entry</h6>
+        <div style="display:flex;gap:.75rem;flex-wrap:wrap;align-items:flex-end;">
+            <div style="flex:1;min-width:120px;">
+                <div style="color:rgba(255,255,255,.4);font-size:.75rem;margin-bottom:.35rem;">Type</div>
+                <select class="cm-input" id="entryType">
+                    <option value="income">Cash In</option>
+                    <option value="expense">Cash Out</option>
+                </select>
+            </div>
+            <div style="flex:2;min-width:140px;">
+                <div style="color:rgba(255,255,255,.4);font-size:.75rem;margin-bottom:.35rem;">Amount (Rp)</div>
+                <input type="number" class="cm-input" id="entryAmount" placeholder="e.g. 500000" min="1">
+            </div>
+            <div style="flex:3;min-width:160px;">
+                <div style="color:rgba(255,255,255,.4);font-size:.75rem;margin-bottom:.35rem;">Note</div>
+                <input type="text" class="cm-input" id="entryNote" placeholder="Optional note">
+            </div>
+            <div style="min-width:120px;">
+                <div style="color:rgba(255,255,255,.4);font-size:.75rem;margin-bottom:.35rem;">Date</div>
+                <input type="date" class="cm-input" id="entryDate">
+            </div>
+            <div>
+                <button class="btn-cash-in" id="btnAdd" onclick="addEntry()">
+                    <i class="fas fa-plus me-1"></i> Save
+                </button>
+            </div>
+        </div>
+        <div id="entryMsg" style="margin-top:.75rem;font-size:.8rem;display:none;"></div>
+    </div>
+
+    <!-- Transaction List -->
+    <div class="cm-card">
+        <h6><i class="fas fa-list" style="color:#60a5fa;"></i> Cash Transactions</h6>
+        <div id="txList">
+            <div class="empty-state"><i class="fas fa-spinner fa-spin"></i>Loading…</div>
+        </div>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const fmt  = v => 'Rp ' + Math.abs(v).toLocaleString('id-ID');
+const fmtS = v => {
+    const a = Math.abs(v);
+    if (a >= 1_000_000) return (v < 0 ? '-' : '') + 'Rp ' + (a/1_000_000).toFixed(1) + 'M';
+    if (a >= 1_000)     return (v < 0 ? '-' : '') + 'Rp ' + (a/1_000).toFixed(0) + 'K';
+    return fmt(v);
+};
+
+// Set default date to today
+document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('entryDate').value = new Date().toISOString().slice(0,10);
+    loadData();
+});
+
+async function loadData() {
+    try {
+        const res  = await fetch('/api/cash/summary');
+        const data = await res.json();
+        if (!res.ok) { showMsg(data.error || 'Error', 'danger'); return; }
+
+        document.getElementById('cashBalance').textContent = fmt(data.balance);
+        document.getElementById('cashBalance').style.color = data.balance >= 0 ? '#48c78e' : '#ff6464';
+
+        const txs = data.transactions || [];
+        const totalIn  = txs.filter(t => t.type === 'income' ).reduce((s,t) => s + t.amount, 0);
+        const totalOut = txs.filter(t => t.type === 'expense').reduce((s,t) => s + t.amount, 0);
+        document.getElementById('totalIn').textContent  = fmtS(totalIn);
+        document.getElementById('totalOut').textContent = fmtS(totalOut);
+
+        renderList(txs);
+    } catch(e) {
+        console.error(e);
+        document.getElementById('txList').innerHTML =
+            '<div class="empty-state"><i class="fas fa-exclamation-circle"></i>Failed to load</div>';
+    }
+}
+
+function renderList(txs) {
+    const el = document.getElementById('txList');
+    if (!txs.length) {
+        el.innerHTML = '<div class="empty-state"><i class="fas fa-money-bill-wave"></i>No cash entries yet</div>';
+        return;
+    }
+    el.innerHTML = txs.map(t => {
+        const isIn   = t.type === 'income';
+        const sign   = isIn ? '+' : '−';
+        const auto   = t.auto ? '<span class="tx-auto-badge"><i class="fas fa-bolt"></i> auto</span>' : '';
+        const delBtn = t.auto
+            ? `<span title="Delete original Tarik Tunai transaction to remove this" style="color:#334155;font-size:.75rem;cursor:default;"><i class="fas fa-lock"></i></span>`
+            : `<button class="btn-del" onclick="deleteEntry('${t._id}')" title="Delete"><i class="fas fa-trash-alt"></i></button>`;
+        return `
+        <div class="tx-row" id="row-${t._id}">
+            <div class="tx-icon ${isIn ? 'in' : 'out'}">
+                <i class="fas fa-${isIn ? 'arrow-down' : 'arrow-up'}"></i>
+            </div>
+            <div class="tx-info">
+                <div class="tx-note">${t.note || (isIn ? 'Cash In' : 'Cash Out')}${auto}</div>
+                <div class="tx-date">${t.date}</div>
+            </div>
+            <div class="tx-amount ${isIn ? 'in' : 'out'}">${sign}${fmt(t.amount)}</div>
+            ${delBtn}
+        </div>`;
+    }).join('');
+}
+
+async function addEntry() {
+    const type   = document.getElementById('entryType').value;
+    const amount = parseFloat(document.getElementById('entryAmount').value);
+    const note   = document.getElementById('entryNote').value.trim();
+    const date   = document.getElementById('entryDate').value;
+
+    if (!amount || amount <= 0) { showMsg('Please enter a valid amount.', 'warning'); return; }
+
+    const ts = date ? Math.floor(new Date(date + 'T12:00:00').getTime() / 1000) : Math.floor(Date.now() / 1000);
+
+    document.getElementById('btnAdd').disabled = true;
+    try {
+        const res  = await fetch('/api/cash/entry', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ type, amount, note, timestamp: ts }),
+        });
+        const data = await res.json();
+        if (!res.ok) { showMsg(data.error || 'Error saving entry.', 'danger'); return; }
+
+        document.getElementById('entryAmount').value = '';
+        document.getElementById('entryNote').value   = '';
+        showMsg('Entry saved.', 'success');
+        await loadData();
+    } catch(e) {
+        showMsg('Network error.', 'danger');
+    } finally {
+        document.getElementById('btnAdd').disabled = false;
+    }
+}
+
+async function deleteEntry(id) {
+    if (!confirm('Delete this cash entry?')) return;
+    try {
+        const res  = await fetch(`/api/cash/entry/${id}`, { method: 'DELETE' });
+        const data = await res.json();
+        if (!res.ok) { alert(data.error || 'Could not delete.'); return; }
+        document.getElementById('row-' + id)?.remove();
+        await loadData();
+    } catch(e) {
+        alert('Network error.');
+    }
+}
+
+function showMsg(text, type) {
+    const el = document.getElementById('entryMsg');
+    const colors = { success: '#48c78e', warning: '#f7c948', danger: '#ff6464' };
+    el.style.display = 'block';
+    el.style.color   = colors[type] || '#fff';
+    el.textContent   = text;
+    setTimeout(() => { el.style.display = 'none'; }, 3000);
+}
+</script>
+{% endblock %}
