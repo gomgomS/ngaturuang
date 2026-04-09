@@ -15,10 +15,13 @@ from config import get_gemini_api_key
 from mm.repositories.manual_balance import ManualBalanceRepository
 import traceback
 
+ocr_import_error = None
 try:
     from mm.ocr import parse_trx_from_image
-except ImportError:
+except Exception as e:
     parse_trx_from_image = None
+    ocr_import_error = str(e)
+    print(f"⚠️ OCR Module could not be loaded: {e}")
 
 app = Flask(__name__)
 app.secret_key = "your-secret-key-here"
@@ -4372,7 +4375,7 @@ def process_ocr_upload():
         if parse_trx_from_image:
             parsed_txs = parse_trx_from_image(image_bytes)
         else:
-            return jsonify({"success": False, "error": "OCR module not available. Please install easyocr."}), 500
+            return jsonify({"success": False, "error": str(ocr_import_error) if ocr_import_error else "OCR module failed to load."}), 500
             
         # Check against existing transactions to flag duplicates
         tx_repo = TransactionRepository()
