@@ -944,11 +944,21 @@ function showAccountAddTransaction() {
 function showAccountTransfer() {
     // Pre-fill from wallet
     const fromWalletSelect = document.getElementById('account_transfer_from_wallet');
-    
+
     if (fromWalletSelect && window.selectedWalletId) {
         fromWalletSelect.value = window.selectedWalletId;
     }
-    
+
+    // Default the transfer date to today (user can change it)
+    const dateInput = document.getElementById('account_transfer_date');
+    if (dateInput) {
+        const today = new Date();
+        const y = today.getFullYear();
+        const m = String(today.getMonth() + 1).padStart(2, '0');
+        const d = String(today.getDate()).padStart(2, '0');
+        dateInput.value = `${y}-${m}-${d}`;
+    }
+
     // Show the transfer modal
     const modal = new bootstrap.Modal(document.getElementById('accountTransferModal'));
     modal.show();
@@ -1037,7 +1047,13 @@ function submitAccountTransfer() {
         amount: formData.get('amount'),
         admin_fee: formData.get('admin_fee') || '0'
     };
-    
+
+    // Respect the chosen transfer date (send as unix seconds); server defaults to now if empty
+    const dateStr = formData.get('date');
+    if (dateStr) {
+        data.timestamp = Math.floor(new Date(dateStr + 'T00:00:00').getTime() / 1000);
+    }
+
     // Process amounts
     data.amount = parseInt(data.amount.replace(/\./g, '')) || 0;
     data.admin_fee = parseInt(data.admin_fee.replace(/\./g, '')) || 0;
@@ -1377,6 +1393,10 @@ function updateDynamicContent(lang) {
                                 <input type="text" class="form-control" id="account_transfer_fee" name="admin_fee" placeholder="0">
                             </div>
                         </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="account_transfer_date" class="form-label" data-translate="accounts.transfer_date">Transfer Date</label>
+                        <input type="date" class="form-control" id="account_transfer_date" name="date">
                     </div>
                 </form>
             </div>

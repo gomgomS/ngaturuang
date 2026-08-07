@@ -13,6 +13,8 @@ from config import ensure_indexes
 # from model import index_specs
 from config import get_gemini_api_key
 from mm.repositories.manual_balance import ManualBalanceRepository
+from mm.repositories.share_public import SharePublicRepository
+from mm.services.wallet_balance_worker import start_wallet_balance_worker
 import traceback
 
 ocr_import_error = None
@@ -25,6 +27,8 @@ except Exception as e:
 
 app = Flask(__name__)
 app.secret_key = "your-secret-key-here"
+
+start_wallet_balance_worker()
 
 # Ensure database indexes (with error handling)
 # try:
@@ -3267,20 +3271,13 @@ def update_transaction(transaction_id):
         
         repo = TransactionRepository()
         success = repo.update_transaction(transaction_id, user_id, body)
-        
+
         if not success:
             return jsonify({"error": "Transaction not found or update failed"}), 404
-        
-        # Get the wallet_id for balance recalculation
-        wallet_id = body.get("wallet_id")
-        if not wallet_id:
-            # If wallet_id not in body, get it from the existing transaction
-            existing_tx = repo.get_transaction_by_id(transaction_id, user_id)
-            wallet_id = existing_tx.get("wallet_id")
-        
-        if wallet_id: 
-            balance_result = repo.recalculate_wallet_balances(user_id, wallet_id)
-              
+
+        # Balance recalculation is handled inside repo.update_transaction() — gated on
+        # balance-affecting changes and executed as a single bulk_write — so there is
+        # nothing extra to enqueue here.
         return jsonify({"message": "Transaction updated successfully"})
     except Exception as e:
         print(f"Error in update_transaction: {e}")
@@ -3388,7 +3385,13 @@ def create_transfer_transaction():
         
         # Create transfer transaction data
         import time
-        current_time = int(time.time())
+        # Respect a user-supplied transfer date (quick transfer lets you pick a date).
+        # Falls back to "now" when nothing is provided.
+        provided_ts = body.get('timestamp')
+        try:
+            current_time = int(float(provided_ts)) if provided_ts not in (None, '', 0) else int(time.time())
+        except (TypeError, ValueError):
+            current_time = int(time.time())
         
         # Main transfer transaction (income to destination wallet)
         to_wallet_balance_before = float(to_wallet.get("actual_balance", 0))
@@ -3495,17 +3498,31 @@ def create_transfer_transaction():
             if not fee_id:
                 return jsonify({"error": "Failed to create fee transaction"}), 500
         
-        # Now manually update wallet balances for the complete transfer
-        # Update destination wallet (add amount)
-        new_to_balance = float(to_wallet.get("actual_balance", 0)) + amount
-        success_to = wallet_repo.update_wallet_balance(to_wallet_id, user_id, new_to_balance)
-        
-        # Update source wallet (subtract amount + fee)
-        new_from_balance = current_balance - total_deducted
-        success_from = wallet_repo.update_wallet_balance(from_wallet_id, user_id, new_from_balance)
-        
-        if not success_to or not success_from:
-            return jsonify({"error": "Transfer created but failed to update wallet balances"}), 500
+        # Queue wallet balance updates in background (preserves order, non-blocking)
+        from mm.services.wallet_balance_worker import enqueue_multi_adjust
+
+        adjust_steps = [
+            {
+                "wallet_id": to_wallet_id,
+                "user_id": user_id,
+                "delta": amount,
+                "transaction_id": transfer_id,
+            },
+            {
+                "wallet_id": from_wallet_id,
+                "user_id": user_id,
+                "delta": -amount,
+                "transaction_id": expense_id,
+            },
+        ]
+        if fee_id:
+            adjust_steps.append({
+                "wallet_id": from_wallet_id,
+                "user_id": user_id,
+                "delta": -admin_fee,
+                "transaction_id": fee_id,
+            })
+        enqueue_multi_adjust(adjust_steps)
         
         return jsonify({
             "message": "Transfer completed successfully",
@@ -3574,7 +3591,8 @@ def create_modified_balance_transaction():
             "tags": [],  # Empty tags as requested
             "is_balance_adjustment": True,  # Flag to identify balance adjustment transactions
             "balance_before": current_balance,
-            "balance_after": new_balance
+            "balance_after": new_balance,
+            "skip_balance_update": True,
         }
         
         # Create transaction
@@ -3584,13 +3602,8 @@ def create_modified_balance_transaction():
         if not transaction_id:
             return jsonify({"error": "Failed to create transaction"}), 500
         
-        # Update wallet balance
-        success = wallet_repo.update_wallet_balance(wallet_id, user_id, new_balance)
-        
-        if not success:
-            # If wallet update fails, we should ideally rollback the transaction
-            # For now, just return an error
-            return jsonify({"error": "Transaction created but failed to update wallet balance"}), 500
+        from mm.services.wallet_balance_worker import enqueue_set_wallet_balance
+        enqueue_set_wallet_balance(wallet_id, user_id, new_balance, transaction_id)
         
         return jsonify({
             "message": "Balance updated successfully",
@@ -3925,29 +3938,28 @@ def transfer_funds():
             }
         }
         
+        sender_expense_data["skip_balance_update"] = True
+        receiver_income_data["skip_balance_update"] = True
+
         # Insert both transactions
         sender_expense_id = tx_repo.insert_one(sender_expense_data)
         receiver_income_id = tx_repo.insert_one(receiver_income_data)
-        
-        # Update balances
-        new_from_balance = current_balance - total_debit
-        new_to_balance = to_wallet.get("actual_balance", 0) + amount
-        
-        # Update source wallet actual_balance
-        try:
-            success_from = wallet_repo.update_wallet(str(from_wallet_id), user_id, {"actual_balance": new_from_balance})
-            if not success_from:
-                print(f"Warning: Failed to update source wallet actual_balance for {from_wallet['name']}")
-        except Exception as e:
-            print(f"Error updating source wallet actual_balance: {e}")
-        
-        # Update destination wallet actual_balance
-        try:
-            success_to = wallet_repo.update_wallet(str(to_wallet_id), user_id, {"actual_balance": new_to_balance})
-            if not success_to:
-                print(f"Warning: Failed to update destination wallet actual_balance for {to_wallet['name']}")
-        except Exception as e:
-            print(f"Error updating destination wallet actual_balance: {e}")
+
+        from mm.services.wallet_balance_worker import enqueue_multi_adjust
+        enqueue_multi_adjust([
+            {
+                "wallet_id": str(from_wallet["_id"]),
+                "user_id": user_id,
+                "delta": -total_debit,
+                "transaction_id": sender_expense_id,
+            },
+            {
+                "wallet_id": str(to_wallet["_id"]),
+                "user_id": user_id,
+                "delta": amount,
+                "transaction_id": receiver_income_id,
+            },
+        ])
         
         return jsonify({
             "message": "Transfer completed successfully",
@@ -3956,8 +3968,6 @@ def transfer_funds():
             "amount": amount,
             "admin_fee": admin_fee,
             "total_debit": total_debit,
-            "from_balance": new_from_balance,
-            "to_balance": new_to_balance,
             "from_wallet": from_wallet["name"],
             "to_wallet": to_wallet["name"]
         })
@@ -4464,3 +4474,534 @@ def confirm_ocr_scan():
 
 # Flask CLI will handle running the application
 # The start.sh script sets FLASK_APP=app.py and runs flask run
+
+
+# =============================================================================
+# Share Public — shareable, filtered transaction views (/myuangly/<user>/<slug>)
+# =============================================================================
+
+import re as _re_share
+from datetime import timedelta as _timedelta
+
+_SHARE_DATE_MODES = ("all", "this_week", "this_month", "this_year", "month", "range")
+
+
+def _date_str_to_epoch(value, end_of_day=False):
+    """Convert a 'YYYY-MM-DD' string to an epoch-second int. Returns None if invalid."""
+    if not value:
+        return None
+    try:
+        d = datetime.strptime(str(value)[:10], "%Y-%m-%d")
+        if end_of_day:
+            d = d.replace(hour=23, minute=59, second=59)
+        return int(d.timestamp())
+    except Exception:
+        return None
+
+
+def _share_date_range(date_mode, month=None, date_from=None, date_to=None):
+    """Resolve a share's date mode to (epoch_from, epoch_to) bounds.
+
+    Period modes are dynamic (relative to now). Returns (None, None) when no
+    date filter should apply ('all'). Always returns epoch ints (never raw date
+    strings) so the transaction repository's int(...) cast never blows up.
+    """
+    now = datetime.now()
+    if date_mode == "this_week":
+        start = (now - _timedelta(days=now.weekday())).replace(
+            hour=0, minute=0, second=0, microsecond=0
+        )
+        end = start + _timedelta(days=7)
+        return int(start.timestamp()), int(end.timestamp())
+    if date_mode == "this_month":
+        start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        end_year = now.year + (1 if now.month == 12 else 0)
+        end_month = (now.month % 12) + 1
+        end = start.replace(year=end_year, month=end_month, day=1)
+        return int(start.timestamp()), int(end.timestamp())
+    if date_mode == "this_year":
+        start = now.replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
+        end = start.replace(year=now.year + 1)
+        return int(start.timestamp()), int(end.timestamp())
+    if date_mode == "month" and month:
+        try:
+            y_str, m_str = str(month).split("-")
+            y, m = int(y_str), int(m_str)
+            start = datetime(y, m, 1)
+            end_year = y + (1 if m == 12 else 0)
+            end_month = (m % 12) + 1
+            end = datetime(end_year, end_month, 1)
+            return int(start.timestamp()), int(end.timestamp())
+        except Exception:
+            return None, None
+    if date_mode == "range":
+        df = date_from if isinstance(date_from, int) else (
+            int(date_from) if date_from else None
+        )
+        dt_val = date_to if isinstance(date_to, int) else (
+            int(date_to) if date_to else None
+        )
+        return df, dt_val
+    return None, None  # "all"
+
+
+def _share_filters_from_body(body, existing=None):
+    """Build the normalized filters dict from a request body (create/update)."""
+    cur = existing or {}
+    f = {
+        "wallet_id": (body.get("wallet_id", cur.get("wallet_id", "")) or "").strip(),
+        "scope_id": (body.get("scope_id", cur.get("scope_id", "")) or "").strip(),
+        "category_id": (body.get("category_id", cur.get("category_id", "")) or "").strip(),
+        "type": (body.get("type", cur.get("type", "")) or "").strip(),
+    }
+    tags = body.get("tags", cur.get("tags", []))
+    if isinstance(tags, str):
+        tags = [t.strip() for t in tags.split(",") if t.strip()]
+    f["tags"] = tags or []
+    return f
+
+
+def _validate_share_slug(slug):
+    """Format check for a user-supplied slug (the slug itself is optional)."""
+    if not slug:
+        return None
+    if not _re_share.match(r"^[a-z0-9-]+$", slug, _re_share.I):
+        return "Slug may only contain letters, numbers, and hyphens"
+    return None
+
+
+def _slugify(text):
+    s = _re_share.sub(r"[^a-z0-9]+", "-", (text or "").lower()).strip("-")
+    return _re_share.sub(r"-+", "-", s)
+
+
+def _generate_unique_slug(repo, username, title):
+    """Auto-generate a unique slug from the title, or a random token if none."""
+    import random
+    import string
+    base = _slugify(title)
+    if not base:
+        base = "".join(random.choices(string.ascii_lowercase + string.digits, k=6))
+    slug = base
+    n = 2
+    while repo.slug_exists(username, slug):
+        slug = f"{base}-{n}"
+        n += 1
+    return slug
+
+
+def _has_minimum_share_filter(filters_dict):
+    """At least one of saving space (wallet), scope, category, or tags must be set."""
+    f = filters_dict or {}
+    return bool(
+        f.get("wallet_id") or f.get("scope_id") or f.get("category_id") or f.get("tags")
+    )
+
+
+_SHARE_CHART_PALETTE = [
+    "#667eea", "#764ba2", "#22c55e", "#f59e0b",
+    "#ef4444", "#06b6d4", "#ec4899", "#8b5cf6", "#94a3b8",
+]
+
+
+def _build_share_report(transactions, wallets, scopes, categories, period_label="the selected period", period_label_id="periode yang dipilih"):
+    """Compute a basic finance report from a transaction set.
+
+    Pure aggregation + templated narrative (NOT an AI call). Transfers, fees,
+    and balance adjustments are excluded from income/expense totals.
+
+    Produces per-dimension expense breakdowns (category / scope / wallet / tags)
+    plus a strict hierarchy (wallet -> scope -> category) for treemap/sunburst.
+    Tags deliberately OVERLAP (a tx may have many), so they are kept separate
+    from the hierarchical partition and never summed as "parts of a whole".
+    """
+    wallet_name = {str(w.get("_id")): w.get("name", "Unknown wallet") for w in (wallets or [])}
+    scope_name = {str(s.get("_id")): s.get("name", "No scope") for s in (scopes or [])}
+    cat_name = {str(c.get("_id")): c.get("name", "Uncategorized") for c in (categories or [])}
+
+    def amount(t):
+        try:
+            return float(t.get("amount", 0) or 0)
+        except Exception:
+            return 0.0
+
+    def is_real(t, want):
+        if t.get("type") != want:
+            return False
+        return not (
+            t.get("is_transfer")
+            or t.get("is_transfer_fee")
+            or t.get("is_balance_adjustment")
+        )
+
+    inc_tx = [t for t in transactions if is_real(t, "income")]
+    exp_tx = [t for t in transactions if is_real(t, "expense")]
+
+    total_income = sum(amount(t) for t in inc_tx)
+    total_expense = sum(amount(t) for t in exp_tx)
+    net = total_income - total_expense
+    savings_rate = (
+        round((net / total_income) * 100, 1) if total_income > 0 else None
+    )
+
+    def _ranked(agg):
+        items = sorted(agg.items(), key=lambda x: x[1], reverse=True)
+        return [
+            (name, val, (round(val / total_expense * 100, 1) if total_expense else 0.0))
+            for name, val in items
+        ]
+
+    # Per-dimension breakdowns (strict partitions — one value per tx each).
+    agg_cat, agg_scope, agg_wallet = {}, {}, {}
+    for t in exp_tx:
+        a = amount(t)
+        ck = cat_name.get(str(t.get("category_id", "")), "Uncategorized")
+        sk = scope_name.get(str(t.get("scope_id", "")), "No scope")
+        wk = wallet_name.get(str(t.get("wallet_id", "")), "Unknown wallet")
+        agg_cat[ck] = agg_cat.get(ck, 0.0) + a
+        agg_scope[sk] = agg_scope.get(sk, 0.0) + a
+        agg_wallet[wk] = agg_wallet.get(wk, 0.0) + a
+    by_category = _ranked(agg_cat)
+    by_scope = _ranked(agg_scope)
+    by_wallet = _ranked(agg_wallet)
+
+    # Tags OVERLAP — a single tx can contribute to several tags. Kept separate.
+    agg_tag = {}
+    for t in exp_tx:
+        a = amount(t)
+        for tag in (t.get("tags") or []):
+            tag = (tag or "").strip()
+            if tag:
+                agg_tag[tag] = agg_tag.get(tag, 0.0) + a
+    by_tag = _ranked(agg_tag)
+
+    # Strict hierarchy (wallet -> scope -> category) for treemap/sunburst.
+    tree = {}
+    for t in exp_tx:
+        w = wallet_name.get(str(t.get("wallet_id", "")), "Unknown wallet")
+        s = scope_name.get(str(t.get("scope_id", "")), "No scope")
+        c = cat_name.get(str(t.get("category_id", "")), "Uncategorized")
+        tree.setdefault(w, {}).setdefault(s, {}).setdefault(c, 0.0)
+        tree[w][s][c] += amount(t)
+    hierarchy = []
+    for w, scs in tree.items():
+        sc_children = []
+        for s, cats in scs.items():
+            cat_children = [{"name": cn, "value": cv} for cn, cv in cats.items()]
+            sc_children.append({"name": s, "value": sum(cats.values()), "children": cat_children})
+        hierarchy.append({"name": w, "value": sum(sc["value"] for sc in sc_children), "children": sc_children})
+
+    top_expense_category = (by_category[0][0], by_category[0][1]) if by_category else None
+    top_tag = (by_tag[0][0], by_tag[0][1]) if by_tag else None
+
+    largest_expense = None
+    if exp_tx:
+        lt = max(exp_tx, key=amount)
+        largest_expense = (
+            amount(lt),
+            lt.get("note") or cat_name.get(str(lt.get("category_id", "")), "Expense"),
+        )
+
+    # Templated insight lines (rule-based, not AI) — bilingual EN/ID.
+    insights = []
+    net_word_en = "surplus" if net >= 0 else "deficit"
+    net_word_id = "surplus" if net >= 0 else "defisit"
+    insights.append({
+        "en": f"During {period_label}, income was Rp {total_income:,.0f} and spending was "
+              f"Rp {total_expense:,.0f} — a net {net_word_en} of Rp {abs(net):,.0f}.",
+        "id": f"Selama {period_label_id}, pemasukan Rp {total_income:,.0f} dan pengeluaran "
+              f"Rp {total_expense:,.0f} — {net_word_id} bersih Rp {abs(net):,.0f}.",
+    })
+    if top_expense_category:
+        pct = round(top_expense_category[1] / total_expense * 100, 1) if total_expense else 0
+        insights.append({
+            "en": f"The largest spending category was {top_expense_category[0]} at "
+                  f"Rp {top_expense_category[1]:,.0f} ({pct}% of expenses).",
+            "id": f"Kategori pengeluaran terbesar adalah {top_expense_category[0]} sebesar "
+                  f"Rp {top_expense_category[1]:,.0f} ({pct}% dari pengeluaran).",
+        })
+    if top_tag:
+        insights.append({
+            "en": f"Heaviest tag was #{top_tag[0]} with Rp {top_tag[1]:,.0f} across transactions "
+                  f"(tags overlap, so this is not a share of total).",
+            "id": f"Tag terbanyak #{top_tag[0]} dengan Rp {top_tag[1]:,.0f} di berbagai transaksi "
+                  f"(tag tumpang tindih, jadi ini bukan bagian dari total).",
+        })
+    if largest_expense:
+        insights.append({
+            "en": f"Biggest single expense: Rp {largest_expense[0]:,.0f} on \"{largest_expense[1]}\".",
+            "id": f"Pengeluaran tunggal terbesar: Rp {largest_expense[0]:,.0f} untuk \"{largest_expense[1]}\".",
+        })
+    if savings_rate is not None:
+        if savings_rate >= 20:
+            insights.append({
+                "en": f"Healthy savings — you kept {savings_rate}% of your income.",
+                "id": f"Menabung yang sehat — Anda menyimpan {savings_rate}% dari pemasukan.",
+            })
+        elif savings_rate >= 0:
+            insights.append({
+                "en": f"You saved {savings_rate}% of income; aim for 20%+ to build a buffer.",
+                "id": f"Anda menabung {savings_rate}% dari pemasukan; targetkan 20%+ untuk cadangan.",
+            })
+        else:
+            insights.append({
+                "en": f"Spending exceeded income by {abs(savings_rate)}% — review the top categories.",
+                "id": f"Pengeluaran melebihi pemasukan sebesar {abs(savings_rate)}% — tinjau kategori teratas.",
+            })
+    elif total_income == 0 and total_expense > 0:
+        insights.append({
+            "en": "No income recorded here, so all spending drew down existing balances.",
+            "id": "Tidak ada pemasukan tercatat di sini, jadi semua pengeluaran mengurangi saldo yang ada.",
+        })
+
+    return {
+        "total_income": total_income,
+        "total_expense": total_expense,
+        "net": net,
+        "count": len(inc_tx) + len(exp_tx),
+        "savings_rate": savings_rate,
+        "has_expense": total_expense > 0,
+        "by_category": by_category,
+        "by_scope": by_scope,
+        "by_wallet": by_wallet,
+        "by_tag": by_tag,
+        "hierarchy": hierarchy,
+        "top_expense_category": top_expense_category,
+        "top_tag": top_tag,
+        "largest_expense": largest_expense,
+        "insights": insights,
+        "period_label": period_label,
+        "period_label_id": period_label_id,
+    }
+
+
+@app.route("/share-public")
+def share_public_page():
+    """Management page: create/list/edit/delete/toggle public shares."""
+    auth_check = require_login()
+    if auth_check:
+        return auth_check
+    user_id = session.get("user_id")
+    username = session.get("username", "")
+    shares = SharePublicRepository().list_by_user(user_id)
+    wallets = WalletRepository().list_by_user(user_id)
+    scopes = ScopeRepository().list_by_user(user_id)
+    categories = CategoryRepository().list_by_user_with_defaults(user_id)
+    return render_template(
+        "share_public.html",
+        shares=shares,
+        wallets=wallets,
+        scopes=scopes,
+        categories=categories,
+        username=username,
+    )
+
+
+@app.route("/api/share-public", methods=["POST"])
+def api_create_share_public():
+    user_id = session.get("user_id")
+    if not user_id:
+        return jsonify({"error": "Authentication required"}), 401
+    username = session.get("username", "")
+    body = request.get_json(force=True) or {}
+
+    repo = SharePublicRepository()
+
+    filters = _share_filters_from_body(body)
+    if not _has_minimum_share_filter(filters):
+        return jsonify({"error": "Choose at least one filter: Saving Space, Scope, Category, or Tags."}), 400
+
+    slug = (body.get("slug") or "").strip().lower()
+    if slug:
+        err = _validate_share_slug(slug)
+        if err:
+            return jsonify({"error": err}), 400
+        if repo.slug_exists(username, slug):
+            return jsonify({"error": "That URL is already in use. Choose another."}), 400
+    else:
+        slug = _generate_unique_slug(repo, username, body.get("title"))
+
+    date_mode = (body.get("date_mode") or "all").strip()
+    if date_mode not in _SHARE_DATE_MODES:
+        date_mode = "all"
+
+    doc = {
+        "user_id": user_id,
+        "username": username,
+        "slug": slug,
+        "title": (body.get("title") or "").strip(),
+        "filters": filters,
+        "date_mode": date_mode,
+        "month": (body.get("month") or "").strip() or None if date_mode == "month" else None,
+        "date_from": _date_str_to_epoch(body.get("date_from")) if date_mode == "range" else None,
+        "date_to": _date_str_to_epoch(body.get("date_to"), end_of_day=True) if date_mode == "range" else None,
+        "is_published": bool(body.get("is_published", False)),
+    }
+    new_id = repo.create(doc)
+    if not new_id:
+        return jsonify({"error": "Failed to create share"}), 500
+    doc["_id"] = new_id
+    return jsonify(doc), 201
+
+
+@app.route("/api/share-public/<share_id>", methods=["PUT"])
+def api_update_share_public(share_id):
+    user_id = session.get("user_id")
+    if not user_id:
+        return jsonify({"error": "Authentication required"}), 401
+    username = session.get("username", "")
+    repo = SharePublicRepository()
+    existing = repo.find_owned(share_id, user_id)
+    if not existing:
+        return jsonify({"error": "Share not found"}), 404
+
+    body = request.get_json(force=True) or {}
+    updates = {}
+
+    if "title" in body:
+        updates["title"] = (body.get("title") or "").strip()
+
+    if "slug" in body:
+        slug = (body.get("slug") or "").strip().lower()
+        err = _validate_share_slug(slug)
+        if err:
+            return jsonify({"error": err}), 400
+        if slug != existing.get("slug") and repo.slug_exists(username, slug, exclude_id=share_id):
+            return jsonify({"error": "That URL is already in use"}), 400
+        updates["slug"] = slug
+
+    if any(k in body for k in ("wallet_id", "scope_id", "category_id", "type", "tags")):
+        new_filters = _share_filters_from_body(body, existing.get("filters"))
+        if not _has_minimum_share_filter(new_filters):
+            return jsonify({"error": "Choose at least one filter: Saving Space, Scope, Category, or Tags."}), 400
+        updates["filters"] = new_filters
+
+    if "date_mode" in body:
+        date_mode = (body.get("date_mode") or "all").strip()
+        if date_mode not in _SHARE_DATE_MODES:
+            date_mode = "all"
+        updates["date_mode"] = date_mode
+        updates["month"] = (
+            (body.get("month") or "").strip() or None
+        ) if date_mode == "month" else None
+        updates["date_from"] = _date_str_to_epoch(body.get("date_from")) if date_mode == "range" else None
+        updates["date_to"] = _date_str_to_epoch(body.get("date_to"), end_of_day=True) if date_mode == "range" else None
+
+    if "is_published" in body:
+        updates["is_published"] = bool(body.get("is_published"))
+
+    if not updates:
+        return jsonify(existing), 200
+
+    if not repo.update(share_id, user_id, updates):
+        return jsonify({"error": "Update failed"}), 500
+    return jsonify(repo.find_owned(share_id, user_id)), 200
+
+
+@app.route("/api/share-public/<share_id>/toggle", methods=["POST"])
+def api_toggle_share_public(share_id):
+    user_id = session.get("user_id")
+    if not user_id:
+        return jsonify({"error": "Authentication required"}), 401
+    repo = SharePublicRepository()
+    existing = repo.find_owned(share_id, user_id)
+    if not existing:
+        return jsonify({"error": "Share not found"}), 404
+    new_state = not existing.get("is_published", False)
+    repo.set_published(share_id, user_id, new_state)
+    return jsonify({"_id": share_id, "is_published": new_state}), 200
+
+
+@app.route("/api/share-public/<share_id>", methods=["DELETE"])
+def api_delete_share_public(share_id):
+    user_id = session.get("user_id")
+    if not user_id:
+        return jsonify({"error": "Authentication required"}), 401
+    repo = SharePublicRepository()
+    if not repo.delete(share_id, user_id):
+        return jsonify({"error": "Share not found"}), 404
+    return jsonify({"message": "Share deleted"}), 200
+
+
+@app.route("/myuangly/<username>/<slug>")
+def share_public_view(username, slug):
+    """Public, read-only view of a published share. No login required."""
+    owner = UserRepository().find_by_username(username)
+    if not owner:
+        return render_template("share_public_view.html", available=False), 404
+
+    share = SharePublicRepository().find_by_username_slug(username, slug.lower())
+    if not share or not share.get("is_published"):
+        return render_template("share_public_view.html", available=False), 404
+
+    # Build the filter dict for the transactions query (always epoch ints).
+    filters = dict(share.get("filters") or {})
+    date_from, date_to = _share_date_range(
+        share.get("date_mode"),
+        share.get("month"),
+        share.get("date_from"),
+        share.get("date_to"),
+    )
+    if date_from:
+        filters["date_from"] = date_from
+    if date_to:
+        filters["date_to"] = date_to
+
+    try:
+        page = max(1, int(request.args.get("page", 1)))
+    except Exception:
+        page = 1
+    try:
+        per_page = max(1, min(100, int(request.args.get("per_page", 10))))
+    except Exception:
+        per_page = 10
+
+    owner_id = str(owner["_id"])
+    transactions, total_count = TransactionRepository().\
+        get_transactions_with_filters_paginated(owner_id, filters, page, per_page)
+    total_pages = (total_count + per_page - 1) // per_page
+
+    wallets = WalletRepository().list_by_user(owner_id)
+    scopes = ScopeRepository().list_by_user(owner_id)
+    categories = CategoryRepository().list_by_user_with_defaults(owner_id)
+
+    # Build a basic finance report across the FULL filtered set (capped, not just this page).
+    report_txs = TransactionRepository().get_transactions_with_filters(
+        owner_id, filters, limit=1000
+    )
+    dm = share.get("date_mode")
+    if dm == "this_week":
+        _pl, _pl_id = "this week", "minggu ini"
+    elif dm == "this_month":
+        _pl, _pl_id = "this month", "bulan ini"
+    elif dm == "this_year":
+        _pl, _pl_id = "this year", "tahun ini"
+    elif dm == "month":
+        _pl = "the selected month" + (f" ({share.get('month')})" if share.get("month") else "")
+        _pl_id = "bulan yang dipilih" + (f" ({share.get('month')})" if share.get("month") else "")
+    elif dm == "range":
+        _pl, _pl_id = "the selected date range", "rentang tanggal yang dipilih"
+    else:
+        _pl, _pl_id = "all time", "semua waktu"
+    report = _build_share_report(report_txs, wallets, scopes, categories, _pl, _pl_id)
+
+    return render_template(
+        "share_public_view.html",
+        available=True,
+        share=share,
+        owner_name=owner.get("name") or owner.get("username") or username,
+        owner_username=username,
+        transactions=transactions,
+        wallets=wallets,
+        scopes=scopes,
+        categories=categories,
+        page=page,
+        per_page=per_page,
+        total_count=total_count,
+        total_pages=total_pages,
+        has_prev=page > 1,
+        has_next=page < total_pages,
+        report=report,
+        palette=_SHARE_CHART_PALETTE,
+    )
+

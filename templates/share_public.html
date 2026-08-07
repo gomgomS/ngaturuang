@@ -1,0 +1,362 @@
+{% extends 'layout.html' %}
+
+{% block head %}
+<style>
+    :root { --sp-grad: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+    .sp-page { max-width: 1000px; margin: 0 auto; padding: 1.5rem 1rem 4rem; }
+
+    /* Hero */
+    .sp-hero {
+        background: var(--sp-grad); color: #fff; border-radius: 22px;
+        padding: 1.75rem 2rem; box-shadow: 0 14px 40px rgba(102,126,234,.35);
+        position: relative; overflow: hidden; margin-bottom: 1.5rem;
+    }
+    .sp-hero::after {
+        content: ''; position: absolute; right: -40px; top: -40px; width: 180px; height: 180px;
+        background: radial-gradient(circle, rgba(255,255,255,.18), transparent 70%);
+    }
+    .sp-hero h2 { font-weight: 800; margin: 0; font-size: 1.6rem; }
+    .sp-hero p { margin: .25rem 0 0; opacity: .9; font-size: .95rem; }
+    .sp-hero .btn-back {
+        position: absolute; top: 1.25rem; right: 1.5rem; background: rgba(255,255,255,.18);
+        border: none; color: #fff; border-radius: 10px; padding: .4rem .75rem; font-size: .85rem;
+    }
+    .sp-hero .btn-back:hover { background: rgba(255,255,255,.3); }
+
+    /* Panels */
+    .sp-panel { background: #fff; border: none; border-radius: 20px; box-shadow: 0 8px 28px rgba(0,0,0,.07); }
+    .sp-panel .card-body { padding: 1.5rem; }
+    .sp-section { text-transform: uppercase; letter-spacing: .04em; font-size: .72rem; font-weight: 700; color: #9aa0b5; margin: 1.25rem 0 .5rem; }
+    .sp-section:first-child { margin-top: 0; }
+    .sp-divider { border: none; border-top: 1px solid #eef0f6; margin: 1.25rem 0; }
+    .share-form label { font-weight: 600; font-size: .82rem; color: #444; margin-bottom: .2rem; }
+    .share-form .form-control, .share-form .form-select { border-radius: 11px; border: 1px solid #e3e6ef; padding: .5rem .75rem; }
+    .share-form .form-control:focus, .share-form .form-select:focus { border-color: #8aa0ff; box-shadow: 0 0 0 .2rem rgba(102,126,234,.18); }
+
+    .sp-chip {
+        display: inline-block; font-family: 'SF Mono', Menlo, monospace; font-size: .82rem;
+        background: #eef1ff; color: #4263eb; padding: .25rem .55rem; border-radius: 8px; word-break: break-all;
+    }
+    .sp-hint { font-size: .78rem; color: #9aa0b5; }
+    .sp-warn { font-size: .8rem; color: #b45309; }
+
+    .btn-sp { background: var(--sp-grad); border: none; color: #fff; border-radius: 12px; padding: .6rem 1.4rem; font-weight: 600; }
+    .btn-sp:hover { color: #fff; box-shadow: 0 8px 22px rgba(102,126,234,.4); transform: translateY(-1px); }
+
+    /* Share list items */
+    .sp-item { background: #fff; border: none; border-radius: 16px; border-left: 5px solid #cfd6f5;
+        box-shadow: 0 4px 16px rgba(0,0,0,.06); transition: all .2s; overflow: hidden; }
+    .sp-item.published { border-left-color: #22c55e; }
+    .sp-item:hover { transform: translateY(-2px); box-shadow: 0 10px 26px rgba(0,0,0,.1); }
+    .sp-item .card-body { padding: 1.1rem 1.25rem; }
+    .sp-pill { font-size: .72rem; font-weight: 600; padding: .2rem .55rem; border-radius: 20px; }
+    .sp-pill.on { background: #dcfce7; color: #15803d; }
+    .sp-pill.off { background: #eef0f6; color: #6b7280; }
+    .sp-tag { font-size: .7rem; background: #f1f3f9; color: #555; padding: .15rem .45rem; border-radius: 6px; margin: 0 .25rem .25rem 0; display: inline-block; }
+    .sp-act { width: 36px; height: 36px; border-radius: 10px; display: inline-flex; align-items: center; justify-content: center; padding: 0; }
+    .sp-empty { text-align: center; padding: 3rem 1rem; color: #9aa0b5; }
+</style>
+{% endblock %}
+
+{% block content %}
+{% macro date_label(s) -%}
+{%- if s.date_mode == 'this_week' -%}This Week
+{%- elif s.date_mode == 'this_month' -%}This Month
+{%- elif s.date_mode == 'this_year' -%}This Year
+{%- elif s.date_mode == 'month' -%}Month: {{ s.month or '?' }}
+{%- elif s.date_mode == 'range' -%}Custom Range
+{%- else -%}All time
+{%- endif -%}
+{%- endmacro %}
+
+<div class="sp-page">
+
+    <!-- Hero -->
+    <div class="sp-hero">
+        <button class="btn-back" onclick="location.href='/transactions-type'"><i class="fas fa-arrow-left me-1"></i>Back</button>
+        <h2><i class="fas fa-share-alt me-2"></i>Share Public</h2>
+        <p>Publish a read-only, filtered slice of your transactions at a custom link.</p>
+    </div>
+
+    <!-- Create / Edit panel -->
+    <div class="card sp-panel mb-4">
+        <div class="card-body">
+            <h5 class="mb-3" id="sp_form_title"><i class="fas fa-plus-circle text-primary me-2"></i>New Share</h5>
+            <form id="shareForm" class="share-form" onsubmit="return false;">
+
+                <div class="sp-section">Details</div>
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label>Title <span class="sp-hint">(optional)</span></label>
+                        <input type="text" class="form-control" id="sp_title" placeholder="e.g. My March Budget">
+                    </div>
+                    <div class="col-md-6">
+                        <label>Custom link slug <span class="sp-hint">(optional — auto-generated if blank)</span></label>
+                        <input type="text" class="form-control" id="sp_slug" placeholder="march-2025" oninput="updateUrlPreview()">
+                        <div class="sp-hint mt-1">Link: <span class="sp-chip" id="sp_url_preview">/myuangly/{{ username }}/…</span></div>
+                    </div>
+                </div>
+
+                <div class="sp-section">Filters <span class="sp-hint">— pick at least one: Saving Space, Scope, Category, or Tags</span></div>
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <label>Saving Space / Wallet</label>
+                        <select class="form-select" id="sp_wallet" onchange="onFilterChange()">
+                            <option value="">All wallets</option>
+                            {% for w in wallets %}
+                            <option value="{{ w._id }}">{{ w.name }} ({{ w.type or 'bank' }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label>Scope</label>
+                        <select class="form-select" id="sp_scope" onchange="onFilterChange()">
+                            <option value="">All scopes</option>
+                            {% for s in scopes %}
+                            <option value="{{ s._id }}">{{ s.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label>Tags <span class="sp-hint">(comma separated)</span></label>
+                        <input type="text" class="form-control" id="sp_tags" placeholder="food, work, travel" oninput="onFilterChange()">
+                    </div>
+                </div>
+                <div class="row g-3 mt-1">
+                    <div class="col-md-4">
+                        <label>Type</label>
+                        <select class="form-select" id="sp_type">
+                            <option value="">All types</option>
+                            <option value="income">Income</option>
+                            <option value="expense">Expense</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label>Category</label>
+                        <select class="form-select" id="sp_category" onchange="onFilterChange()">
+                            <option value="">All categories</option>
+                            {% for c in categories %}
+                            <option value="{{ c._id }}">{{ c.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div class="sp-warn mt-2" id="sp_filter_warn" style="display:none;">
+                    <i class="fas fa-exclamation-circle"></i> Choose at least one: Saving Space, Scope, Category, or Tags.
+                </div>
+
+                <div class="sp-section">Date range</div>
+                <div class="row g-3 align-items-end">
+                    <div class="col-md-4">
+                        <label>Date option</label>
+                        <select class="form-select" id="sp_date_mode" onchange="onDateModeChange()">
+                            <option value="all">Show All</option>
+                            <option value="this_week">This Week</option>
+                            <option value="this_month">This Month</option>
+                            <option value="this_year">This Year</option>
+                            <option value="month">Select Month</option>
+                            <option value="range">Custom Range</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4" id="sp_month_wrap" style="display:none;">
+                        <label>Month</label>
+                        <input type="month" class="form-control" id="sp_month">
+                    </div>
+                    <div class="col-md-3" id="sp_from_wrap" style="display:none;">
+                        <label>From</label>
+                        <input type="date" class="form-control" id="sp_date_from">
+                    </div>
+                    <div class="col-md-3" id="sp_to_wrap" style="display:none;">
+                        <label>To</label>
+                        <input type="date" class="form-control" id="sp_date_to">
+                    </div>
+                </div>
+
+                <div class="d-flex gap-2 mt-4">
+                    <button type="button" class="btn btn-sp" id="sp_submit" onclick="submitShare()">
+                        <i class="fas fa-plus me-1"></i> Create Share
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary d-none" id="sp_cancel" onclick="cancelEdit()">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Existing shares -->
+    <div class="d-flex align-items-center justify-content-between mb-3">
+        <h5 class="mb-0"><i class="fas fa-link me-2 text-muted"></i>Your shares</h5>
+        <span class="sp-hint">{{ shares|length }} total</span>
+    </div>
+
+    <div id="sharesList">
+    {% if shares %}
+        {% for s in shares %}
+        {% set sf = s.filters or {} %}
+        <div class="card sp-item mb-3 {% if s.is_published %}published{% endif %}" data-id="{{ s._id }}">
+            <div class="card-body">
+                <div class="d-flex flex-wrap justify-content-between align-items-start gap-3">
+                    <div class="flex-grow-1" style="min-width: 220px;">
+                        <div class="d-flex align-items-center gap-2 mb-1 flex-wrap">
+                            <h6 class="mb-0 fw-bold">{{ s.title or s.slug }}</h6>
+                            {% if s.is_published %}<span class="sp-pill on">Published</span>{% else %}<span class="sp-pill off">Unpublished</span>{% endif %}
+                        </div>
+                        <div class="mb-2">
+                            <a class="sp-chip text-decoration-none" target="_blank" href="/myuangly/{{ username }}/{{ s.slug }}">/myuangly/{{ username }}/{{ s.slug }}</a>
+                            <button class="btn btn-sm btn-link p-0 align-baseline ms-1" title="Copy link" onclick="copyUrl('{{ username }}/{{ s.slug }}')"><i class="fas fa-copy"></i></button>
+                        </div>
+                        <div>
+                            {% if sf.type %}<span class="sp-tag"><i class="fas fa-tag me-1"></i>{{ sf.type|title }}</span>{% endif %}
+                            {% set w = wallets|selectattr('_id','equalto',sf.wallet_id)|first %}
+                            {% if w %}<span class="sp-tag"><i class="fas fa-wallet me-1"></i>{{ w.name }}</span>{% endif %}
+                            {% set sc = scopes|selectattr('_id','equalto',sf.scope_id)|first %}
+                            {% if sc %}<span class="sp-tag"><i class="fas fa-layer-group me-1"></i>{{ sc.name }}</span>{% endif %}
+                            {% set ct = categories|selectattr('_id','equalto',sf.category_id)|first %}
+                            {% if ct %}<span class="sp-tag"><i class="fas fa-folder me-1"></i>{{ ct.name }}</span>{% endif %}
+                            {% for t in (sf.tags or []) %}<span class="sp-tag">#{{ t }}</span>{% endfor %}
+                            <span class="sp-tag"><i class="fas fa-calendar me-1"></i>{{ date_label(s) }}</span>
+                        </div>
+                    </div>
+                    <div class="d-flex flex-column gap-2 align-items-end">
+                        <button class="btn btn-sm {% if s.is_published %}btn-warning{% else %}btn-success{% endif %}" onclick="toggleShare('{{ s._id }}')">
+                            {% if s.is_published %}<i class="fas fa-eye-slash"></i> Unpublish{% else %}<i class="fas fa-eye"></i> Publish{% endif %}
+                        </button>
+                        <div class="d-flex gap-1">
+                            <button class="btn btn-sm btn-outline-secondary sp-act" title="Edit" onclick='editShare({{ s|tojson }})'><i class="fas fa-edit"></i></button>
+                            <button class="btn btn-sm btn-outline-danger sp-act" title="Delete" onclick="deleteShare('{{ s._id }}')"><i class="fas fa-trash"></i></button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    {% else %}
+        <div class="card sp-panel"><div class="sp-empty">
+            <i class="fas fa-share-alt fa-3x mb-3"></i>
+            <h6>No shares yet</h6>
+            <p class="mb-0">Create your first public share using the form above.</p>
+        </div></div>
+    {% endif %}
+    </div>
+</div>
+
+<script>
+const USERNAME = {{ username|tojson }};
+
+function updateUrlPreview() {
+    const raw = document.getElementById('sp_slug').value.trim().toLowerCase();
+    const slug = raw || 'auto';
+    document.getElementById('sp_url_preview').textContent = '/myuangly/' + USERNAME + '/' + slug;
+}
+
+function onFilterChange() {
+    const ok = document.getElementById('sp_wallet').value
+            || document.getElementById('sp_scope').value
+            || document.getElementById('sp_category').value
+            || document.getElementById('sp_tags').value.trim();
+    document.getElementById('sp_filter_warn').style.display = ok ? 'none' : '';
+}
+
+function onDateModeChange() {
+    const mode = document.getElementById('sp_date_mode').value;
+    document.getElementById('sp_month_wrap').style.display = (mode === 'month') ? '' : 'none';
+    const isRange = (mode === 'range');
+    document.getElementById('sp_from_wrap').style.display = isRange ? '' : 'none';
+    document.getElementById('sp_to_wrap').style.display = isRange ? '' : 'none';
+}
+
+let editingId = null;
+
+function collectPayload() {
+    return {
+        title: document.getElementById('sp_title').value.trim(),
+        slug: document.getElementById('sp_slug').value.trim(),
+        wallet_id: document.getElementById('sp_wallet').value,
+        scope_id: document.getElementById('sp_scope').value,
+        category_id: document.getElementById('sp_category').value,
+        type: document.getElementById('sp_type').value,
+        tags: document.getElementById('sp_tags').value,
+        date_mode: document.getElementById('sp_date_mode').value,
+        month: document.getElementById('sp_month').value,
+        date_from: document.getElementById('sp_date_from').value,
+        date_to: document.getElementById('sp_date_to').value,
+    };
+}
+
+function submitShare() {
+    const payload = collectPayload();
+    if (!payload.title && !payload.slug) {
+        alert('Please add a Title or a custom slug so the share has a name/link.');
+        return;
+    }
+    if (!payload.wallet_id && !payload.scope_id && !payload.category_id && !payload.tags.trim()) {
+        alert('Choose at least one filter: Saving Space, Scope, Category, or Tags.');
+        return;
+    }
+    const method = editingId ? 'PUT' : 'POST';
+    const url = editingId ? '/api/share-public/' + editingId : '/api/share-public';
+    fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+        .then(r => r.json())
+        .then(res => {
+            if (res._id) { alert(editingId ? 'Share updated' : 'Share created'); location.reload(); }
+            else alert('Error: ' + (res.error || 'Unknown error'));
+        })
+        .catch(() => alert('Network error'));
+}
+
+function editShare(share) {
+    editingId = share._id;
+    const sf = share.filters || {};
+    document.getElementById('sp_title').value = share.title || '';
+    document.getElementById('sp_slug').value = share.slug || '';
+    document.getElementById('sp_wallet').value = sf.wallet_id || '';
+    document.getElementById('sp_scope').value = sf.scope_id || '';
+    document.getElementById('sp_category').value = sf.category_id || '';
+    document.getElementById('sp_type').value = sf.type || '';
+    document.getElementById('sp_tags').value = (sf.tags || []).join(', ');
+    document.getElementById('sp_date_mode').value = share.date_mode || 'all';
+    document.getElementById('sp_month').value = share.month || '';
+    if (share.date_from) document.getElementById('sp_date_from').value = epochToDateInput(share.date_from);
+    if (share.date_to)   document.getElementById('sp_date_to').value = epochToDateInput(share.date_to);
+    onDateModeChange(); updateUrlPreview(); onFilterChange();
+
+    document.getElementById('sp_form_title').innerHTML = '<i class="fas fa-edit text-primary me-2"></i>Edit Share';
+    document.getElementById('sp_submit').innerHTML = '<i class="fas fa-save me-1"></i> Update Share';
+    document.getElementById('sp_cancel').classList.remove('d-none');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function epochToDateInput(epoch) {
+    const d = new Date(epoch * 1000);
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+
+function cancelEdit() {
+    editingId = null;
+    document.getElementById('shareForm').reset();
+    onDateModeChange(); updateUrlPreview(); onFilterChange();
+    document.getElementById('sp_form_title').innerHTML = '<i class="fas fa-plus-circle text-primary me-2"></i>New Share';
+    document.getElementById('sp_submit').innerHTML = '<i class="fas fa-plus me-1"></i> Create Share';
+    document.getElementById('sp_cancel').classList.add('d-none');
+}
+
+function toggleShare(id) {
+    fetch('/api/share-public/' + id + '/toggle', { method: 'POST' })
+        .then(r => r.json()).then(res => { if (res._id) location.reload(); else alert('Error: ' + (res.error || 'Unknown')); })
+        .catch(() => alert('Network error'));
+}
+
+function deleteShare(id) {
+    if (!confirm('Delete this public share? The link will stop working.')) return;
+    fetch('/api/share-public/' + id, { method: 'DELETE' })
+        .then(r => r.json()).then(res => { if (res.message) location.reload(); else alert('Error: ' + (res.error || 'Unknown')); })
+        .catch(() => alert('Network error'));
+}
+
+function copyUrl(path) {
+    const full = window.location.origin + '/myuangly/' + path;
+    navigator.clipboard.writeText(full).then(() => alert('Link copied:\n' + full));
+}
+
+onDateModeChange(); updateUrlPreview(); onFilterChange();
+</script>
+{% endblock %}

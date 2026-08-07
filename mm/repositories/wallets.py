@@ -1,5 +1,6 @@
 from typing import Any, Dict, List, Optional
 from bson import ObjectId
+from pymongo import ReturnDocument
 from mm.repositories.base import MongoRepository
 import time
 
@@ -65,6 +66,36 @@ class WalletRepository(MongoRepository):
             return result.deleted_count > 0
         except Exception:
             return False
+
+    def get_wallet_balance(self, wallet_id: str, user_id: str) -> Optional[float]:
+        """Read current actual_balance without extra formatting overhead."""
+        wallet = self.get_wallet_by_id(wallet_id, user_id)
+        if not wallet:
+            return None
+        return float(wallet.get("actual_balance", 0))
+
+    def adjust_wallet_balance(self, wallet_id: str, user_id: str, delta: float) -> Optional[float]:
+        """Atomically adjust actual_balance by delta. Returns new balance."""
+        try:
+            obj_id = ObjectId(wallet_id)
+        except Exception:
+            return None
+
+        doc = self.collection.find_one_and_update(
+            {"_id": obj_id, "user_id": user_id},
+            {
+                "$inc": {"actual_balance": delta},
+                "$set": {"updated_at": int(time.time())},
+            },
+            return_document=ReturnDocument.AFTER,
+        )
+        if not doc:
+            return None
+        return float(doc.get("actual_balance", 0))
+
+    def set_wallet_balance(self, wallet_id: str, user_id: str, actual_balance: float) -> bool:
+        """Set absolute wallet balance (used for balance adjustments)."""
+        return self.update_wallet_balance(wallet_id, user_id, actual_balance)
 
     def update_wallet_balance(self, wallet_id: str, user_id: str, actual_balance: float, expected_balance: float = None) -> bool:
         """Update wallet balance ketika manual balance dibuat"""

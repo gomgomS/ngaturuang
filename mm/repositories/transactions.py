@@ -1,6 +1,7 @@
 from typing import Any, Dict, List, Optional, Tuple
 import time
 from bson import ObjectId
+from pymongo import UpdateOne
 from mm.repositories.base import MongoRepository
 from datetime import datetime
 
@@ -497,44 +498,29 @@ class TransactionRepository(MongoRepository):
             current_time = int(datetime.now().timestamp())
             data["created_at"] = current_time
             data["updated_at"] = current_time
-            
-            # Tambahkan field balance tracking sebelum transaksi
-            # Skip balance tracking for transfer fee transactions as they already have correct values
-            if data.get("wallet_id") and data.get("user_id") and not data.get("is_transfer_fee"):
-                from mm.repositories.wallets import WalletRepository
-                wallet_repo = WalletRepository()
-                wallet = wallet_repo.get_wallet_by_id(data["wallet_id"], data["user_id"])
-                if wallet:
-                    # Balance sebelum transaksi
-                    data["balance_before"] = float(wallet.get("actual_balance", 0))
+
+            should_sync_balance = (
+                data.get("wallet_id")
+                and data.get("user_id")
+                and not data.get("skip_balance_update", False)
+                and not data.get("is_transfer_fee")
+            )
+            if should_sync_balance and "balance_sync" not in data:
+                data["balance_sync"] = "pending"
+
             # Insert ke database
             result = self.collection.insert_one(data)
             
-            if result.inserted_id:  
-                # Auto-update wallet balance setelah transaksi berhasil dibuat
-                # Skip balance update if flag is set (for transfers)
-                if (data.get("wallet_id") and data.get("user_id") and 
-                    not data.get("skip_balance_update", False)):
-                    
-                    success = self._update_wallet_balance_after_transaction(
-                        data["wallet_id"], 
-                        data["user_id"], 
-                        data.get("type", "expense"), 
-                        float(data.get("amount", 0))
+            if result.inserted_id:
+                if should_sync_balance:
+                    from mm.services.wallet_balance_worker import enqueue_apply_transaction
+                    enqueue_apply_transaction(
+                        transaction_id=str(result.inserted_id),
+                        wallet_id=data["wallet_id"],
+                        user_id=data["user_id"],
+                        transaction_type=data.get("type", "expense"),
+                        amount=float(data.get("amount", 0)),
                     )
-                    
-                    # Tambahkan field balance setelah transaksi jika update berhasil
-                    if success:
-                        from mm.repositories.wallets import WalletRepository
-                        wallet_repo = WalletRepository()
-                        updated_wallet = wallet_repo.get_wallet_by_id(data["wallet_id"], data["user_id"])
-                        if updated_wallet:
-                            balance_after = float(updated_wallet.get("actual_balance", 0))
-                            # Update transaksi dengan balance setelah
-                            self.collection.update_one(
-                                {"_id": result.inserted_id},
-                                {"$set": {"balance_after": balance_after}}
-                            )
 
                 return str(result.inserted_id)
             else:
@@ -546,37 +532,16 @@ class TransactionRepository(MongoRepository):
             return None
 
     def _update_wallet_balance_after_transaction(self, wallet_id: str, user_id: str, transaction_type: str, amount: float) -> bool:
-        """Update wallet balance secara otomatis setelah transaksi dibuat"""
+        """Update wallet balance (sync path — used by background worker internals)."""
         try:
             from mm.repositories.wallets import WalletRepository
             wallet_repo = WalletRepository()
-            
-            # Get current wallet using get_wallet_by_id method
-            wallet = wallet_repo.get_wallet_by_id(wallet_id, user_id)
-            if not wallet:
-                print(f"❌ [TRANSACTIONS] Wallet not found: {wallet_id}")
-                return False
-            
-            # Get current actual_balance
-            current_balance = float(wallet.get("actual_balance", 0))
-            
-            # Calculate new balance based on transaction type
-            new_balance = current_balance
-            if transaction_type == "income":
-                new_balance += amount
-            elif transaction_type == "expense":
-                new_balance -= amount
-            elif transaction_type == "transfer":
-                # For transfers, we need to check if it's incoming or outgoing
-                # This will be handled by the transfer logic
+
+            if transaction_type not in ("income", "expense"):
                 return True
-            else:
-                return True
-            
-            # Update wallet balance
-            success = wallet_repo.update_wallet_balance(wallet_id, user_id, new_balance)    
-            return success
-            
+
+            delta = amount if transaction_type == "income" else -amount
+            return wallet_repo.adjust_wallet_balance(wallet_id, user_id, delta) is not None
         except Exception as e:
             import traceback
             print(f"❌ [TRANSACTIONS] Error traceback: {traceback.format_exc()}")
@@ -596,6 +561,7 @@ class TransactionRepository(MongoRepository):
             # Store old values for balance recalculation
             old_wallet_id = existing_tx.get("wallet_id")
             old_type = existing_tx.get("type")
+            old_timestamp = existing_tx.get("timestamp")
             
             # Safe conversion untuk old_amount
             try:
@@ -609,53 +575,46 @@ class TransactionRepository(MongoRepository):
             result = self.collection.update_one({"_id": obj_id}, {"$set": updates})
             
             if result.modified_count > 0:
-                # Auto-update wallet balance jika ada perubahan yang mempengaruhi balance
-                if (old_wallet_id and 
-                    (updates.get("wallet_id") != old_wallet_id or 
-                     updates.get("type") != old_type or 
-                     updates.get("amount") != old_amount)):
-                    
-                    # Revert old transaction's effect on old wallet
-                    if old_wallet_id and old_type and old_amount > 0:
-                        self._revert_wallet_balance_change(old_wallet_id, user_id, old_type, old_amount)
-                    
-                    # Apply new transaction's effect on new wallet
+                balance_affecting_change = old_wallet_id and (
+                    updates.get("wallet_id") != old_wallet_id
+                    or updates.get("type") != old_type
+                    or updates.get("amount") != old_amount
+                    or ("timestamp" in updates and updates.get("timestamp") != old_timestamp)
+                )
+                if balance_affecting_change:
                     new_wallet_id = updates.get("wallet_id", old_wallet_id)
                     new_type = updates.get("type", old_type)
-                    
-                    # Safe conversion untuk new_amount
                     try:
                         new_amount = float(updates.get("amount", old_amount))
                     except (ValueError, TypeError):
                         new_amount = 0.0
 
                     if new_wallet_id and new_type and new_amount > 0:
-                        # Update balance tracking fields
-                        from mm.repositories.wallets import WalletRepository
-                        wallet_repo = WalletRepository()
-                        
-                        # Get balance before new transaction
-                        wallet = wallet_repo.get_wallet_by_id(new_wallet_id, user_id)
-                        if wallet:
-                            balance_before = float(wallet.get("actual_balance", 0))
-                            updates["balance_before"] = balance_before
+                        from mm.services.wallet_balance_worker import enqueue_update_transaction_balances
+                        self.collection.update_one(
+                            {"_id": obj_id},
+                            {"$set": {"balance_sync": "pending", "updated_at": int(time.time())}},
+                        )
+                        enqueue_update_transaction_balances(
+                            transaction_id=transaction_id,
+                            user_id=user_id,
+                            old_wallet_id=old_wallet_id,
+                            old_type=old_type,
+                            old_amount=old_amount,
+                            new_wallet_id=new_wallet_id,
+                            new_type=new_type,
+                            new_amount=new_amount,
+                        )
 
-                        # Apply new transaction effect
-                        success = self._update_wallet_balance_after_transaction(new_wallet_id, user_id, new_type, new_amount)
-                        
-                        # Get balance after new transaction
-                        if success:
-                            updated_wallet = wallet_repo.get_wallet_by_id(new_wallet_id, user_id)
-                            if updated_wallet:
-                                balance_after = float(updated_wallet.get("actual_balance", 0))
-                                updates["balance_after"] = balance_after
-  
-                                # Update transaksi dengan field balance tracking
-                                self.collection.update_one(
-                                    {"_id": obj_id},
-                                    {"$set": {"balance_before": balance_before, "balance_after": balance_after}}
-                                )
-                
+                    # Re-sync per-transaction balance_before/after. This is now a single
+                    # bulk_write (cheap), so we can afford to run it on every balance-affecting
+                    # edit. Recalculate both the old wallet and (if the tx moved) the new one,
+                    # since the chronological saldo shifts in each.
+                    from mm.services.wallet_balance_worker import enqueue_recalculate_wallet
+                    affected_wallets = {w for w in (old_wallet_id, new_wallet_id) if w}
+                    for affected_wallet_id in affected_wallets:
+                        enqueue_recalculate_wallet(user_id, affected_wallet_id)
+
                 return True
             else:
                 return False
@@ -665,35 +624,19 @@ class TransactionRepository(MongoRepository):
             return False
 
     def _revert_wallet_balance_change(self, wallet_id: str, user_id: str, transaction_type: str, amount: float) -> bool:
-        """Revert wallet balance change when transaction is updated or deleted"""
+        """Revert wallet balance change (sync path — used by background worker internals)."""
         try:
-
             from mm.repositories.wallets import WalletRepository
             wallet_repo = WalletRepository()
-            
-            # Get current wallet using get_wallet_by_id method
-            wallet = wallet_repo.get_wallet_by_id(wallet_id, user_id)
-            if not wallet:
-                print(f"❌ [TRANSACTIONS] Wallet not found for revert: {wallet_id}")
-                return False
-            
-            # Get current actual_balance
-            current_balance = float(wallet.get("actual_balance", 0))
-            
-            # Calculate reverted balance (opposite of original transaction)
-            reverted_balance = current_balance
+
             if transaction_type == "income":
-                reverted_balance -= amount  # Remove income
+                delta = -amount
             elif transaction_type == "expense":
-                reverted_balance += amount  # Add back expense
+                delta = amount
             else:
                 return True
-            
-            # Update wallet balance
-            success = wallet_repo.update_wallet_balance(wallet_id, user_id, reverted_balance)
-            
-            return success
-            
+
+            return wallet_repo.adjust_wallet_balance(wallet_id, user_id, delta) is not None
         except Exception as e:
             import traceback
             print(f"❌ [TRANSACTIONS] Error traceback: {traceback.format_exc()}")
@@ -724,23 +667,14 @@ class TransactionRepository(MongoRepository):
             result = self.collection.delete_one({"_id": obj_id})
             
             if result.deleted_count > 0:
-                # Auto-update wallet balance setelah transaksi dihapus
                 if wallet_id and transaction_type and amount > 0:
-                    # Get balance before deletion for logging
-                    from mm.repositories.wallets import WalletRepository
-                    wallet_repo = WalletRepository()
-                    wallet = wallet_repo.get_wallet_by_id(wallet_id, user_id)
-                    if wallet:
-                        balance_before = float(wallet.get("actual_balance", 0))
-    
-                    # Revert balance change
-                    success = self._revert_wallet_balance_change(wallet_id, user_id, transaction_type, amount)
-                    
-                    # Log balance after deletion
-                    if success:
-                        updated_wallet = wallet_repo.get_wallet_by_id(wallet_id, user_id)
-                        if updated_wallet:
-                            balance_after = float(updated_wallet.get("actual_balance", 0))
+                    from mm.services.wallet_balance_worker import enqueue_revert_transaction
+                    enqueue_revert_transaction(
+                        wallet_id=wallet_id,
+                        user_id=user_id,
+                        transaction_type=transaction_type,
+                        amount=amount,
+                    )
 
                 return True
             else:
@@ -800,18 +734,21 @@ class TransactionRepository(MongoRepository):
                 # Balances match, use 0 as starting balance
                 starting_balance = 0.0
 
-            # Now recalculate all transactions with the correct starting balance
+            # Now recalculate all transactions with the correct starting balance.
+            # Build all updates in memory, then write them in ONE bulk_write instead of
+            # N separate update_one round-trips (the old hot path that made edits slow).
             running_balance = starting_balance
-            updated_count = 0
-            
+            now = int(time.time())
+            ops = []
+
             for tx in transactions:
                 tx_id = tx["_id"]
                 tx_type = tx.get("type", "expense")
                 tx_amount = float(tx.get("amount", 0))
-                
+
                 # Set balance_before to current running balance
                 balance_before = running_balance
-                
+
                 # Calculate balance_after based on transaction type
                 if tx_type == "income":
                     balance_after = running_balance + tx_amount
@@ -822,24 +759,23 @@ class TransactionRepository(MongoRepository):
                 else:
                     # For transfer types, keep the same balance
                     balance_after = running_balance
-                
-                # Update the transaction with new balance values
-                update_result = self.collection.update_one(
+
+                ops.append(UpdateOne(
                     {"_id": tx_id},
-                    {
-                        "$set": {
-                            "balance_before": balance_before,
-                            "balance_after": balance_after,
-                            "updated_at": int(time.time())
-                        }
-                    }
-                )
-                
-                if update_result.modified_count > 0:
-                    updated_count += 1
+                    {"$set": {
+                        "balance_before": balance_before,
+                        "balance_after": balance_after,
+                        "updated_at": now,
+                    }},
+                ))
+
+            updated_count = 0
+            if ops:
+                result = self.collection.bulk_write(ops, ordered=False)
+                updated_count = result.modified_count
 
             return {
-                "success": True, 
+                "success": True,
                 "message": f"Successfully recalculated {updated_count} transactions",
                 "updated_count": updated_count,
                 "starting_balance": starting_balance,
