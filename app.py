@@ -14,6 +14,7 @@ from config import ensure_indexes
 from config import get_gemini_api_key
 from mm.repositories.manual_balance import ManualBalanceRepository
 from mm.repositories.share_public import SharePublicRepository
+from mm.repositories.base import MongoRepository
 from mm.services.wallet_balance_worker import start_wallet_balance_worker
 import traceback
 
@@ -2706,7 +2707,8 @@ def settings():
         return render_template("settings.html",
                              scopes=scopes,
                              wallets=wallets,
-                             categories=categories)
+                             categories=categories,
+                             special_tags=_get_user_special_tags(user_id))
     except Exception as e:
         print(f"Error in settings: {e}")
         return render_template("settings.html",
@@ -3993,6 +3995,67 @@ def delete_wallet(wallet_id):
         print(f"Error in delete_wallet: {e}")
         return jsonify({"error": str(e)}), 500
 
+def _normalize_special_tags(value):
+    """Coerce a special_tags payload (list or comma string) into a clean list."""
+    if not value:
+        return []
+    if isinstance(value, str):
+        value = value.split(",")
+    out = []
+    for t in value:
+        if t is None:
+            continue
+        s = str(t).strip()
+        if s and s not in out:
+            out.append(s)
+    return out
+
+
+@app.route("/api/tags", methods=["GET"])
+def list_tags():
+    """Distinct tags already used by the current user (for the tag picker)."""
+    user_id = session.get("user_id")
+    if not user_id:
+        return jsonify({"error": "Authentication required"}), 401
+    return jsonify(TransactionRepository().distinct_tags(user_id))
+
+
+def _get_user_special_tags(user_id):
+    """The current user's curated special-tags list (one doc per user)."""
+    try:
+        doc = MongoRepository("special_tags").collection.find_one({"user_id": user_id})
+        return (doc or {}).get("tags") or []
+    except Exception:
+        return []
+
+
+def _set_user_special_tags(user_id, tags):
+    MongoRepository("special_tags").collection.update_one(
+        {"user_id": user_id},
+        {"$set": {"tags": tags, "updated_at": int(datetime.now().timestamp())}},
+        upsert=True,
+    )
+
+
+@app.route("/api/special-tags", methods=["GET"])
+def get_special_tags():
+    user_id = session.get("user_id")
+    if not user_id:
+        return jsonify({"error": "Authentication required"}), 401
+    return jsonify(_get_user_special_tags(user_id))
+
+
+@app.route("/api/special-tags", methods=["PUT"])
+def set_special_tags():
+    user_id = session.get("user_id")
+    if not user_id:
+        return jsonify({"error": "Authentication required"}), 401
+    body = request.get_json(force=True) or {}
+    tags = _normalize_special_tags(body.get("tags"))
+    _set_user_special_tags(user_id, tags)
+    return jsonify({"tags": tags})
+
+
 @app.route("/api/categories/", methods=["GET"])
 def list_categories():
     """Get semua kategori untuk user"""
@@ -4014,7 +4077,8 @@ def create_category():
         
         # Tambah user_id ke data
         body["user_id"] = user_id
-        
+        body["special_tags"] = _normalize_special_tags(body.get("special_tags"))
+
         repo = CategoryRepository()
         _id = repo.insert_one(body)
         return jsonify({"_id": _id}), 201
@@ -4028,7 +4092,8 @@ def update_category(category_id):
     try:
         user_id = session.get("user_id", "demo_user")
         body = request.get_json(force=True) or {}
-        
+        body["special_tags"] = _normalize_special_tags(body.get("special_tags"))
+
         repo = CategoryRepository()
         success = repo.update_category(category_id, user_id, body)
         
@@ -4598,6 +4663,35 @@ def _has_minimum_share_filter(filters_dict):
     )
 
 
+def _special_aggregate(transactions, special_tags):
+    """Aggregate transactions matching ANY special tag (OR; each tx counted once).
+
+    Returns {tags, count, amount, breakdown:[{tag,count,amount}]}.
+    """
+    specials = [str(t) for t in (special_tags or []) if t]
+    if not specials:
+        return {"tags": [], "count": 0, "amount": 0.0, "breakdown": []}
+
+    def amt(t):
+        try:
+            return float(t.get("amount", 0) or 0)
+        except Exception:
+            return 0.0
+
+    special_set = set(specials)
+    matched = [t for t in transactions if special_set & set(t.get("tags") or [])]
+    total_amount = sum(amt(t) for t in matched)
+
+    breakdown = []
+    for tag in specials:
+        ts = [t for t in transactions if tag in (t.get("tags") or [])]
+        if ts:
+            breakdown.append({"tag": tag, "count": len(ts), "amount": sum(amt(x) for x in ts)})
+    breakdown.sort(key=lambda x: x["amount"], reverse=True)
+
+    return {"tags": specials, "count": len(matched), "amount": total_amount, "breakdown": breakdown}
+
+
 _SHARE_CHART_PALETTE = [
     "#667eea", "#764ba2", "#22c55e", "#f59e0b",
     "#ef4444", "#06b6d4", "#ec4899", "#8b5cf6", "#94a3b8",
@@ -4618,6 +4712,13 @@ def _build_share_report(transactions, wallets, scopes, categories, period_label=
     wallet_name = {str(w.get("_id")): w.get("name", "Unknown wallet") for w in (wallets or [])}
     scope_name = {str(s.get("_id")): s.get("name", "No scope") for s in (scopes or [])}
     cat_name = {str(c.get("_id")): c.get("name", "Uncategorized") for c in (categories or [])}
+    # System categories that must NEVER count as income/expense: the literal
+    # string ids used by transfer routes AND any real category document whose
+    # name is Transfer / Balance Adjustment / Transfer Fee (ObjectId id).
+    system_cat_ids = {"transfer", "transfer_fee", "balance_adjustment"}
+    for c in (categories or []):
+        if (c.get("name") or "").strip().lower() in ("transfer", "balance adjustment", "transfer fee"):
+            system_cat_ids.add(str(c.get("_id")))
 
     def amount(t):
         try:
@@ -4627,6 +4728,11 @@ def _build_share_report(transactions, wallets, scopes, categories, period_label=
 
     def is_real(t, want):
         if t.get("type") != want:
+            return False
+        # Exclude transfers / fees / balance adjustments by category_id — this is the
+        # canonical signal used across the app (dashboard, wealth_pulse) — plus the flags
+        # as a fallback. Transfers must NOT count as income or expense.
+        if str(t.get("category_id") or "") in system_cat_ids:
             return False
         return not (
             t.get("is_transfer")
@@ -4674,6 +4780,43 @@ def _build_share_report(transactions, wallets, scopes, categories, period_label=
             if tag:
                 agg_tag[tag] = agg_tag.get(tag, 0.0) + a
     by_tag = _ranked(agg_tag)
+
+    # Transfers (movements between saving spaces) — shown separately, NOT as
+    # income/expense. Each transfer creates an outgoing + incoming record (and
+    # optionally a fee record); dedupe to one movement per transfer.
+    seen_transfers = set()
+    transfers = []
+    for t in transactions:
+        cat = str(t.get("category_id") or "")
+        if t.get("is_transfer_fee") or cat == "transfer_fee":
+            continue
+        is_movement = t.get("is_transfer") or cat == "transfer"
+        if not (is_movement and t.get("from_wallet_id") and t.get("to_wallet_id")):
+            continue
+        dedup_key = (
+            str(t.get("from_wallet_id")),
+            str(t.get("to_wallet_id")),
+            round(amount(t), 2),
+            t.get("timestamp"),
+        )
+        if dedup_key in seen_transfers:
+            continue
+        seen_transfers.add(dedup_key)
+        ts = t.get("timestamp")
+        try:
+            date_str = datetime.fromtimestamp(int(ts)).strftime("%Y-%m-%d %H:%M") if ts else ""
+        except Exception:
+            date_str = ""
+        transfers.append({
+            "from_wallet": wallet_name.get(str(t.get("from_wallet_id")), "—"),
+            "to_wallet": wallet_name.get(str(t.get("to_wallet_id")), "—"),
+            "amount": amount(t),
+            "admin_fee": float(t.get("admin_fee") or 0),
+            "date": date_str,
+            "note": (t.get("note") or ""),
+        })
+    transfers.sort(key=lambda x: x.get("date") or "", reverse=True)
+    total_transferred = sum(m["amount"] for m in transfers)
 
     # Strict hierarchy (wallet -> scope -> category) for treemap/sunburst.
     tree = {}
@@ -4727,6 +4870,14 @@ def _build_share_report(transactions, wallets, scopes, categories, period_label=
             "id": f"Tag terbanyak #{top_tag[0]} dengan Rp {top_tag[1]:,.0f} di berbagai transaksi "
                   f"(tag tumpang tindih, jadi ini bukan bagian dari total).",
         })
+    if transfers:
+        n = len(transfers)
+        insights.append({
+            "en": f"You moved Rp {total_transferred:,.0f} between saving spaces in {n} transfer"
+                  f"{'s' if n != 1 else ''} (movements, not income or expense).",
+            "id": f"Anda memindahkan Rp {total_transferred:,.0f} antar ruang tabungan dalam {n} transfer "
+                  f"(perpindahan, bukan pemasukan atau pengeluaran).",
+        })
     if largest_expense:
         insights.append({
             "en": f"Biggest single expense: Rp {largest_expense[0]:,.0f} on \"{largest_expense[1]}\".",
@@ -4770,6 +4921,9 @@ def _build_share_report(transactions, wallets, scopes, categories, period_label=
         "top_tag": top_tag,
         "largest_expense": largest_expense,
         "insights": insights,
+        "transfers": transfers,
+        "total_transferred": total_transferred,
+        "transfer_count": len(transfers),
         "period_label": period_label,
         "period_label_id": period_label_id,
     }
@@ -4787,6 +4941,8 @@ def share_public_page():
     wallets = WalletRepository().list_by_user(user_id)
     scopes = ScopeRepository().list_by_user(user_id)
     categories = CategoryRepository().list_by_user_with_defaults(user_id)
+    # Special tags the user has curated in Settings → the share picker picks from these.
+    available_special_tags = _get_user_special_tags(user_id)
     return render_template(
         "share_public.html",
         shares=shares,
@@ -4794,6 +4950,7 @@ def share_public_page():
         scopes=scopes,
         categories=categories,
         username=username,
+        available_special_tags=available_special_tags,
     )
 
 
@@ -4836,6 +4993,7 @@ def api_create_share_public():
         "date_from": _date_str_to_epoch(body.get("date_from")) if date_mode == "range" else None,
         "date_to": _date_str_to_epoch(body.get("date_to"), end_of_day=True) if date_mode == "range" else None,
         "is_published": bool(body.get("is_published", False)),
+        "special_tags": _normalize_special_tags(body.get("special_tags")),
     }
     new_id = repo.create(doc)
     if not new_id:
@@ -4890,6 +5048,9 @@ def api_update_share_public(share_id):
     if "is_published" in body:
         updates["is_published"] = bool(body.get("is_published"))
 
+    if "special_tags" in body:
+        updates["special_tags"] = _normalize_special_tags(body.get("special_tags"))
+
     if not updates:
         return jsonify(existing), 200
 
@@ -4923,6 +5084,33 @@ def api_delete_share_public(share_id):
     return jsonify({"message": "Share deleted"}), 200
 
 
+@app.route("/api/share-public/preview-special", methods=["POST"])
+def api_preview_special():
+    """Live preview: count + amount for selected special tags within the share's filters."""
+    user_id = session.get("user_id")
+    if not user_id:
+        return jsonify({"error": "Authentication required"}), 401
+    body = request.get_json(force=True) or {}
+    specials = _normalize_special_tags(body.get("special_tags"))
+    if not specials:
+        return jsonify({"tags": [], "count": 0, "amount": 0.0, "breakdown": []})
+
+    filters = _share_filters_from_body(body)
+    date_from, date_to = _share_date_range(
+        (body.get("date_mode") or "all"),
+        body.get("month"),
+        _date_str_to_epoch(body.get("date_from")),
+        _date_str_to_epoch(body.get("date_to"), end_of_day=True),
+    )
+    if date_from:
+        filters["date_from"] = date_from
+    if date_to:
+        filters["date_to"] = date_to
+
+    txs = TransactionRepository().get_transactions_with_filters(user_id, filters, limit=1000)
+    return jsonify(_special_aggregate(txs, specials))
+
+
 @app.route("/myuangly/<username>/<slug>")
 def share_public_view(username, slug):
     """Public, read-only view of a published share. No login required."""
@@ -4934,7 +5122,7 @@ def share_public_view(username, slug):
     if not share or not share.get("is_published"):
         return render_template("share_public_view.html", available=False), 404
 
-    # Build the filter dict for the transactions query (always epoch ints).
+    # Owner filters + date range — used for BOTH the report and the list.
     filters = dict(share.get("filters") or {})
     date_from, date_to = _share_date_range(
         share.get("date_mode"),
@@ -4957,8 +5145,32 @@ def share_public_view(username, slug):
         per_page = 10
 
     owner_id = str(owner["_id"])
+
+    # Viewer type filter (server-side). The REPORT always reflects the full shared
+    # set; only the paginated transaction list is narrowed by the viewer's choice.
+    viewer_type = (request.args.get("tx_type") or "all").lower()
+    tx_filters = dict(filters)
+    extra_query = None
+    if viewer_type in ("income", "expense"):
+        tx_filters.pop("type", None)  # viewer type overrides owner's type for the list
+        extra_query = {
+            "type": viewer_type,
+            "is_transfer": {"$ne": True},
+            "is_transfer_fee": {"$ne": True},
+            "is_balance_adjustment": {"$ne": True},
+            "category_id": {"$nin": ["transfer", "transfer_fee", "balance_adjustment"]},
+        }
+    elif viewer_type == "transfer":
+        tx_filters.pop("type", None)
+        extra_query = {
+            "$and": [
+                {"$or": [{"category_id": "transfer"}, {"is_transfer": True}]},
+                {"is_transfer_fee": {"$ne": True}},
+            ]
+        }
+
     transactions, total_count = TransactionRepository().\
-        get_transactions_with_filters_paginated(owner_id, filters, page, per_page)
+        get_transactions_with_filters_paginated(owner_id, tx_filters, page, per_page, extra_query)
     total_pages = (total_count + per_page - 1) // per_page
 
     wallets = WalletRepository().list_by_user(owner_id)
@@ -4984,6 +5196,7 @@ def share_public_view(username, slug):
     else:
         _pl, _pl_id = "all time", "semua waktu"
     report = _build_share_report(report_txs, wallets, scopes, categories, _pl, _pl_id)
+    special = _special_aggregate(report_txs, share.get("special_tags") or [])
 
     return render_template(
         "share_public_view.html",
@@ -5001,7 +5214,10 @@ def share_public_view(username, slug):
         total_pages=total_pages,
         has_prev=page > 1,
         has_next=page < total_pages,
+        viewer_type=viewer_type,
         report=report,
+        special=special,
+        simple_transactions=report_txs,
         palette=_SHARE_CHART_PALETTE,
     )
 

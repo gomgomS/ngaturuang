@@ -1,6 +1,8 @@
 {% extends 'layout.html' %}
 
 {% block head %}
+<link rel="stylesheet" href="/static/css/tagpicker.css">
+<script src="/static/js/tagpicker.js"></script>
 <style>
     :root { --sp-grad: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
     .sp-page { max-width: 1000px; margin: 0 auto; padding: 1.5rem 1rem 4rem; }
@@ -145,6 +147,9 @@
                     <i class="fas fa-exclamation-circle"></i> Choose at least one: Saving Space, Scope, Category, or Tags.
                 </div>
 
+                <div class="sp-section">Special tags <span class="sp-hint">— feature curated tags with totals on the public page</span></div>
+                <div id="spSpecialTags"></div>
+
                 <div class="sp-section">Date range</div>
                 <div class="row g-3 align-items-end">
                     <div class="col-md-4">
@@ -279,6 +284,7 @@ function collectPayload() {
         month: document.getElementById('sp_month').value,
         date_from: document.getElementById('sp_date_from').value,
         date_to: document.getElementById('sp_date_to').value,
+        special_tags: window._spPicker ? window._spPicker.get() : [],
     };
 }
 
@@ -313,6 +319,7 @@ function editShare(share) {
     document.getElementById('sp_category').value = sf.category_id || '';
     document.getElementById('sp_type').value = sf.type || '';
     document.getElementById('sp_tags').value = (sf.tags || []).join(', ');
+    if (window._spPicker) window._spPicker.set(share.special_tags || []);
     document.getElementById('sp_date_mode').value = share.date_mode || 'all';
     document.getElementById('sp_month').value = share.month || '';
     if (share.date_from) document.getElementById('sp_date_from').value = epochToDateInput(share.date_from);
@@ -333,6 +340,7 @@ function epochToDateInput(epoch) {
 function cancelEdit() {
     editingId = null;
     document.getElementById('shareForm').reset();
+    if (window._spPicker) window._spPicker.reset();
     onDateModeChange(); updateUrlPreview(); onFilterChange();
     document.getElementById('sp_form_title').innerHTML = '<i class="fas fa-plus-circle text-primary me-2"></i>New Share';
     document.getElementById('sp_submit').innerHTML = '<i class="fas fa-plus me-1"></i> Create Share';
@@ -358,5 +366,16 @@ function copyUrl(path) {
 }
 
 onDateModeChange(); updateUrlPreview(); onFilterChange();
+
+// Special-tags picker (suggestions = the user's curated special tags) + live preview
+(function () {
+    var el = document.getElementById('spSpecialTags');
+    if (!el || !window.initTagPicker) return;
+    window._spPicker = window.initTagPicker(el, {
+        suggestions: {{ available_special_tags|tojson }} || [],
+        placeholder: 'Pick from your special tags…',
+        allowFree: false
+    });
+})();
 </script>
 {% endblock %}

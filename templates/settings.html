@@ -2,6 +2,8 @@
 
 {% block head %}
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/css/tagpicker.css">
+<script src="/static/js/tagpicker.js"></script>
 {% endblock %}
 
 {% block content %}
@@ -272,6 +274,11 @@
                         <i class="fas fa-tags me-2"></i><span data-translate="settings.categories">Categories</span>
                     </button>
                 </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="specialTags-tab" data-bs-toggle="tab" data-bs-target="#specialTags" type="button" role="tab">
+                        <i class="fas fa-star me-2"></i><span>Special Tags</span>
+                    </button>
+                </li>
             </ul>
         </div>
     </div>
@@ -414,11 +421,11 @@
                                     </div>
                                     {% if not category.is_system %}
                                     <div class="action-buttons">
-                                        <button class="btn btn-outline-primary btn-sm edit-category-btn" 
-                                                data-category-id="{{ category._id }}" 
-                                                data-category-name="{{ category.name }}" 
-                                                data-category-description="{{ category.description or '' }}" 
-                                                data-category-is-system="{{ 'true' if category.is_system else 'false' }}" 
+                                        <button class="btn btn-outline-primary btn-sm edit-category-btn"
+                                                data-category-id="{{ category._id }}"
+                                                data-category-name="{{ category.name }}"
+                                                data-category-description="{{ category.description or '' }}"
+                                                data-category-is-system="{{ 'true' if category.is_system else 'false' }}"
                                                 title="Edit" data-translate="settings.edit">
                                             <i class="fas fa-edit"></i>
                                         </button>
@@ -441,6 +448,26 @@
                             <p class="text-muted mb-0" data-translate="settings.create_first_category">Create your first category to organize transactions</p>
                         </div>
                     {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Special Tags Tab -->
+        <div class="tab-pane fade" id="specialTags" role="tabpanel">
+            <div class="card content-card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="fas fa-star me-2"></i>Special Tags
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted small mb-3">Curate the tags you want to feature. These become selectable when creating a public share (with totals shown on the public page). Search tags you've already used, or type a new one and press Enter.</p>
+                    <div id="specialTagsPicker"></div>
+                    <div class="mt-3">
+                        <button class="btn btn-action" onclick="saveSpecialTags()">
+                            <i class="fas fa-save me-1"></i> Save Special Tags
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -768,7 +795,7 @@ function editCategory(categoryId, name, description, isSystem) {
     document.getElementById('category_id').value = categoryId;
     document.getElementById('category_name').value = name;
     document.getElementById('category_description').value = description;
-    
+
     // Change modal title
     const translations = window.translations && window.translations[window.currentLanguage] 
         ? window.translations[window.currentLanguage].settings 
@@ -786,7 +813,7 @@ function submitCategory() {
     
     const categoryId = data._id;
     delete data._id;
-    
+
     const method = categoryId ? 'PUT' : 'POST';
     const url = categoryId ? `/api/categories/${categoryId}` : '/api/categories/';
     
@@ -858,6 +885,20 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Start settings tour for new users
     startSettingsTour();
+
+    // Special Tags picker (top-level section)
+    const stEl = document.getElementById('specialTagsPicker');
+    if (stEl && window.initTagPicker) {
+        window._specialPicker = window.initTagPicker(stEl, {
+            suggestions: [],
+            initial: {{ special_tags|tojson }} || [],
+            placeholder: 'Search your used tags or type a new one…',
+            allowFree: true
+        });
+        fetch('/api/tags').then(r => r.json()).then(tags => {
+            if (window._specialPicker && Array.isArray(tags)) window._specialPicker.setSuggestions(tags);
+        }).catch(() => {});
+    }
     // Scope edit buttons
     document.querySelectorAll('.edit-scope-btn').forEach(btn => {
         btn.addEventListener('click', function() {
@@ -977,6 +1018,22 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 });
+
+// Special Tags Functions
+function saveSpecialTags() {
+    const tags = window._specialPicker ? window._specialPicker.get() : [];
+    fetch('/api/special-tags', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tags })
+    })
+    .then(r => r.json())
+    .then(res => {
+        if (res.tags) alert('Special tags saved (' + res.tags.length + ')');
+        else alert('Error: ' + (res.error || 'Unknown error'));
+    })
+    .catch(() => alert('Network error'));
+}
 
 // Settings Language Functions
 function initializeSettingsLanguage() {

@@ -4,188 +4,238 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>{{ share.title if available and share.title else 'Shared Transactions' }} · Uangly</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
 <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
 <style>
-    body { font-family: 'Inter', system-ui, -apple-system, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; margin: 0; }
-    .wrap { max-width: 1200px; margin: 0 auto; padding: 1.5rem 1rem 4rem; }
-    .hero { background: rgba(255,255,255,.96); border-radius: 22px; box-shadow: 0 16px 50px rgba(0,0,0,.22); padding: 1.75rem; margin-bottom: 1.5rem; }
-    .hero h1 { font-weight: 700; margin: 0 0 .25rem; }
-    .tx-card { border: none; border-radius: 14px; box-shadow: 0 3px 12px rgba(0,0,0,.12); margin-bottom: 0; height: 100%; }
-    .tx-icon { width: 40px; height: 40px; border-radius: 10px; background: rgba(0,123,255,.1); display: flex; align-items: center; justify-content: center; }
-    .note-box { background: #f8f9fa; padding: .5rem .75rem; border-radius: 8px; border-left: 3px solid #667eea; }
-    .bal-box { background: #f8f9fa; border-radius: 10px; }
-    .badge-soft { font-size: .72rem; }
-    .powered { text-align: center; color: rgba(255,255,255,.85); margin-top: 1.5rem; font-size: .85rem; }
-    .powered a { color: #fff; text-decoration: underline; }
-    .page-link { border-radius: 8px !important; margin: 0 2px; }
+    :root {
+        --grad: linear-gradient(135deg,#6366f1 0%,#8b5cf6 50%,#d946ef 100%);
+        --ink:#0f172a; --mut:#64748b; --line:#e7eaf3; --bg:#eceefb;
+        --card:#ffffff; --soft:#f5f6fd;
+    }
+    * { box-sizing:border-box; }
+    html,body { margin:0; }
+    body { font-family:'Inter',system-ui,sans-serif; background:var(--bg); color:var(--ink); -webkit-font-smoothing:antialiased; }
+    /* full-bleed shell — no centered max-width, no side gaps */
+    .shell { width:100%; padding:.8rem clamp(.5rem,2vw,1.4rem) 2.5rem; }
 
-    .sp-lang button { border: 1px solid rgba(102,126,234,.35); background: #fff; color: #667eea; border-radius: 8px; padding: .2rem .55rem; font-size: .72rem; font-weight: 700; cursor: pointer; }
-    .sp-lang button.active { background: #667eea; color: #fff; border-color: #667eea; }
+    /* ---- Top bar ---- */
+    .topbar { background:var(--card); border:1px solid var(--line); border-radius:18px; box-shadow:0 8px 28px rgba(30,41,59,.07); padding:.85rem 1.1rem; margin-bottom:.85rem; }
+    .avatar { width:46px; height:46px; border-radius:13px; background:var(--grad); color:#fff; display:inline-flex; align-items:center; justify-content:center; font-weight:900; font-size:1.1rem; box-shadow:0 6px 16px rgba(99,102,241,.4); flex-shrink:0; }
+    .tb-title { font-weight:800; font-size:1.15rem; line-height:1.15; }
+    .tb-sub { font-size:.78rem; }
+    .tb-chips { flex:1 1 240px; min-width:200px; }
+    .pill { display:inline-flex; align-items:center; gap:.35rem; background:#eef0ff; color:#4f46e5; border-radius:20px; padding:.28rem .7rem; font-size:.72rem; font-weight:700; white-space:nowrap; }
+    .pill.muted { background:#eef1f6; color:var(--mut); }
 
-    .report-card { background: rgba(255,255,255,.97); border-radius: 18px; box-shadow: 0 10px 30px rgba(0,0,0,.12); padding: 1.1rem 1.4rem; margin-bottom: 1.25rem; }
-    .report-card h5 { font-weight: 800; }
-    .stat-card { background: #fff; border: 1px solid #eef0f6; border-radius: 14px; padding: .7rem .9rem; box-shadow: 0 3px 10px rgba(0,0,0,.05); }
-    .stat-card .lbl { font-size: .66rem; text-transform: uppercase; letter-spacing: .04em; color: #8a90a6; font-weight: 700; }
-    .stat-card .val { font-size: 1.05rem; font-weight: 800; margin-top: .1rem; }
-    .legend-row { display: flex; justify-content: space-between; align-items: center; font-size: .82rem; padding: .28rem 0; border-bottom: 1px dashed #eef0f6; }
-    .legend-dot { width: 10px; height: 10px; border-radius: 3px; display: inline-block; margin-right: .45rem; vertical-align: middle; }
-    .progress { height: 8px; border-radius: 6px; background: #eef0f6; margin-top: .35rem; }
-    .progress-bar { border-radius: 6px; }
-    .insight-item { display: flex; gap: .55rem; align-items: flex-start; font-size: .88rem; color: #3b4256; padding: .2rem 0; }
-    .rpt-tabs { list-style: none; display: flex; gap: .4rem; padding: 0; margin: 0 0 1rem; flex-wrap: wrap; }
-    .rpt-tab { border: 1px solid #e3e6ef; background: #fff; color: #555; border-radius: 10px; padding: .4rem .9rem; font-size: .85rem; font-weight: 600; cursor: pointer; }
-    .rpt-tab.active { background: #667eea; color: #fff; border-color: #667eea; }
-    .rpt-dims { display: flex; flex-wrap: wrap; gap: .3rem; margin-bottom: .6rem; }
-    .rpt-dim { border: 1px solid #e3e6ef; background: #f5f6fa; color: #555; border-radius: 20px; padding: .25rem .7rem; font-size: .78rem; cursor: pointer; }
-    .rpt-dim.active { background: #764ba2; color: #fff; border-color: #764ba2; }
-    .rpt-note { font-size: .76rem; color: #8a90a6; margin-top: .5rem; }
-    .rpt-sub { font-weight: 600; }
-    .rpt-side { background: #f7f8ff; border: 1px solid #eef0f6; border-radius: 12px; padding: .75rem .9rem; height: 100%; max-height: 440px; overflow: auto; }
-    .rpt-insights { background: #eef1ff; border-radius: 12px; border-left: 4px solid #667eea; }
+    /* ---- Cards ---- */
+    .card-x { background:var(--card); border:1px solid var(--line); border-radius:18px; box-shadow:0 6px 22px rgba(30,41,59,.06); display:flex; flex-direction:column; overflow:hidden; height:100%; }
+    .card-head { display:flex; align-items:center; gap:.6rem; padding:.7rem 1rem; border-bottom:1px solid var(--line); background:linear-gradient(180deg,#fcfdff,#f7f8fe); flex-wrap:wrap; }
+    .card-head h6 { margin:0; font-size:.82rem; font-weight:800; letter-spacing:.01em; }
+    .chip-ic { width:30px; height:30px; border-radius:9px; display:inline-flex; align-items:center; justify-content:center; font-size:.8rem; color:#fff; flex-shrink:0; }
+    .card-body { padding:.9rem 1rem; flex:1; min-height:0; }
+    .card-body.scroll { overflow:auto; }
+
+    .scroll::-webkit-scrollbar { width:7px; height:7px; }
+    .scroll::-webkit-scrollbar-thumb { background:rgba(99,102,241,.28); border-radius:8px; }
+    .scroll::-webkit-scrollbar-track { background:transparent; }
+
+    /* ---- KPI tiles ---- */
+    .kpi-row { display:grid; grid-template-columns:repeat(4,1fr); gap:.85rem; }
+    @media(max-width:768px){ .kpi-row{ grid-template-columns:repeat(2,1fr); } }
+    .kpi { background:var(--card); border:1px solid var(--line); border-radius:16px; padding:.85rem .95rem; box-shadow:0 6px 18px rgba(30,41,59,.05); display:flex; align-items:center; gap:.7rem; position:relative; overflow:hidden; }
+    .kpi .ic { width:42px; height:42px; border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:1rem; flex-shrink:0; }
+    .kpi .lbl { font-size:.62rem; text-transform:uppercase; letter-spacing:.06em; color:var(--mut); font-weight:800; }
+    .kpi .val { font-size:1.08rem; font-weight:800; line-height:1.1; }
+
+    /* ---- tags wrap (fix overlap) ---- */
+    .tag-wrap { display:flex; flex-wrap:wrap; gap:.32rem; }
+    .badge-soft { font-size:.66rem; font-weight:600; padding:.28rem .5rem; border-radius:7px; }
+
+    /* ---- viz tabs/dims ---- */
+    .rpt-tabs { list-style:none; display:flex; gap:.3rem; padding:0; margin:0; flex-wrap:wrap; }
+    .rpt-tab { border:1px solid var(--line); background:#fff; color:#555; border-radius:9px; padding:.28rem .7rem; font-size:.76rem; font-weight:600; cursor:pointer; }
+    .rpt-tab.active { background:#6366f1; color:#fff; border-color:#6366f1; }
+    .rpt-dims { display:flex; flex-wrap:wrap; gap:.3rem; margin-bottom:.7rem; }
+    .rpt-dim { border:1px solid var(--line); background:#f3f4fb; color:#555; border-radius:20px; padding:.22rem .7rem; font-size:.73rem; font-weight:600; cursor:pointer; }
+    a.rpt-dim { text-decoration:none; display:inline-flex; align-items:center; }
+    .rpt-dim.active { background:#8b5cf6; color:#fff; border-color:#8b5cf6; }
+    .rpt-note { font-size:.73rem; color:var(--mut); }
+    .legend-row { display:flex; justify-content:space-between; align-items:center; font-size:.8rem; padding:.32rem .2rem; border-bottom:1px dashed var(--line); gap:.5rem; }
+    .legend-row:last-child { border-bottom:none; }
+    .legend-dot { width:10px; height:10px; border-radius:3px; display:inline-block; margin-right:.45rem; flex-shrink:0; }
+    .insight-item { display:flex; gap:.5rem; align-items:flex-start; font-size:.84rem; color:#334155; padding:.28rem; }
+
+    /* ---- transactions ---- */
+    .tx { border:1px solid var(--line); border-radius:13px; background:#fff; box-shadow:0 3px 10px rgba(30,41,59,.05); height:100%; }
+    .tx.in { border-left:4px solid #22c55e; }
+    .tx.out { border-left:4px solid #ef4444; }
+    .tx.move { border-left:4px solid #f59e0b; }
+    .tx.adj { border-left:4px solid #94a3b8; }
+    .tx-ic { width:38px; height:38px; border-radius:11px; background:#eef0ff; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+    .note-box { background:#f4f5fb; padding:.4rem .6rem; border-radius:8px; border-left:3px solid #6366f1; font-size:.78rem; }
+    .bal-box { background:#f6f7fc; border-radius:10px; }
+    .progress { height:7px; border-radius:6px; background:var(--line); margin-top:.3rem; }
+    .progress-bar { border-radius:6px; }
+    .page-link { border-radius:8px !important; margin:0 2px; border:1px solid var(--line); color:#6366f1; }
+    .page-item.active .page-link { background:#6366f1; border-color:#6366f1; }
+
+    .sp-lang button { border:1px solid rgba(99,102,241,.3); background:#fff; color:#6366f1; border-radius:8px; padding:.2rem .55rem; font-size:.7rem; font-weight:800; cursor:pointer; }
+    .sp-lang button.active { background:#6366f1; color:#fff; border-color:#6366f1; }
+
+    .powered { text-align:center; color:var(--mut); margin-top:1.2rem; font-size:.78rem; }
+    .powered a { color:#6366f1; text-decoration:none; font-weight:700; }
 </style>
 </head>
 <body>
-<div class="wrap">
-
-{% macro tag_ranked(report) %}
-{% if report.by_tag %}
-<div class="rpt-sub text-muted small mt-3 mb-1"><span data-i18n="top_tags">Top tags</span> <span class="rpt-note" data-i18n="tags_note">(tags overlap — not a share of total)</span></div>
-{% for name, val, pct in report.by_tag[:8] %}
-<div class="legend-row">
-    <span><span class="legend-dot" style="background: {{ palette[loop.index0 % palette|length] }}"></span>#{{ name }}</span>
-    <span class="text-muted">Rp {{ "{:,.0f}".format(val|float) }}</span>
-</div>
-{% endfor %}
-{% endif %}
-{% endmacro %}
+<div class="shell">
 
 {% if not available %}
-    <div class="hero text-center py-5">
-        <i class="fas fa-lock fa-3x text-muted mb-3"></i>
-        <h3 data-i18n="not_available">Share not available</h3>
-        <p class="text-muted mb-0" data-i18n="not_available_desc">This link is invalid, unpublished, or has been removed by the owner.</p>
+    <div class="card-x" style="max-width:640px;margin:2rem auto;">
+        <div class="card-body text-center py-5">
+            <i class="fas fa-lock fa-3x text-muted mb-3"></i>
+            <h4 data-i18n="not_available">Share not available</h4>
+            <p class="text-muted mb-0" data-i18n="not_available_desc">This link is invalid, unpublished, or has been removed by the owner.</p>
+        </div>
     </div>
 {% else %}
     {% set sf = share.filters or {} %}
 
-    <!-- Header -->
-    <div class="hero">
-        <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
-            <div>
-                <h1><i class="fas fa-chart-line text-primary me-2"></i>{{ share.title or 'Shared Transactions' }}</h1>
-                <div class="text-muted small">
-                    <i class="fas fa-user-circle me-1"></i> {{ owner_name }}
-                    {% if owner_username != owner_name %}<span class="text-muted">(@{{ owner_username }})</span>{% endif %}
-                </div>
+    <!-- Top bar -->
+    <header class="topbar">
+        <div class="d-flex align-items-center gap-3 flex-wrap">
+            <div class="avatar">{{ (owner_name or 'U')[:1]|upper }}</div>
+            <div class="flex-grow-1" style="min-width:160px;">
+                <div class="tb-title"><i class="fas fa-chart-line me-2" style="color:#6366f1;"></i>{{ share.title or 'Shared Transactions' }}</div>
+                <div class="tb-sub text-muted"><i class="fas fa-user me-1"></i>{{ owner_name }}{% if owner_username != owner_name %} <span>@{{ owner_username }}</span>{% endif %}</div>
             </div>
-            <div class="text-muted small text-end">
-                <div class="sp-lang mb-2">
-                    <button type="button" data-lang="en" class="active">EN</button>
-                    <button type="button" data-lang="id">ID</button>
-                </div>
-                <span id="heroPeriod"></span><br>
-                <span id="heroCount"></span>
+            <div class="tb-chips tag-wrap">
+                {% if sf.type %}<span class="badge bg-info badge-soft">{{ sf.type|title }}</span>{% endif %}
+                {% set w = wallets|selectattr('_id','equalto',sf.wallet_id)|first %}
+                {% if w %}<span class="badge bg-light text-dark border badge-soft"><i class="fas fa-wallet me-1"></i>{{ w.name }}</span>{% endif %}
+                {% set sc = scopes|selectattr('_id','equalto',sf.scope_id)|first %}
+                {% if sc %}<span class="badge bg-light text-dark border badge-soft"><i class="fas fa-layer-group me-1"></i>{{ sc.name }}</span>{% endif %}
+                {% set ct = categories|selectattr('_id','equalto',sf.category_id)|first %}
+                {% if ct %}<span class="badge bg-light text-dark border badge-soft"><i class="fas fa-folder me-1"></i>{{ ct.name }}</span>{% endif %}
+                {% for t in (sf.tags or []) %}<span class="badge bg-secondary badge-soft">#{{ t }}</span>{% endfor %}
+            </div>
+            <div class="d-flex align-items-center gap-2 flex-wrap">
+                <div class="sp-lang"><button type="button" data-lang="en" class="active">EN</button><button type="button" data-lang="id">ID</button></div>
+                <span class="pill"><i class="fas fa-calendar"></i> <span id="heroPeriod"></span></span>
+                <span class="pill muted"><span id="heroCount"></span></span>
             </div>
         </div>
-        <div class="mt-2">
-            {% if sf.type %}<span class="badge bg-info badge-soft">{{ sf.type|title }}</span>{% endif %}
-            {% set w = wallets|selectattr('_id','equalto',sf.wallet_id)|first %}
-            {% if w %}<span class="badge bg-light text-dark border badge-soft">Wallet: {{ w.name }}</span>{% endif %}
-            {% set sc = scopes|selectattr('_id','equalto',sf.scope_id)|first %}
-            {% if sc %}<span class="badge bg-light text-dark border badge-soft">Scope: {{ sc.name }}</span>{% endif %}
-            {% set ct = categories|selectattr('_id','equalto',sf.category_id)|first %}
-            {% if ct %}<span class="badge bg-light text-dark border badge-soft">Category: {{ ct.name }}</span>{% endif %}
-            {% for t in (sf.tags or []) %}<span class="badge bg-secondary badge-soft">#{{ t }}</span>{% endfor %}
+    </header>
+
+    {% if report and (report.total_income or report.total_expense) %}
+    <!-- KPI strip (full width) -->
+    <div class="kpi-row" style="margin-bottom:.85rem;">
+        <div class="kpi">
+            <div class="ic" style="background:rgba(34,197,94,.16);color:#16a34a;"><i class="fas fa-arrow-trend-up"></i></div>
+            <div><div class="lbl" style="color:#16a34a;" data-i18n="income">Income</div><div class="val text-success">Rp {{ "{:,.0f}".format(report.total_income|float) }}</div></div>
+        </div>
+        <div class="kpi">
+            <div class="ic" style="background:rgba(239,68,68,.16);color:#dc2626;"><i class="fas fa-arrow-trend-down"></i></div>
+            <div><div class="lbl" style="color:#dc2626;" data-i18n="expense">Expense</div><div class="val text-danger">Rp {{ "{:,.0f}".format(report.total_expense|float) }}</div></div>
+        </div>
+        <div class="kpi">
+            <div class="ic" style="background:rgba(99,102,241,.16);color:#6366f1;"><i class="fas fa-scale-balanced"></i></div>
+            <div><div class="lbl" style="color:#6366f1;" data-i18n="net">Net</div><div class="val {% if report.net >= 0 %}text-primary{% else %}text-danger{% endif %}">{{ "+" if report.net >= 0 }}Rp {{ "{:,.0f}".format(report.net|float) }}</div></div>
+        </div>
+        <div class="kpi">
+            <div class="ic" style="background:rgba(139,92,246,.16);color:#8b5cf6;"><i class="fas fa-piggy-bank"></i></div>
+            <div class="flex-grow-1">
+                <div class="lbl" style="color:#8b5cf6;" data-i18n="savings_rate">Savings rate</div>
+                {% if report.savings_rate is not none %}<div class="val">{{ report.savings_rate }}%</div>
+                <div class="progress"><div class="progress-bar bg-success" style="width:{{ [report.savings_rate,0]|max }}%"></div></div>
+                {% else %}<div class="val text-muted">—</div>{% endif %}
+            </div>
         </div>
     </div>
+    {% if report.transfer_count %}
+    <div class="rpt-note" style="margin-bottom:.85rem;"><i class="fas fa-exchange-alt text-warning me-1"></i>
+        <span data-i18n="transfers_excluded_prefix">Transfers of</span> <strong>Rp {{ "{:,.0f}".format(report.total_transferred|float) }}</strong>
+        <span data-i18n="transfers_excluded_suffix">between saving spaces are excluded from income &amp; expense (shown separately below).</span>
+    </div>
+    {% endif %}
 
-    <!-- Report -->
-    {% if report and (report.total_income or report.total_expense) %}
-    <div class="report-card">
-        <h5 class="mb-3"><i class="fas fa-chart-pie text-primary me-2"></i><span data-i18n="report">Report</span> — <span id="rptPeriod"></span></h5>
-
-        <div class="row g-2 mb-3">
-            <div class="col-6 col-md-3">
-                <div class="stat-card">
-                    <div class="lbl text-success" data-i18n="income">Income</div>
-                    <div class="val text-success">Rp {{ "{:,.0f}".format(report.total_income|float) }}</div>
+    <!-- Bento: visualization + breakdown -->
+    {% if report.has_expense %}
+    <div class="row g-3" style="margin-bottom:.85rem;">
+        <div class="col-lg-8">
+            <div class="card-x" style="height:100%;">
+                <div class="card-head">
+                    <span class="chip-ic" style="background:#8b5cf6;"><i class="fas fa-chart-bar"></i></span>
+                    <h6 data-i18n="visualization">Visualization</h6>
+                    <ul class="rpt-tabs ms-auto">
+                        <li><button class="rpt-tab active" data-tab="bars"><i class="fas fa-chart-bar me-1"></i><span data-i18n="bars">Bars</span></button></li>
+                        <li><button class="rpt-tab" data-tab="treemap"><i class="fas fa-th-large me-1"></i><span data-i18n="treemap">Treemap</span></button></li>
+                        <li><button class="rpt-tab" data-tab="sunburst"><i class="fas fa-sun me-1"></i><span data-i18n="sunburst">Sunburst</span></button></li>
+                    </ul>
                 </div>
-            </div>
-            <div class="col-6 col-md-3">
-                <div class="stat-card">
-                    <div class="lbl text-danger" data-i18n="expense">Expense</div>
-                    <div class="val text-danger">Rp {{ "{:,.0f}".format(report.total_expense|float) }}</div>
-                </div>
-            </div>
-            <div class="col-6 col-md-3">
-                <div class="stat-card">
-                    <div class="lbl text-primary" data-i18n="net">Net</div>
-                    <div class="val {% if report.net >= 0 %}text-primary{% else %}text-danger{% endif %}">
-                        {{ "+" if report.net >= 0 }}Rp {{ "{:,.0f}".format(report.net|float) }}
+                <div class="card-body">
+                    <div id="pane-bars">
+                        <div class="rpt-dims">
+                            <button class="rpt-dim active" data-dim="category"><span data-i18n="category">Category</span></button>
+                            <button class="rpt-dim" data-dim="scope"><span data-i18n="scope">Scope</span></button>
+                            <button class="rpt-dim" data-dim="wallet"><span data-i18n="wallet">Saving Space</span></button>
+                            <button class="rpt-dim" data-dim="tag"><span data-i18n="tags">Tags</span></button>
+                            {% if special and special.count %}
+                            <button class="rpt-dim" data-dim="special"><i class="fas fa-star me-1"></i><span data-i18n="special_tags">Special</span></button>
+                            {% endif %}
+                        </div>
+                        <div id="barChart" style="width:100%;height:360px"></div>
+                        <div class="rpt-note mt-2" id="tagNote" style="display:none;" data-i18n="tag_overlap_note">A transaction can carry several tags, so tag totals may overlap — these bars compare where money goes, not sum to total spend.</div>
+                    </div>
+                    <div id="pane-treemap" style="display:none;">
+                        <div class="rpt-note mb-1" data-i18n="hierarchy">Hierarchy: Saving Space → Scope → Category</div>
+                        <div id="treemapChart" style="width:100%;height:400px"></div>
+                    </div>
+                    <div id="pane-sunburst" style="display:none;">
+                        <div class="rpt-note mb-1" data-i18n="rings">Rings: Saving Space → Scope → Category (outer = category)</div>
+                        <div id="sunburstChart" style="width:100%;height:400px"></div>
                     </div>
                 </div>
             </div>
-            <div class="col-6 col-md-3">
-                <div class="stat-card">
-                    <div class="lbl" data-i18n="savings_rate">Savings rate</div>
-                    {% if report.savings_rate is not none %}
-                    <div class="val">{{ report.savings_rate }}%</div>
-                    <div class="progress"><div class="progress-bar bg-success" style="width: {{ [report.savings_rate, 0]|max }}%"></div></div>
-                    {% else %}
-                    <div class="val text-muted">—</div>
-                    {% endif %}
+        </div>
+        <div class="col-lg-4">
+            <div class="card-x" style="height:100%;">
+                <div class="card-head">
+                    <span class="chip-ic" style="background:#22c55e;"><i class="fas fa-list-ul"></i></span>
+                    <h6><span data-i18n="breakdown">Breakdown</span> · <span id="sideTitle"></span></h6>
                 </div>
+                <div class="card-body scroll" id="sideList" style="max-height:460px;"></div>
             </div>
         </div>
+    </div>
+    {% else %}
+    <div class="card-x" style="margin-bottom:.85rem;"><div class="card-body text-center text-muted small" data-i18n="no_expense">No expense data to chart for this period.</div></div>
+    {% endif %}
 
-        {% if report.has_expense %}
-        <ul class="rpt-tabs">
-            <li><button class="rpt-tab active" data-tab="bars"><i class="fas fa-chart-bar me-1"></i><span data-i18n="bars">Bars</span></button></li>
-            <li><button class="rpt-tab" data-tab="treemap"><i class="fas fa-th-large me-1"></i><span data-i18n="treemap">Treemap</span></button></li>
-            <li><button class="rpt-tab" data-tab="sunburst"><i class="fas fa-sun me-1"></i><span data-i18n="sunburst">Sunburst</span></button></li>
-        </ul>
-
-        <div class="row g-3">
-            <div class="col-lg-8">
-                <div class="rpt-pane" id="pane-bars">
-                    <div class="rpt-dims">
-                        <button class="rpt-dim active" data-dim="category"><span data-i18n="category">Category</span></button>
-                        <button class="rpt-dim" data-dim="scope"><span data-i18n="scope">Scope</span></button>
-                        <button class="rpt-dim" data-dim="wallet"><span data-i18n="wallet">Saving Space</span></button>
-                        <button class="rpt-dim" data-dim="tag"><span data-i18n="tags">Tags</span></button>
-                    </div>
-                    <div id="barChart" style="width:100%;height:360px"></div>
-                    <div class="rpt-note" id="tagNote" style="display:none;" data-i18n="tag_overlap_note">A transaction can carry several tags, so tag totals may overlap — these bars compare where money goes, not sum to total spend.</div>
-                </div>
-
-                <div class="rpt-pane" id="pane-treemap" style="display:none;">
-                    <div class="rpt-sub text-muted small mb-2" data-i18n="hierarchy">Hierarchy: Saving Space → Scope → Category</div>
-                    <div id="treemapChart" style="width:100%;height:400px"></div>
-                </div>
-
-                <div class="rpt-pane" id="pane-sunburst" style="display:none;">
-                    <div class="rpt-sub text-muted small mb-2" data-i18n="rings">Rings: Saving Space → Scope → Category (outer = category)</div>
-                    <div id="sunburstChart" style="width:100%;height:400px"></div>
-                </div>
-            </div>
-
-            <div class="col-lg-4">
-                <div class="rpt-side">
-                    <div class="rpt-sub text-muted small mb-1"><span data-i18n="breakdown">Breakdown</span> · <span id="sideTitle"></span></div>
-                    <div id="sideList"></div>
-                </div>
-            </div>
-        </div>
-        {% else %}
-        <div class="text-muted small py-3 text-center" data-i18n="no_expense">No expense data to chart for this period.</div>
-        {% endif %}
-
+    <!-- Bento: insights + transfers -->
+    <div class="row g-3" style="margin-bottom:.85rem;">
         {% if report.insights %}
-        <div class="rpt-insights mt-3 p-3">
-            <div class="fw-semibold mb-2 small text-primary"><i class="fas fa-lightbulb me-1"></i><span data-i18n="insights">Insights</span></div>
-            <div id="insightList" class="row g-2"></div>
+        <div class="col-lg-{% if report and report.transfer_count %}5{% else %}12{% endif %}">
+            <div class="card-x" style="height:100%;">
+                <div class="card-head"><span class="chip-ic" style="background:#f59e0b;"><i class="fas fa-lightbulb"></i></span><h6 data-i18n="insights">Insights</h6></div>
+                <div class="card-body scroll" style="max-height:360px;"><div id="insightList" class="row g-2"></div></div>
+            </div>
+        </div>
+        {% endif %}
+        {% if report and report.transfer_count %}
+        <div class="col-lg-{% if report.insights %}7{% else %}12{% endif %}">
+            <div class="card-x" style="height:100%;">
+                <div class="card-head"><span class="chip-ic" style="background:#f59e0b;"><i class="fas fa-arrows-left-right"></i></span><h6 data-i18n="transfers">Transfers</h6><span class="ms-auto text-muted small" id="transferBadge"></span></div>
+                <div class="card-body scroll" id="transferList" style="max-height:360px;">
+                    {% for m in report.transfers %}
+                    <div class="legend-row">
+                        <span style="max-width:62%;"><i class="fas fa-arrow-right me-1" style="color:#f59e0b;font-size:.7rem;"></i><strong>{{ m.from_wallet }}</strong> → <strong>{{ m.to_wallet }}</strong>{% if m.note %}<span class="rpt-note d-block">{{ m.note }}</span>{% endif %}</span>
+                        <span class="text-end"><span style="color:#b45309;font-weight:700;">Rp {{ "{:,.0f}".format(m.amount|float) }}</span>{% if m.admin_fee %}<span class="text-muted small"> +{{ "{:,.0f}".format(m.admin_fee|float) }}</span>{% endif %}<span class="text-muted small d-block">{{ m.date }}</span></span>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
         </div>
         {% endif %}
     </div>
@@ -193,6 +243,10 @@
     <script>
     (function () {
         window.R = {{ report|tojson }};
+        window.R.special = {{ special|tojson }};
+        if (window.R.special && window.R.special.breakdown) {
+            window.R.by_special = window.R.special.breakdown.map(function (b) { return [b.tag, b.amount, 0]; });
+        }
         window.PALETTE = {{ palette|tojson }};
         if (typeof echarts === 'undefined') return;
         var R = window.R, P = window.PALETTE;
@@ -259,10 +313,7 @@
                 tooltip: { formatter: function (p) { return p.name + ': ' + fmt(p.value); } },
                 series: [{
                     type: 'sunburst', data: R.hierarchy, radius: ['15%', '90%'],
-                    label: {
-                        rotate: 'radial', fontSize: 10, color: '#fff', minAngle: 8,
-                        formatter: function (p) { var n = p.name || ''; return n.length > 11 ? n.slice(0, 10) + '…' : n; }
-                    },
+                    label: { rotate: 'radial', fontSize: 10, color: '#fff', minAngle: 8, formatter: function (p) { var n = p.name || ''; return n.length > 11 ? n.slice(0, 10) + '…' : n; } },
                     labelLayout: { hideOverlap: true },
                     itemStyle: { borderColor: '#fff', borderWidth: 1.5 },
                     emphasis: { focus: 'ancestor', label: { show: true } }
@@ -274,7 +325,7 @@
         function sideTitleText() {
             var lang = window.__LANG || 'en';
             if (curTab === 'bars') {
-                var m = { category: { en: 'Category', id: 'Kategori' }, scope: { en: 'Scope', id: 'Lingkup' }, wallet: { en: 'Saving Space', id: 'Ruang Tabungan' }, tag: { en: 'Tags', id: 'Tag' } }[curDim] || { en: '', id: '' };
+                var m = { category: { en: 'Category', id: 'Kategori' }, scope: { en: 'Scope', id: 'Lingkup' }, wallet: { en: 'Saving Space', id: 'Ruang Tabungan' }, tag: { en: 'Tags', id: 'Tag' }, special: { en: 'Special tags', id: 'Tag spesial' } }[curDim] || { en: '', id: '' };
                 return m[lang];
             }
             return (lang === 'id' ? 'Tag teratas' : 'Top tags');
@@ -282,10 +333,21 @@
         function renderSide() {
             var el = document.getElementById('sideList');
             if (!el) return;
+            var titleEl = document.getElementById('sideTitle');
+
+            // Special tags breakdown when the special dimension is active
+            if (curTab === 'bars' && curDim === 'special' && R.special && R.special.breakdown && R.special.breakdown.length) {
+                if (titleEl) titleEl.textContent = sideTitleText();
+                el.innerHTML = R.special.breakdown.map(function (b, i) {
+                    return '<div class="legend-row"><span><span class="legend-dot" style="background:' + colorAt(i) + '"></span>#' + b.tag + '</span><span class="text-muted">' + b.count + ' tx · ' + fmt(b.amount) + '</span></div>';
+                }).join('');
+                return;
+            }
+
+            // Regular dimension breakdown
             var items, isTag = false;
             if (curTab === 'bars') { items = R['by_' + curDim] || []; isTag = (curDim === 'tag'); }
             else { items = R.by_tag || []; isTag = true; }
-            var titleEl = document.getElementById('sideTitle');
             if (titleEl) titleEl.textContent = sideTitleText();
             if (!items.length) { el.innerHTML = '<div class="text-muted small py-2">—</div>'; return; }
             el.innerHTML = items.slice(0, 12).map(function (it, i) {
@@ -297,12 +359,8 @@
         window.renderSide = renderSide;
 
         function activate(tab) {
-            document.querySelectorAll('[data-tab]').forEach(function (b) {
-                b.classList.toggle('active', b.getAttribute('data-tab') === tab);
-            });
-            ['bars', 'treemap', 'sunburst'].forEach(function (t) {
-                document.getElementById('pane-' + t).style.display = (t === tab) ? '' : 'none';
-            });
+            document.querySelectorAll('[data-tab]').forEach(function (b) { b.classList.toggle('active', b.getAttribute('data-tab') === tab); });
+            ['bars', 'treemap', 'sunburst'].forEach(function (t) { document.getElementById('pane-' + t).style.display = (t === tab) ? '' : 'none'; });
             setTimeout(function () {
                 if (tab === 'bars') renderBars(curDim);
                 else if (tab === 'treemap') renderTreemap();
@@ -318,187 +376,216 @@
                 renderBars(b.getAttribute('data-dim'));
             });
         });
-        document.querySelectorAll('[data-tab]').forEach(function (b) {
-            b.addEventListener('click', function () { activate(b.getAttribute('data-tab')); });
-        });
+        document.querySelectorAll('[data-tab]').forEach(function (b) { b.addEventListener('click', function () { activate(b.getAttribute('data-tab')); }); });
 
         activate('bars');
-        window.addEventListener('resize', function () {
-            Object.keys(charts).forEach(function (k) { try { charts[k].resize(); } catch (e) {} });
-        });
+        window.addEventListener('resize', function () { Object.keys(charts).forEach(function (k) { try { charts[k].resize(); } catch (e) {} }); });
     })();
     </script>
     {% endif %}
 
-    <!-- Transactions -->
+    <!-- View mode toggle (above the transactions card) -->
+    <div class="rpt-dims" style="margin-bottom:.6rem;">
+      <button class="rpt-dim" onclick="setTxView('detail')" id="txViewBtnDetail"><i class="fas fa-list me-1"></i>Detail</button>
+      <button class="rpt-dim active" onclick="setTxView('simple')" id="txViewBtnSimple"><i class="fas fa-columns me-1"></i>Simple</button>
+    </div>
+
     {% if transactions %}
-      <div class="row g-3">
-        {% for tx in transactions %}
-        <div class="col-md-6">
-        <div class="card tx-card">
-            <div class="card-body p-3">
-                <div class="d-flex justify-content-between align-items-start mb-2">
-                    <div class="d-flex align-items-center">
-                        <div class="tx-icon me-3">
-                            {% if tx.is_balance_adjustment %}
-                                <i class="fas fa-balance-scale text-warning fa-lg"></i>
-                            {% else %}
-                                <i class="fas fa-{% if tx.type == 'income' %}arrow-up text-success{% elif tx.type == 'expense' %}arrow-down text-danger{% else %}exchange-alt text-info{% endif %} fa-lg"></i>
-                            {% endif %}
-                        </div>
-                        <div>
-                            <div class="fw-semibold">
-                                {% if tx.is_balance_adjustment %}
-                                    <span data-i18n="balance_adjustment">Balance Adjustment</span>
-                                {% else %}
-                                    {% set category = categories|selectattr('_id','equalto',tx.category_id)|first %}
-                                    {{ category.name if category else tx.type|title }}
-                                {% endif %}
+    <!-- DETAIL: full transactions card -->
+    <div id="txDetailSection" style="display:none;">
+    <div class="card-x">
+        <div class="card-head">
+            <span class="chip-ic" style="background:#6366f1;"><i class="fas fa-receipt"></i></span>
+            <h6 data-i18n="transactions_head">Transactions</h6>
+            <span class="ms-auto text-muted small">{{ total_count }} <span data-i18n="transactions_label">transactions</span></span>
+        </div>
+        <div class="card-body">
+            <div class="rpt-dims mb-3">
+              <a class="rpt-dim {% if viewer_type == 'all' %}active{% endif %}" href="?tx_type=all&per_page={{ per_page }}"><span data-i18n="filter_all">All</span></a>
+              <a class="rpt-dim {% if viewer_type == 'income' %}active{% endif %}" href="?tx_type=income&per_page={{ per_page }}"><i class="fas fa-arrow-up me-1"></i><span data-i18n="income">Income</span></a>
+              <a class="rpt-dim {% if viewer_type == 'expense' %}active{% endif %}" href="?tx_type=expense&per_page={{ per_page }}"><i class="fas fa-arrow-down me-1"></i><span data-i18n="expense">Expense</span></a>
+              <a class="rpt-dim {% if viewer_type == 'transfer' %}active{% endif %}" href="?tx_type=transfer&per_page={{ per_page }}"><i class="fas fa-exchange-alt me-1"></i><span data-i18n="transfers">Transfer</span></a>
+            </div>
+            <div id="txDetailView">
+              <div class="row g-3">
+                {% set ns = namespace(seen=[]) %}
+                {% for tx in transactions %}
+                  {% set is_fee = tx.is_transfer_fee or (tx.category_id == 'transfer_fee') %}
+                  {% set is_move = (tx.is_transfer or tx.category_id == 'transfer') and not is_fee %}
+                  {% set dedup_key = (tx.from_wallet_id ~ '|' ~ tx.to_wallet_id ~ '|' ~ tx.amount ~ '|' ~ tx.timestamp) %}
+                  {% if is_fee %}
+                  {% elif is_move and dedup_key in ns.seen %}
+                  {% else %}
+                    {% if is_move %}{% set ns.seen = ns.seen + [dedup_key] %}{% endif %}
+                    <div class="col-12">
+                    <div class="card tx {% if is_move %}move{% elif tx.is_balance_adjustment %}adj{% elif tx.type == 'income' %}in{% else %}out{% endif %}">
+                        <div class="card-body p-3">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <div class="d-flex align-items-center">
+                                    <div class="tx-ic me-3" {% if is_move %}style="background:rgba(245,158,11,.16);"{% endif %}>
+                                        {% if is_move %}<i class="fas fa-exchange-alt text-warning fa-lg"></i>
+                                        {% elif tx.is_balance_adjustment %}<i class="fas fa-balance-scale text-warning fa-lg"></i>
+                                        {% elif tx.type == 'income' %}<i class="fas fa-arrow-up text-success fa-lg"></i>
+                                        {% else %}<i class="fas fa-arrow-down text-danger fa-lg"></i>{% endif %}
+                                    </div>
+                                    <div>
+                                        <div class="fw-semibold {% if is_move %}text-warning{% endif %}">
+                                            {% if is_move %}<span data-i18n="transfer_move">Transfer</span>
+                                            {% elif tx.is_balance_adjustment %}<span data-i18n="balance_adjustment">Balance Adjustment</span>
+                                            {% else %}{% set category = categories|selectattr('_id','equalto',tx.category_id)|first %}{{ category.name if category else tx.type|title }}{% endif %}
+                                        </div>
+                                        <small class="text-muted">
+                                            {% if is_move %}{% set fw = wallets|selectattr('_id','equalto',tx.from_wallet_id)|first %}{% set tw = wallets|selectattr('_id','equalto',tx.to_wallet_id)|first %}{{ fw.name if fw else '?' }} → {{ tw.name if tw else '?' }}
+                                            {% else %}{% set wallet = wallets|selectattr('_id','equalto',tx.wallet_id)|first %}{{ wallet.name if wallet else 'Unknown' }}{% endif %}
+                                        </small>
+                                    </div>
+                                </div>
+                                <div class="text-end">
+                                    <div class="fw-bold {% if is_move %}text-warning{% elif tx.is_balance_adjustment %}text-warning{% elif tx.type == 'income' %}text-success{% else %}text-danger{% endif %}">{% if is_move %}↔ {% elif tx.type == 'income' %}+ {% elif tx.type == 'expense' %}− {% endif %}Rp {{ "{:,.0f}".format(tx.amount|float) }}</div>
+                                    {% if is_move and tx.admin_fee %}<small class="text-danger d-block">+{{ "{:,.0f}".format(tx.admin_fee|float) }} <span data-i18n="fee">Fee</span></small>{% endif %}
+                                    <small class="text-muted">{{ tx.formatted_time or 'N/A' }}</small>
+                                </div>
                             </div>
-                            <small class="text-muted">
-                                {% set wallet = wallets|selectattr('_id','equalto',tx.wallet_id)|first %}
-                                {{ wallet.name if wallet else 'Unknown' }}
-                            </small>
+                            {% if tx.note %}<div class="note-box mb-2"><small class="text-muted">{{ tx.note }}</small></div>{% endif %}
+                            {% if tx.balance_before is defined and tx.balance_after is defined and tx.balance_before is not none and tx.balance_after is not none %}
+                            <div class="bal-box mb-2 p-2"><div class="row text-center small">
+                                <div class="col-6"><div class="text-muted" data-i18n="balance_before">Balance Before</div><div>Rp {{ "{:,.0f}".format(tx.balance_before|float) }}</div></div>
+                                <div class="col-6"><div class="text-muted" data-i18n="balance_after">Balance After</div><div class="fw-bold text-primary">Rp {{ "{:,.0f}".format(tx.balance_after|float) }}</div></div>
+                            </div></div>
+                            {% endif %}
+                            {% if tx.tags %}<div class="tag-wrap mt-1">{% for tag in tx.tags %}<span class="badge bg-secondary badge-soft">#{{ tag }}</span>{% endfor %}</div>{% endif %}
                         </div>
                     </div>
-                    <div class="text-end">
-                        <div class="fw-bold {% if tx.is_balance_adjustment %}text-warning{% elif tx.type == 'income' %}text-success{% elif tx.type == 'expense' %}text-danger{% else %}text-info{% endif %}">
-                            {% if tx.type == 'income' %}+{% elif tx.type == 'expense' %}-{% endif %}Rp {{ "{:,.0f}".format(tx.amount|float) }}
-                        </div>
-                        <small class="text-muted">{{ tx.formatted_time or 'N/A' }}</small>
                     </div>
-                </div>
-
-                {% if tx.note %}
-                <div class="note-box mb-2"><small class="text-muted">{{ tx.note }}</small></div>
-                {% endif %}
-
-                {% if tx.balance_before is defined and tx.balance_after is defined and tx.balance_before is not none and tx.balance_after is not none %}
-                <div class="bal-box mb-2 p-2">
-                    <div class="row text-center small">
-                        <div class="col-6">
-                            <div class="text-muted" data-i18n="balance_before">Balance Before</div>
-                            <div>Rp {{ "{:,.0f}".format(tx.balance_before|float) }}</div>
-                        </div>
-                        <div class="col-6">
-                            <div class="text-muted" data-i18n="balance_after">Balance After</div>
-                            <div class="fw-bold text-primary">Rp {{ "{:,.0f}".format(tx.balance_after|float) }}</div>
-                        </div>
-                    </div>
-                </div>
-                {% endif %}
-
-                {% if tx.is_transfer or tx.type == 'transfer' or tx.is_transfer_fee %}
-                <div class="bal-box mb-2 p-2 small">
-                    {% set fw = wallets|selectattr('_id','equalto',tx.from_wallet_id)|first %}
-                    {% set tw = wallets|selectattr('_id','equalto',tx.to_wallet_id)|first %}
-                    <div><strong><span data-i18n="from">From</span>:</strong> {{ fw.name if fw else 'N/A' }}</div>
-                    <div><strong><span data-i18n="to">To</span>:</strong> {{ tw.name if tw else 'N/A' }}</div>
-                    {% if tx.admin_fee %}<div class="text-danger"><strong><span data-i18n="fee">Fee</span>:</strong> Rp {{ "{:,.0f}".format(tx.admin_fee|float) }}</div>{% endif %}
-                </div>
-                {% endif %}
-
-                {% if tx.tags %}
-                <div class="mb-0">
-                    {% for tag in tx.tags %}<span class="badge bg-secondary badge-soft me-1">#{{ tag }}</span>{% endfor %}
-                </div>
-                {% endif %}
+                  {% endif %}
+                {% endfor %}
+              </div>
             </div>
+
+            {% if total_pages > 1 %}
+            <div class="d-flex flex-column flex-md-row justify-content-between align-items-center gap-3 mt-3">
+                <div class="text-muted small"><span data-i18n="showing">Showing</span> {{ (page - 1) * per_page + 1 }}–{{ (page - 1) * per_page + transactions|length }} <span data-i18n="of">of</span> {{ total_count }}</div>
+                <nav><ul class="pagination mb-0">
+                    <li class="page-item {% if not has_prev %}disabled{% endif %}"><a class="page-link" href="?page={{ page-1 }}&per_page={{ per_page }}"><i class="fas fa-chevron-left"></i></a></li>
+                    {% set start_page = [1, page - 2]|max %}{% set end_page = [total_pages, page + 2]|min %}
+                    {% if start_page > 1 %}<li class="page-item"><a class="page-link" href="?page=1&per_page={{ per_page }}">1</a></li>{% if start_page > 2 %}<li class="page-item disabled"><span class="page-link">…</span></li>{% endif %}{% endif %}
+                    {% for p in range(start_page, end_page + 1) %}<li class="page-item {% if p == page %}active{% endif %}"><a class="page-link" href="?page={{ p }}&per_page={{ per_page }}">{{ p }}</a></li>{% endfor %}
+                    {% if end_page < total_pages %}{% if end_page < total_pages - 1 %}<li class="page-item disabled"><span class="page-link">…</span></li>{% endif %}<li class="page-item"><a class="page-link" href="?page={{ total_pages }}&per_page={{ per_page }}">{{ total_pages }}</a></li>{% endif %}
+                    <li class="page-item {% if not has_next %}disabled{% endif %}"><a class="page-link" href="?page={{ page+1 }}&per_page={{ per_page }}"><i class="fas fa-chevron-right"></i></a></li>
+                </ul></nav>
+            </div>
+            {% endif %}
         </div>
+    </div>
+    </div>
+
+    <!-- SIMPLE: two separate cards (Income | Expense) — exactly like the Transfers card -->
+    <div id="txSimpleSection">
+      <div class="row g-3">
+        <div class="col-md-6">
+          <div class="card-x">
+            <div class="card-head"><span class="chip-ic" style="background:#22c55e;"><i class="fas fa-arrow-up"></i></span><h6 data-i18n="income">Income</h6></div>
+            <div class="card-body scroll" style="max-height:560px;">
+              {% for tx in simple_transactions %}
+                {% if tx.type == 'income' and not (tx.is_transfer or tx.is_transfer_fee or tx.is_balance_adjustment) and tx.category_id not in ['transfer','transfer_fee','balance_adjustment'] %}
+                <div class="legend-row">
+                  <span>{% set c = categories|selectattr('_id','equalto',tx.category_id)|first %}{{ c.name if c else 'Income' }} <small class="text-muted d-block">{{ tx.formatted_time or '' }}</small></span>
+                  <span class="text-success fw-semibold">+ Rp {{ "{:,.0f}".format(tx.amount|float) }}</span>
+                </div>
+                {% endif %}
+              {% endfor %}
+            </div>
+          </div>
         </div>
-        {% endfor %}
+        <div class="col-md-6">
+          <div class="card-x">
+            <div class="card-head"><span class="chip-ic" style="background:#ef4444;"><i class="fas fa-arrow-down"></i></span><h6 data-i18n="expense">Expense</h6></div>
+            <div class="card-body scroll" style="max-height:560px;">
+              {% for tx in simple_transactions %}
+                {% if tx.type == 'expense' and not (tx.is_transfer or tx.is_transfer_fee or tx.is_balance_adjustment) and tx.category_id not in ['transfer','transfer_fee','balance_adjustment'] %}
+                <div class="legend-row">
+                  <span>{% set c = categories|selectattr('_id','equalto',tx.category_id)|first %}{{ c.name if c else 'Expense' }} <small class="text-muted d-block">{{ tx.formatted_time or '' }}</small></span>
+                  <span class="text-danger fw-semibold">− Rp {{ "{:,.0f}".format(tx.amount|float) }}</span>
+                </div>
+                {% endif %}
+              {% endfor %}
+            </div>
+          </div>
+        </div>
       </div>
-
-        {% if total_pages > 1 %}
-        <div class="d-flex flex-column flex-md-row justify-content-between align-items-center gap-3 mt-3">
-            <div class="text-white small">
-                <span data-i18n="showing">Showing</span> {{ (page - 1) * per_page + 1 }}–{{ (page - 1) * per_page + transactions|length }} <span data-i18n="of">of</span> {{ total_count }}
-            </div>
-            <nav>
-                <ul class="pagination mb-0">
-                    <li class="page-item {% if not has_prev %}disabled{% endif %}">
-                        <a class="page-link" href="?page={{ page-1 }}&per_page={{ per_page }}"><i class="fas fa-chevron-left"></i></a>
-                    </li>
-                    {% set start_page = [1, page - 2]|max %}
-                    {% set end_page = [total_pages, page + 2]|min %}
-                    {% if start_page > 1 %}
-                        <li class="page-item"><a class="page-link" href="?page=1&per_page={{ per_page }}">1</a></li>
-                        {% if start_page > 2 %}<li class="page-item disabled"><span class="page-link">…</span></li>{% endif %}
-                    {% endif %}
-                    {% for p in range(start_page, end_page + 1) %}
-                        <li class="page-item {% if p == page %}active{% endif %}"><a class="page-link" href="?page={{ p }}&per_page={{ per_page }}">{{ p }}</a></li>
-                    {% endfor %}
-                    {% if end_page < total_pages %}
-                        {% if end_page < total_pages - 1 %}<li class="page-item disabled"><span class="page-link">…</span></li>{% endif %}
-                        <li class="page-item"><a class="page-link" href="?page={{ total_pages }}&per_page={{ per_page }}">{{ total_pages }}</a></li>
-                    {% endif %}
-                    <li class="page-item {% if not has_next %}disabled{% endif %}">
-                        <a class="page-link" href="?page={{ page+1 }}&per_page={{ per_page }}"><i class="fas fa-chevron-right"></i></a>
-                    </li>
-                </ul>
-            </nav>
-        </div>
-        {% endif %}
+    </div>
 
     {% else %}
-        <div class="card tx-card text-center py-5">
-            <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
-            <h5 class="text-muted" data-i18n="no_transactions">No transactions match this share</h5>
-            <p class="text-muted mb-0" data-i18n="no_transactions_desc">Try again later — the owner may update the filters.</p>
-        </div>
+    <div class="card-x"><div class="card-body text-center py-5">
+        <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
+        <h5 class="text-muted" data-i18n="no_transactions">No transactions match this share</h5>
+        <p class="text-muted mb-0" data-i18n="no_transactions_desc">Try again later — the owner may update the filters.</p>
+    </div></div>
     {% endif %}
 
-    <div class="powered"><span data-i18n="powered">Powered by</span> <a href="/">Uangly</a> · money management</div>
+    <div class="powered"><span data-i18n="powered">Powered by</span> <a href="/">Uangly</a></div>
 {% endif %}
 
 </div>
 
 <script>
-// Public-page language toggle (viewers aren't logged in, so we store choice locally).
+function setTxView(view) {
+    var detail = document.getElementById('txDetailSection');
+    var simple = document.getElementById('txSimpleSection');
+    var btnD = document.getElementById('txViewBtnDetail');
+    var btnS = document.getElementById('txViewBtnSimple');
+    if (!detail || !simple) return;
+    if (view === 'simple') {
+        detail.style.display = 'none';
+        simple.style.display = '';
+        if (btnD) btnD.classList.remove('active');
+        if (btnS) btnS.classList.add('active');
+    } else {
+        detail.style.display = '';
+        simple.style.display = 'none';
+        if (btnD) btnD.classList.add('active');
+        if (btnS) btnS.classList.remove('active');
+    }
+}
+</script>
+
+<script>
 (function () {
     var I18N = {
         en: {
-            report: "Report", income: "Income", expense: "Expense", net: "Net", savings_rate: "Savings rate",
-            bars: "Bars", treemap: "Treemap", sunburst: "Sunburst",
-            category: "Category", scope: "Scope", wallet: "Saving Space", tags: "Tags",
-            top_tags: "Top tags", tags_note: "(tags overlap — not a share of total)",
-            tag_overlap_note: "A transaction can carry several tags, so tag totals may overlap — these bars compare where money goes, not sum to total spend.",
-            insights: "Insights", no_expense: "No expense data to chart for this period.",
-            hierarchy: "Hierarchy: Saving Space → Scope → Category",
-            rings: "Rings: Saving Space → Scope → Category (outer = category)",
-            not_available: "Share not available",
-            not_available_desc: "This link is invalid, unpublished, or has been removed by the owner.",
-            no_transactions: "No transactions match this share",
-            no_transactions_desc: "Try again later — the owner may update the filters.",
-            transactions_label: "transactions", powered: "Powered by", breakdown: "Breakdown",
-            showing: "Showing", of: "of",
-            balance_before: "Balance Before", balance_after: "Balance After",
-            from: "From", to: "To", fee: "Fee", balance_adjustment: "Balance Adjustment"
+            report:"Report", income:"Income", expense:"Expense", net:"Net", savings_rate:"Savings rate",
+            bars:"Bars", treemap:"Treemap", sunburst:"Sunburst", visualization:"Visualization",
+            category:"Category", scope:"Scope", wallet:"Saving Space", tags:"Tags",
+            top_tags:"Top tags", tags_note:"(tags overlap — not a share of total)",
+            tag_overlap_note:"A transaction can carry several tags, so tag totals may overlap — these bars compare where money goes, not sum to total spend.",
+            insights:"Insights", no_expense:"No expense data to chart for this period.",
+            hierarchy:"Hierarchy: Saving Space → Scope → Category", rings:"Rings: Saving Space → Scope → Category (outer = category)",
+            not_available:"Share not available", not_available_desc:"This link is invalid, unpublished, or has been removed by the owner.",
+            no_transactions:"No transactions match this share", no_transactions_desc:"Try again later — the owner may update the filters.",
+            transactions_label:"transactions", transactions_head:"Transactions", powered:"Powered by", breakdown:"Breakdown", transfers:"Transfers", transfer_move:"Transfer", filter_all:"All", special_tags:"Special tags",
+            transfers_excluded_prefix:"Transfers of", transfers_excluded_suffix:"between saving spaces are excluded from income & expense (shown separately below).",
+            showing:"Showing", of:"of", balance_before:"Balance Before", balance_after:"Balance After",
+            from:"From", to:"To", fee:"Fee", balance_adjustment:"Balance Adjustment"
         },
         id: {
-            report: "Laporan", income: "Pemasukan", expense: "Pengeluaran", net: "Bersih", savings_rate: "Tingkat menabung",
-            bars: "Batang", treemap: "Peta Pohon", sunburst: "Matahari",
-            category: "Kategori", scope: "Lingkup", wallet: "Ruang Tabungan", tags: "Tag",
-            top_tags: "Tag teratas", tags_note: "(tag tumpang tindih — bukan bagian dari total)",
-            tag_overlap_note: "Satu transaksi bisa memiliki beberapa tag, jadi total tag bisa tumpang tindih — batang ini membandingkan ke mana uang pergi, bukan jumlah total pengeluaran.",
-            insights: "Wawasan", no_expense: "Tidak ada data pengeluaran untuk periode ini.",
-            hierarchy: "Hierarki: Ruang Tabungan → Lingkup → Kategori",
-            rings: "Cincin: Ruang Tabungan → Lingkup → Kategori (luar = kategori)",
-            not_available: "Bagikan tidak tersedia",
-            not_available_desc: "Tautan ini tidak valid, tidak dipublikasikan, atau telah dihapus oleh pemilik.",
-            no_transactions: "Tidak ada transaksi yang cocok",
-            no_transactions_desc: "Coba lagi nanti — pemilik mungkin memperbarui filter.",
-            transactions_label: "transaksi", powered: "Didukung oleh", breakdown: "Rincian",
-            showing: "Menampilkan", of: "dari",
-            balance_before: "Saldo Sebelum", balance_after: "Saldo Sesudah",
-            from: "Dari", to: "Ke", fee: "Biaya", balance_adjustment: "Penyesuaian Saldo"
+            report:"Laporan", income:"Pemasukan", expense:"Pengeluaran", net:"Bersih", savings_rate:"Tingkat menabung",
+            bars:"Batang", treemap:"Peta Pohon", sunburst:"Matahari", visualization:"Visualisasi",
+            category:"Kategori", scope:"Lingkup", wallet:"Ruang Tabungan", tags:"Tag",
+            top_tags:"Tag teratas", tags_note:"(tag tumpang tindih — bukan bagian dari total)",
+            tag_overlap_note:"Satu transaksi bisa memiliki beberapa tag, jadi total tag bisa tumpang tindih — batang ini membandingkan ke mana uang pergi, bukan jumlah total pengeluaran.",
+            insights:"Wawasan", no_expense:"Tidak ada data pengeluaran untuk periode ini.",
+            hierarchy:"Hierarki: Ruang Tabungan → Lingkup → Kategori", rings:"Cincin: Ruang Tabungan → Lingkup → Kategori (luar = kategori)",
+            not_available:"Bagikan tidak tersedia", not_available_desc:"Tautan ini tidak valid, tidak dipublikasikan, atau telah dihapus oleh pemilik.",
+            no_transactions:"Tidak ada transaksi yang cocok", no_transactions_desc:"Coba lagi nanti — pemilik mungkin memperbarui filter.",
+            transactions_label:"transaksi", transactions_head:"Transaksi", powered:"Didukung oleh", breakdown:"Rincian", transfers:"Transfer", transfer_move:"Transfer", filter_all:"Semua", special_tags:"Tag spesial",
+            transfers_excluded_prefix:"Transfer sebesar", transfers_excluded_suffix:"antar ruang tabungan tidak dihitung sebagai pemasukan & pengeluaran (ditampilkan terpisah di bawah).",
+            showing:"Menampilkan", of:"dari", balance_before:"Saldo Sebelum", balance_after:"Saldo Sesudah",
+            from:"Dari", to:"Ke", fee:"Biaya", balance_adjustment:"Penyesuaian Saldo"
         }
     };
-    var CURRENT = 'en';
 
     function applyLang(lang) {
         if (!I18N[lang]) lang = 'en';
-        CURRENT = lang;
         window.__LANG = lang;
         try { localStorage.setItem('sp_lang', lang); } catch (e) {}
         document.documentElement.lang = lang;
@@ -511,7 +598,7 @@
         });
         var R = window.R || {};
         var pl = (lang === 'id' ? (R.period_label_id || R.period_label) : R.period_label) || '';
-        var pe = document.getElementById('rptPeriod'); if (pe) pe.textContent = pl;
+        var pe = document.getElementById('heroPeriod'); if (pe) pe.textContent = pl;
         var hp = document.getElementById('heroPeriod'); if (hp) hp.textContent = pl;
         var hc = document.getElementById('heroCount');
         if (hc && R.count !== undefined) hc.textContent = R.count + ' ' + I18N[lang].transactions_label;
@@ -519,25 +606,23 @@
         if (list && R.insights) {
             list.innerHTML = '';
             R.insights.forEach(function (it) {
-                var col = document.createElement('div');
-                col.className = 'col-md-6';
-                var row = document.createElement('div');
-                row.className = 'insight-item';
-                row.innerHTML = '<i class="fas fa-circle text-primary" style="font-size:.35rem;margin-top:.5rem;"></i><span></span>';
+                var col = document.createElement('div'); col.className = 'col-md-6';
+                var row = document.createElement('div'); row.className = 'insight-item';
+                row.innerHTML = '<i class="fas fa-circle" style="color:#6366f1;font-size:.35rem;margin-top:.5rem;"></i><span></span>';
                 row.querySelector('span').textContent = it[lang] || it.en;
-                col.appendChild(row);
-                list.appendChild(col);
+                col.appendChild(row); list.appendChild(col);
             });
         }
         if (typeof window.renderSide === 'function') window.renderSide();
+        var tb = document.getElementById('transferBadge');
+        if (tb && R.transfer_count != null) {
+            var n = R.transfer_count, tot = 'Rp ' + Number(R.total_transferred || 0).toLocaleString('id-ID');
+            tb.textContent = (lang === 'id') ? (n + ' transfer · ' + tot + ' dipindahkan') : (n + ' transfer' + (n === 1 ? '' : 's') + ' · ' + tot + ' moved');
+        }
     }
 
-    document.querySelectorAll('[data-lang]').forEach(function (b) {
-        b.addEventListener('click', function () { applyLang(b.getAttribute('data-lang')); });
-    });
-
-    var saved = 'en';
-    try { saved = localStorage.getItem('sp_lang') || 'en'; } catch (e) {}
+    document.querySelectorAll('[data-lang]').forEach(function (b) { b.addEventListener('click', function () { applyLang(b.getAttribute('data-lang')); }); });
+    var saved = 'en'; try { saved = localStorage.getItem('sp_lang') || 'en'; } catch (e) {}
     applyLang(saved);
 })();
 </script>

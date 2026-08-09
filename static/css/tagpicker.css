@@ -1,0 +1,12 @@
+/* Reusable searchable tag picker (chips + dropdown) */
+.tag-picker { position: relative; }
+.tp-chips { display:flex; flex-wrap:wrap; gap:.3rem; margin-bottom:.4rem; min-height:.5rem; }
+.tp-chip { display:inline-flex; align-items:center; gap:.3rem; background:#eef0ff; color:#4f46e5; border-radius:20px; padding:.2rem .35rem .2rem .6rem; font-size:.74rem; font-weight:600; }
+.tp-chip-x { cursor:pointer; opacity:.55; font-size:.95rem; line-height:1; padding:0 .1rem; }
+.tp-chip-x:hover { opacity:1; }
+.tp-input { width:100%; }
+.tp-dropdown { position:absolute; z-index:20; left:0; right:0; margin-top:.25rem; background:#fff; border:1px solid #e3e6ef; border-radius:10px; box-shadow:0 8px 24px rgba(0,0,0,.14); max-height:230px; overflow:auto; display:none; }
+.tp-item { padding:.45rem .7rem; font-size:.82rem; cursor:pointer; color:#334155; }
+.tp-item:hover { background:#eef0ff; }
+.tp-item-new { color:#6366f1; border-top:1px solid #f0f2f8; font-style:italic; }
+.tp-empty { padding:.5rem .7rem; font-size:.8rem; color:#94a3b8; }

@@ -862,8 +862,13 @@ class TransactionRepository(MongoRepository):
             print(f"Error in get_transactions_by_scope_paginated: {e}")
             return [], 0
 
-    def get_transactions_with_filters_paginated(self, user_id: str, filters: Dict[str, Any] = None, page: int = 1, per_page: int = 20) -> Tuple[List[Dict[str, Any]], int]:
-        """Get transactions with filters and pagination"""
+    def get_transactions_with_filters_paginated(self, user_id: str, filters: Dict[str, Any] = None, page: int = 1, per_page: int = 20, extra_query: Optional[Dict[str, Any]] = None) -> Tuple[List[Dict[str, Any]], int]:
+        """Get transactions with filters and pagination.
+
+        extra_query: optional raw Mongo conditions AND-ed onto the built query
+        (used for viewer-side type filters on the public share, e.g. 'transfers only'
+        which isn't expressible as a plain type=value).
+        """
         try:
             skip = (page - 1) * per_page
             
@@ -896,7 +901,11 @@ class TransactionRepository(MongoRepository):
                         amount_query["$lte"] = float(filters["amount_max"])
                     if amount_query:
                         query["amount"] = amount_query
-            
+
+            # AND extra raw conditions (viewer type filter) without key clashes
+            if extra_query:
+                query = {"$and": [query, extra_query]}
+
             # Get total count
             total_count = self.collection.count_documents(query)
             
@@ -935,7 +944,17 @@ class TransactionRepository(MongoRepository):
                     tx["formatted_time"] = datetime.fromtimestamp(tx["timestamp"]).strftime("%Y-%m-%d %H:%M:%S")
                 except (ValueError, TypeError):
                     tx["formatted_time"] = "Invalid Time"
-        
+
         return transactions
+
+    def distinct_tags(self, user_id: str) -> List[str]:
+        """Return the sorted distinct set of tags used across a user's transactions."""
+        try:
+            tags = self.collection.distinct("tags", {"user_id": user_id})
+            tags = [t for t in tags if t and isinstance(t, str)]
+            return sorted(set(tags))
+        except Exception as e:
+            print(f"Error in distinct_tags: {e}")
+            return []
 
 
