@@ -2316,7 +2316,7 @@ function displayTransactionDetails(tx) {
                     <div class="row">
                         <div class="col-md-6 mb-3">
                             <label for="modalSearch" class="form-label" data-translate="transactions.search">Search</label>
-                            <input type="text" class="form-control" id="modalSearch" name="search" placeholder="Search transactions...">
+                            <input type="text" class="form-control" id="modalSearch" name="search" placeholder="Search transactions..." value="{{ current_search or '' }}">
                         </div>
                         <div class="col-md-6 mb-3">
                             <label for="modalWalletId" class="form-label" data-translate="transactions.wallet">Wallet</label>
@@ -2328,6 +2328,25 @@ function displayTransactionDetails(tx) {
                                 </option>
                                 {% endfor %}
                             </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="modalScopeId" class="form-label" data-translate="transactions.scope">Scope</label>
+                            <select class="form-select" id="modalScopeId" name="scope_id">
+                                <option value="" data-translate="transactions.all_scopes">All Scopes</option>
+                                {% for scope in scopes %}
+                                <option value="{{ scope._id }}" {% if current_scope_id == scope._id %}selected{% endif %}>{{ scope.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="modalTags" class="form-label" data-translate="transactions.tags">Tags</label>
+                            <input type="text" class="form-control" id="modalTags" name="tags" list="allTagsList" placeholder="food, work" value="{{ (current_tags or [])|join(', ') }}">
+                            <datalist id="allTagsList">
+                                {% for tag in all_tags or [] %}
+                                <option value="{{ tag }}"></option>
+                                {% endfor %}
+                            </datalist>
+                            <small class="form-text text-muted" data-translate="transactions.tags_hint">Comma separated — shows transactions having any of these tags</small>
                         </div>
                         <div class="col-md-6 mb-3">
                             <label for="modalType" class="form-label" data-translate="transactions.type">Type</label>

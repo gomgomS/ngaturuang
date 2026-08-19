@@ -1035,11 +1035,13 @@ def transactions():
         category_id = request.args.get("category_id")
         wallet_id = request.args.get("wallet_id")
         transaction_type = request.args.get("type")
-        tags = request.args.getlist("tags")  # Multiple tags
+        tags_raw = request.args.getlist("tags")  # Multiple tags (or comma-separated)
+        tags = [t.strip() for chunk in tags_raw for t in chunk.split(",") if t.strip()]
         date_from = request.args.get("date_from")
         date_to = request.args.get("date_to")
         amount_min = request.args.get("amount_min")
         amount_max = request.args.get("amount_max")
+        search = (request.args.get("search") or "").strip()
         
         # Get pagination parameters
         page = int(request.args.get("page", 1))
@@ -1065,6 +1067,8 @@ def transactions():
             filters["amount_min"] = amount_min
         if amount_max:
             filters["amount_max"] = amount_max
+        if search:
+            filters["search"] = search
         
         # Get transactions with filters and pagination
         try:
@@ -1094,6 +1098,14 @@ def transactions():
         scopes = scope_repo.list_by_user(user_id)
         wallets = wallet_repo.list_by_user(user_id)
         categories = category_repo.list_by_user_with_defaults(user_id)  # Include default categories
+
+        # Distinct tag suggestions for the filter modal datalist
+        try:
+            all_tags = sorted(
+                t for t in tx_repo.collection.distinct("tags", {"user_id": user_id}) if t
+            )
+        except Exception:
+            all_tags = []
         
         # Get selected items for display
         selected_scope = None
@@ -1150,6 +1162,8 @@ def transactions():
                              current_date_to=date_to,
                              current_amount_min=amount_min,
                              current_amount_max=amount_max,
+                             current_search=search,
+                             all_tags=all_tags,
                              total_income=total_income,
                              total_expense=total_expense,
                              total_transactions=total_transactions)
@@ -1172,6 +1186,8 @@ def transactions():
                              current_date_to=None,
                              current_amount_min=None,
                              current_amount_max=None,
+                             current_search=None,
+                             all_tags=[],
                              total_income=0,
                              total_expense=0,
                              total_transactions=0)
@@ -3395,10 +3411,25 @@ def create_transfer_transaction():
         except (TypeError, ValueError):
             current_time = int(time.time())
         
+        # Scope for this transfer: user-supplied, else the user's "Personal"
+        # scope, else none (kept explicit so transfers never inherit a random
+        # scope when Personal is missing).
+        scope_id = (body.get("scope_id") or "").strip()
+        if not scope_id:
+            personal = next(
+                (
+                    s
+                    for s in ScopeRepository().list_by_user(user_id)
+                    if (s.get("name") or "").strip().lower() == "personal"
+                ),
+                None,
+            )
+            scope_id = str(personal["_id"]) if personal else None
+
         # Main transfer transaction (income to destination wallet)
         to_wallet_balance_before = float(to_wallet.get("actual_balance", 0))
         to_wallet_balance_after = to_wallet_balance_before + amount
-        
+
         transfer_data = {
             "user_id": user_id,
             "wallet_id": to_wallet_id,
@@ -3408,7 +3439,7 @@ def create_transfer_transaction():
             "timestamp": current_time,
             "created_at": current_time,
             "category_id": "transfer",  # You may want to add this category
-            "scope_id": None,
+            "scope_id": scope_id,
             "tags": ["transfer"],
             "is_transfer": True,
             "from_wallet_id": from_wallet_id,
@@ -3432,7 +3463,7 @@ def create_transfer_transaction():
             "timestamp": current_time,
             "created_at": current_time,
             "category_id": "transfer",
-            "scope_id": None,
+            "scope_id": scope_id,
             "tags": ["transfer"],
             "is_transfer": True,
             "from_wallet_id": from_wallet_id,
@@ -3462,7 +3493,7 @@ def create_transfer_transaction():
                 "timestamp": fee_timestamp,
                 "created_at": fee_timestamp,
                 "category_id": "transfer_fee",  # You may want to add this category
-                "scope_id": None,
+                "scope_id": scope_id,
                 "tags": ["transfer", "fee"],
                 "is_transfer_fee": True,
                 "from_wallet_id": from_wallet_id,
@@ -4705,7 +4736,7 @@ def _build_share_report(transactions, wallets, scopes, categories, period_label=
     and balance adjustments are excluded from income/expense totals.
 
     Produces per-dimension expense breakdowns (category / scope / wallet / tags)
-    plus a strict hierarchy (wallet -> scope -> category) for treemap/sunburst.
+    plus a daily/monthly expense trend series for the trend chart.
     Tags deliberately OVERLAP (a tx may have many), so they are kept separate
     from the hierarchical partition and never summed as "parts of a whole".
     """
@@ -4781,6 +4812,26 @@ def _build_share_report(transactions, wallets, scopes, categories, period_label=
                 agg_tag[tag] = agg_tag.get(tag, 0.0) + a
     by_tag = _ranked(agg_tag)
 
+    # Per-saving-space flows (income vs expense) keyed by wallet id. Transfers,
+    # fees, and balance adjustments are already excluded via is_real — money
+    # moved BETWEEN spaces never shows up as in/out here.
+    wallet_flows = {}
+    for t in inc_tx:
+        wid = str(t.get("wallet_id", ""))
+        f = wallet_flows.setdefault(
+            wid, {"name": wallet_name.get(wid, "Unknown wallet"), "income": 0.0, "expense": 0.0}
+        )
+        f["income"] += amount(t)
+    for t in exp_tx:
+        wid = str(t.get("wallet_id", ""))
+        f = wallet_flows.setdefault(
+            wid, {"name": wallet_name.get(wid, "Unknown wallet"), "income": 0.0, "expense": 0.0}
+        )
+        f["expense"] += amount(t)
+    for f in wallet_flows.values():
+        f["income"] = round(f["income"], 2)
+        f["expense"] = round(f["expense"], 2)
+
     # Transfers (movements between saving spaces) — shown separately, NOT as
     # income/expense. Each transfer creates an outgoing + incoming record (and
     # optionally a fee record); dedupe to one movement per transfer.
@@ -4802,6 +4853,15 @@ def _build_share_report(transactions, wallets, scopes, categories, period_label=
         if dedup_key in seen_transfers:
             continue
         seen_transfers.add(dedup_key)
+        # Register both endpoints so spaces that only ever receive/send transfers
+        # still show up in the saldo card (flows stay 0 — transfers are not in/out).
+        for wid in (str(t.get("from_wallet_id")), str(t.get("to_wallet_id"))):
+            if wid not in wallet_flows:
+                wallet_flows[wid] = {
+                    "name": wallet_name.get(wid, "Unknown wallet"),
+                    "income": 0.0,
+                    "expense": 0.0,
+                }
         ts = t.get("timestamp")
         try:
             date_str = datetime.fromtimestamp(int(ts)).strftime("%Y-%m-%d %H:%M") if ts else ""
@@ -4818,21 +4878,63 @@ def _build_share_report(transactions, wallets, scopes, categories, period_label=
     transfers.sort(key=lambda x: x.get("date") or "", reverse=True)
     total_transferred = sum(m["amount"] for m in transfers)
 
-    # Strict hierarchy (wallet -> scope -> category) for treemap/sunburst.
-    tree = {}
+    # Daily/monthly expense series for the trend chart. Daily when the span is
+    # short (<= 62 days), monthly otherwise. Buckets are zero-filled so the
+    # x-axis stays continuous.
+    stamp_amounts = []
     for t in exp_tx:
-        w = wallet_name.get(str(t.get("wallet_id", "")), "Unknown wallet")
-        s = scope_name.get(str(t.get("scope_id", "")), "No scope")
-        c = cat_name.get(str(t.get("category_id", "")), "Uncategorized")
-        tree.setdefault(w, {}).setdefault(s, {}).setdefault(c, 0.0)
-        tree[w][s][c] += amount(t)
-    hierarchy = []
-    for w, scs in tree.items():
-        sc_children = []
-        for s, cats in scs.items():
-            cat_children = [{"name": cn, "value": cv} for cn, cv in cats.items()]
-            sc_children.append({"name": s, "value": sum(cats.values()), "children": cat_children})
-        hierarchy.append({"name": w, "value": sum(sc["value"] for sc in sc_children), "children": sc_children})
+        ts = t.get("timestamp")
+        if not ts:
+            continue
+        try:
+            stamp_amounts.append((datetime.fromtimestamp(int(ts)), amount(t)))
+        except Exception:
+            continue
+    # Raw per-transaction points (epoch seconds, amount) shipped to the client so
+    # the trend chart can drill down (year -> months/weeks, month -> weeks/days)
+    # without extra requests.
+    trend_points = [[int(d.timestamp()), a] for d, a in stamp_amounts]
+
+    first = min((d for d, _ in stamp_amounts), default=None)
+    last = max((d for d, _ in stamp_amounts), default=None)
+    daily = bool(first) and (last.date() - first.date()).days <= 62
+
+    trend_agg = {}
+    for d, a in stamp_amounts:
+        key = d.strftime("%Y-%m-%d") if daily else d.strftime("%Y-%m")
+        trend_agg[key] = trend_agg.get(key, 0.0) + a
+
+    trend_labels, trend_values = [], []
+    if daily and first:
+        cur = first.date()
+        while cur <= last.date():
+            key = cur.strftime("%Y-%m-%d")
+            trend_labels.append(cur.strftime("%d %b"))
+            trend_values.append(round(trend_agg.get(key, 0.0), 2))
+            cur += _timedelta(days=1)
+    elif first:
+        y, m = first.year, first.month
+        while (y, m) <= (last.year, last.month):
+            key = f"{y:04d}-{m:02d}"
+            trend_labels.append(datetime(y, m, 1).strftime("%b %Y"))
+            trend_values.append(round(trend_agg.get(key, 0.0), 2))
+            m += 1
+            if m > 12:
+                m = 1
+                y += 1
+
+    trend = {
+        "mode": "daily" if daily else "monthly",
+        "labels": trend_labels,
+        "values": trend_values,
+        "biggest_label": None,
+        "biggest_value": 0.0,
+        "avg": 0.0,
+    }
+    if trend_values:
+        trend["biggest_label"] = trend_labels[trend_values.index(max(trend_values))]
+        trend["biggest_value"] = max(trend_values)
+        trend["avg"] = round(total_expense / len(trend_values), 2)
 
     top_expense_category = (by_category[0][0], by_category[0][1]) if by_category else None
     top_tag = (by_tag[0][0], by_tag[0][1]) if by_tag else None
@@ -4883,6 +4985,15 @@ def _build_share_report(transactions, wallets, scopes, categories, period_label=
             "en": f"Biggest single expense: Rp {largest_expense[0]:,.0f} on \"{largest_expense[1]}\".",
             "id": f"Pengeluaran tunggal terbesar: Rp {largest_expense[0]:,.0f} untuk \"{largest_expense[1]}\".",
         })
+    if trend["biggest_label"]:
+        unit_en = "day" if daily else "month"
+        unit_id = "hari" if daily else "bulan"
+        insights.append({
+            "en": f"Heaviest spending {unit_en}: {trend['biggest_label']} — Rp {trend['biggest_value']:,.0f} "
+                  f"(avg Rp {trend['avg']:,.0f} per {unit_en}).",
+            "id": f"{unit_id.capitalize()} dengan pengeluaran terberat: {trend['biggest_label']} — Rp {trend['biggest_value']:,.0f} "
+                  f"(rata-rata Rp {trend['avg']:,.0f} per {unit_id}).",
+        })
     if savings_rate is not None:
         if savings_rate >= 20:
             insights.append({
@@ -4915,8 +5026,10 @@ def _build_share_report(transactions, wallets, scopes, categories, period_label=
         "by_category": by_category,
         "by_scope": by_scope,
         "by_wallet": by_wallet,
+        "wallet_flows": wallet_flows,
         "by_tag": by_tag,
-        "hierarchy": hierarchy,
+        "trend": trend,
+        "trend_points": trend_points,
         "top_expense_category": top_expense_category,
         "top_tag": top_tag,
         "largest_expense": largest_expense,
@@ -5198,6 +5311,18 @@ def share_public_view(username, slug):
     report = _build_share_report(report_txs, wallets, scopes, categories, _pl, _pl_id)
     special = _special_aggregate(report_txs, share.get("special_tags") or [])
 
+    # Current saldo per saving space — only for wallets that actually appear in
+    # the shared set (privacy: don't leak balances of unshared wallets).
+    wallet_saldos = {}
+    for wid in (report.get("wallet_flows") or {}).keys():
+        for w in wallets:
+            if str(w.get("_id")) == wid:
+                try:
+                    wallet_saldos[wid] = round(float(w.get("actual_balance", 0) or 0), 2)
+                except Exception:
+                    wallet_saldos[wid] = 0.0
+                break
+
     return render_template(
         "share_public_view.html",
         available=True,
@@ -5217,6 +5342,7 @@ def share_public_view(username, slug):
         viewer_type=viewer_type,
         report=report,
         special=special,
+        wallet_saldos=wallet_saldos,
         simple_transactions=report_txs,
         palette=_SHARE_CHART_PALETTE,
     )

@@ -1,4 +1,5 @@
 from typing import Any, Dict, List, Optional, Tuple
+import re
 import time
 from bson import ObjectId
 from pymongo import UpdateOne
@@ -405,6 +406,13 @@ class TransactionRepository(MongoRepository):
                         amount_query["$lte"] = float(filters["amount_max"])
                     if amount_query:
                         query["amount"] = amount_query
+
+                if filters.get("search"):
+                    # Free-text search over note (case-insensitive). Special chars
+                    # are escaped so user input is treated literally.
+                    safe = re.escape(str(filters["search"]).strip())
+                    if safe:
+                        query["note"] = {"$regex": safe, "$options": "i"}
             
   
             transactions = self.find_many(query, limit=limit, sort=[("timestamp", -1)])
@@ -901,6 +909,13 @@ class TransactionRepository(MongoRepository):
                         amount_query["$lte"] = float(filters["amount_max"])
                     if amount_query:
                         query["amount"] = amount_query
+
+                if filters.get("search"):
+                    # Free-text search over note (case-insensitive). Special chars
+                    # are escaped so user input is treated literally.
+                    safe = re.escape(str(filters["search"]).strip())
+                    if safe:
+                        query["note"] = {"$regex": safe, "$options": "i"}
 
             # AND extra raw conditions (viewer type filter) without key clashes
             if extra_query:

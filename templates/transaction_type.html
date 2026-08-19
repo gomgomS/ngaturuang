@@ -941,7 +941,13 @@ function submitTransfer() {
         alert(message);
         return;
     }
-    const data = { from_wallet_id: fromWalletId, to_wallet_id: toWalletId, amount: transferAmount, admin_fee: adminFee };
+    const data = {
+        from_wallet_id: fromWalletId,
+        to_wallet_id: toWalletId,
+        amount: transferAmount,
+        admin_fee: adminFee,
+        scope_id: (document.getElementById('transfer_scope_id') || {}).value || undefined
+    };
     fetch('/api/transactions/transfer', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) })
     .then(r => r.json())
     .then(res => {
@@ -1296,6 +1302,17 @@ function updateFromWalletBalance() {
                                 <option value="{{ wallet._id }}">{{ wallet.name }} ({{ wallet.type or 'bank' }})</option>
                                 {% endfor %}
                             </select>
+                        </div>
+                    </div>
+                    <div class="row justify-content-center">
+                        <div class="col-md-10 mb-4">
+                            <label for="transfer_scope_id" class="form-label" data-translate="transaction_type.scope">Scope</label>
+                            <select class="form-select form-select-lg" id="transfer_scope_id" name="scope_id">
+                                {% for scope in scopes %}
+                                <option value="{{ scope._id }}" {% if (scope.name or '')|lower == 'personal' %}selected{% endif %}>{{ scope.name }}</option>
+                                {% endfor %}
+                            </select>
+                            <small class="form-text text-muted" data-translate="transaction_type.transfer_scope_hint">The scope this transfer is recorded under (defaults to Personal)</small>
                         </div>
                     </div>
                     <div class="row justify-content-center">

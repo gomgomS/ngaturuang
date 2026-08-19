@@ -64,8 +64,24 @@
     .rpt-note { font-size:.73rem; color:var(--mut); }
     .legend-row { display:flex; justify-content:space-between; align-items:center; font-size:.8rem; padding:.32rem .2rem; border-bottom:1px dashed var(--line); gap:.5rem; }
     .legend-row:last-child { border-bottom:none; }
+    /* mini share-of-max bar under each breakdown row */
+    .side-bar { height:4px; border-radius:3px; background:#eef0f6; margin:-.15rem 0 .3rem; overflow:hidden; }
+    .side-bar > div { height:100%; border-radius:3px; opacity:.75; }
     .legend-dot { width:10px; height:10px; border-radius:3px; display:inline-block; margin-right:.45rem; flex-shrink:0; }
     .insight-item { display:flex; gap:.5rem; align-items:flex-start; font-size:.84rem; color:#334155; padding:.28rem; }
+
+    /* ---- saving spaces saldo table ---- */
+    .ss-table { font-size:.84rem; }
+    .ss-head, .ss-row { display:grid; grid-template-columns:1.6fr 1fr 1fr 1.1fr; gap:.5rem; align-items:center; padding:.45rem .3rem; }
+    .ss-head { font-size:.68rem; text-transform:uppercase; letter-spacing:.05em; color:var(--mut); font-weight:800; border-bottom:2px solid var(--line); }
+    .ss-row { border-bottom:1px dashed var(--line); }
+    .ss-row:last-child { border-bottom:none; }
+    .ss-total { border-top:2px solid var(--line); border-bottom:none; font-weight:700; background:var(--soft); border-radius:0 0 10px 10px; }
+    .ss-name { font-weight:600; display:flex; align-items:center; }
+    @media(max-width:640px){
+        .ss-head, .ss-row { grid-template-columns:1.3fr 1fr 1fr; }
+        .ss-head div:last-child, .ss-row div:last-child { grid-column:span 3; text-align:right; padding-top:.15rem; border-top:1px dotted var(--line); margin-top:.15rem; }
+    }
 
     /* ---- transactions ---- */
     .tx { border:1px solid var(--line); border-radius:13px; background:#fff; box-shadow:0 3px 10px rgba(30,41,59,.05); height:100%; }
@@ -160,6 +176,41 @@
     </div>
     {% endif %}
 
+    <!-- Saving spaces: flows + current saldo -->
+    {% if report.wallet_flows %}
+    <div class="card-x" style="margin-bottom:.85rem;">
+        <div class="card-head">
+            <span class="chip-ic" style="background:#06b6d4;"><i class="fas fa-wallet"></i></span>
+            <h6 data-i18n="saving_spaces">Saving Spaces</h6>
+            <span class="ms-auto text-muted small" data-i18n="saldo_note">Current saldo per space · transfers between spaces are not income/expense</span>
+        </div>
+        <div class="card-body">
+            <div class="ss-table">
+                <div class="ss-head">
+                    <div data-i18n="wallet">Saving Space</div>
+                    <div class="text-success"><i class="fas fa-arrow-down me-1"></i><span data-i18n="income">In</span></div>
+                    <div class="text-danger"><i class="fas fa-arrow-up me-1"></i><span data-i18n="expense">Out</span></div>
+                    <div class="text-end" data-i18n="current_saldo">Current Saldo</div>
+                </div>
+                {% for wid, f in report.wallet_flows.items() %}
+                <div class="ss-row">
+                    <div class="ss-name"><i class="fas fa-piggy-bank me-2 text-info"></i>{{ f.name }}</div>
+                    <div class="text-success">+ Rp {{ "{:,.0f}".format(f.income|float) }}</div>
+                    <div class="text-danger">− Rp {{ "{:,.0f}".format(f.expense|float) }}</div>
+                    <div class="text-end fw-bold">{% if wallet_saldos.get(wid) is not none %}Rp {{ "{:,.0f}".format(wallet_saldos.get(wid)|float) }}{% else %}—{% endif %}</div>
+                </div>
+                {% endfor %}
+                <div class="ss-row ss-total">
+                    <div data-i18n="total">Total</div>
+                    <div class="text-success fw-bold">+ Rp {{ "{:,.0f}".format(report.total_income|float) }}</div>
+                    <div class="text-danger fw-bold">− Rp {{ "{:,.0f}".format(report.total_expense|float) }}</div>
+                    <div class="text-end fw-bold">Rp {{ "{:,.0f}".format(wallet_saldos.values()|select('number')|sum|float) }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
     <!-- Bento: visualization + breakdown -->
     {% if report.has_expense %}
     <div class="row g-3" style="margin-bottom:.85rem;">
@@ -170,8 +221,7 @@
                     <h6 data-i18n="visualization">Visualization</h6>
                     <ul class="rpt-tabs ms-auto">
                         <li><button class="rpt-tab active" data-tab="bars"><i class="fas fa-chart-bar me-1"></i><span data-i18n="bars">Bars</span></button></li>
-                        <li><button class="rpt-tab" data-tab="treemap"><i class="fas fa-th-large me-1"></i><span data-i18n="treemap">Treemap</span></button></li>
-                        <li><button class="rpt-tab" data-tab="sunburst"><i class="fas fa-sun me-1"></i><span data-i18n="sunburst">Sunburst</span></button></li>
+                        <li><button class="rpt-tab" data-tab="trend"><i class="fas fa-chart-line me-1"></i><span data-i18n="trend">Trend</span></button></li>
                     </ul>
                 </div>
                 <div class="card-body">
@@ -188,13 +238,20 @@
                         <div id="barChart" style="width:100%;height:360px"></div>
                         <div class="rpt-note mt-2" id="tagNote" style="display:none;" data-i18n="tag_overlap_note">A transaction can carry several tags, so tag totals may overlap — these bars compare where money goes, not sum to total spend.</div>
                     </div>
-                    <div id="pane-treemap" style="display:none;">
-                        <div class="rpt-note mb-1" data-i18n="hierarchy">Hierarchy: Saving Space → Scope → Category</div>
-                        <div id="treemapChart" style="width:100%;height:400px"></div>
-                    </div>
-                    <div id="pane-sunburst" style="display:none;">
-                        <div class="rpt-note mb-1" data-i18n="rings">Rings: Saving Space → Scope → Category (outer = category)</div>
-                        <div id="sunburstChart" style="width:100%;height:400px"></div>
+                    <div id="pane-trend" style="display:none;">
+                        <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+                            <select id="trendScope" class="form-select form-select-sm" style="width:auto;font-size:.78rem;padding:.2rem 1.6rem .2rem .5rem;">
+                                <option value="all">All</option>
+                            </select>
+                            <div class="rpt-dims mb-0" id="trendGran">
+                                <button class="rpt-dim" data-gran="month"><span data-i18n="gran_month">Month</span></button>
+                                <button class="rpt-dim" data-gran="week"><span data-i18n="gran_week">Week</span></button>
+                                <button class="rpt-dim" data-gran="day"><span data-i18n="gran_day">Day</span></button>
+                                <button class="rpt-dim" data-gran="year"><span data-i18n="gran_year">Year</span></button>
+                            </div>
+                            <span class="rpt-note ms-auto" id="trendModeNote"></span>
+                        </div>
+                        <div id="trendChart" style="width:100%;height:360px"></div>
                     </div>
                 </div>
             </div>
@@ -286,40 +343,272 @@
             curTab = 'bars'; renderSide();
         }
 
-        function renderTreemap() {
-            var ch = ensure('treemapChart');
-            if (!ch) return;
-            ch.setOption({
-                tooltip: { formatter: function (p) { return p.name + ': ' + fmt(p.value); } },
-                series: [{
-                    type: 'treemap', data: R.hierarchy, roam: false, nodeClick: 'zoomToNode',
-                    breadcrumb: { show: false },
-                    label: { show: true, formatter: '{b}', fontSize: 11 },
-                    upperLabel: { show: true, height: 22, color: '#fff' },
-                    levels: [
-                        { itemStyle: { borderColor: '#fff', borderWidth: 3, gapWidth: 3 } },
-                        { itemStyle: { borderColor: '#fff', borderWidth: 2, gapWidth: 2 }, colorSaturation: [0.35, 0.5] },
-                        { colorMappingBy: 'value', itemStyle: { borderColor: '#fff', borderWidth: 1, gapWidth: 1 }, colorSaturation: [0.3, 0.5] }
-                    ]
-                }]
-            }, true);
-            curTab = 'treemap'; renderSide();
+        // ================= TREND DRILL-DOWN =================
+        // Buckets raw per-tx points (epoch, amount) into day/week/month/year bars.
+        // Scope: All | specific year | specific month (YYYY-MM). Granularity adapts.
+        var TS = { scope: 'all', gran: null, cache: {} };
+
+        TS.points = (R.trend_points || []).map(function (p) {
+            return { t: p[0], d: new Date(p[0] * 1000), a: p[1] };
+        });
+        TS.points.sort(function (x, y) { return x.t - y.t; });
+
+        // ISO week key: Monday-based; label 'W34 26' = week 34 of 2026
+        function isoWeek(d) {
+            var t = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+            var day = (t.getDay() + 6) % 7;            // Mon=0..Sun=6
+            t.setDate(t.getDate() - day + 3);          // Thursday of this week
+            var firstThu = new Date(t.getFullYear(), 0, 4);
+            var fd = (firstThu.getDay() + 6) % 7;
+            firstThu.setDate(firstThu.getDate() - fd + 3);
+            var wk = 1 + Math.round((t - firstThu) / 604800000);
+            return { y: t.getFullYear(), w: wk, key: t.getFullYear() + '-W' + wk };
+        }
+        function mondayOf(d) {
+            var t = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+            t.setDate(t.getDate() - (t.getDay() + 6) % 7);
+            return t;
+        }
+        var MONS_EN = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+        var MONS_ID = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+
+        // Build [{key,label,sub,from,to}] buckets between two dates for a granularity
+        function buildBuckets(gran, fromD, toD) {
+            var out = [], lang = window.__LANG || 'en';
+            var MONS = lang === 'id' ? MONS_ID : MONS_EN;
+            if (gran === 'day') {
+                var cur = new Date(fromD.getFullYear(), fromD.getMonth(), fromD.getDate());
+                var end = new Date(toD.getFullYear(), toD.getMonth(), toD.getDate());
+                while (cur <= end) {
+                    out.push({
+                        key: cur.getFullYear() + '-' + String(cur.getMonth()+1).padStart(2,'0') + '-' + String(cur.getDate()).padStart(2,'0'),
+                        label: String(cur.getDate()).padStart(2,'0') + ' ' + MONS[cur.getMonth()],
+                        sub: MONS[cur.getMonth()] + ' ' + cur.getFullYear(),
+                        from: cur.getTime(), to: cur.getTime() + 86400000 - 1
+                    });
+                    cur.setDate(cur.getDate() + 1);
+                }
+            } else if (gran === 'week') {
+                var cur = mondayOf(fromD), end = mondayOf(toD);
+                while (cur <= end) {
+                    var iso = isoWeek(cur);
+                    var wEnd = new Date(cur.getTime() + 6 * 86400000);
+                    out.push({
+                        key: iso.key,
+                        label: 'W' + String(iso.w).padStart(2,'0'),
+                        sub: MONS[cur.getMonth()] + ' ' + String(cur.getDate()).padStart(2,'0') + ' – ' + MONS[wEnd.getMonth()] + ' ' + String(wEnd.getDate()).padStart(2,'0') + ' ' + wEnd.getFullYear(),
+                        from: cur.getTime(), to: cur.getTime() + 7 * 86400000 - 1
+            });
+                    cur.setDate(cur.getDate() + 7);
+                }
+            } else if (gran === 'month') {
+                var y = fromD.getFullYear(), m = fromD.getMonth();
+                while (y * 12 + m <= toD.getFullYear() * 12 + toD.getMonth()) {
+                    var first = new Date(y, m, 1);
+                    var last = new Date(y, m + 1, 0);
+                    out.push({
+                        key: y + '-' + String(m+1).padStart(2,'0'),
+                        label: MONS[m] + ' ' + y,
+                        sub: null,
+                        from: first.getTime(), to: last.getTime() + 86399999
+                    });
+                    m++; if (m > 11) { m = 0; y++; }
+                }
+            } else { // year
+                for (var y2 = fromD.getFullYear(); y2 <= toD.getFullYear(); y2++) {
+                    out.push({
+                        key: '' + y2, label: '' + y2, sub: null,
+                        from: new Date(y2, 0, 1).getTime(), to: new Date(y2, 11, 31, 23, 59, 59, 999).getTime()
+                    });
+    }
+            }
+            return out;
         }
 
-        function renderSunburst() {
-            var ch = ensure('sunburstChart');
+        // Aggregate points into the buckets. No scope-bound filter needed here:
+        // points outside the scope map to keys not in byKey and are skipped.
+        // (Bucket keys, not date compares, define membership — midnight-boundary
+        // safe for transactions later on the last day of a month/year.)
+        function bucketize(gran, fromD, toD) {
+            var buckets = buildBuckets(gran, fromD, toD);
+            var byKey = {};
+            buckets.forEach(function (b) { byKey[b.key] = 0; });
+            TS.points.forEach(function (p) {
+                var key = null;
+                if (gran === 'day') key = p.d.getFullYear() + '-' + String(p.d.getMonth()+1).padStart(2,'0') + '-' + String(p.d.getDate()).padStart(2,'0');
+                else if (gran === 'week') key = isoWeek(p.d).key;
+                else if (gran === 'month') key = p.d.getFullYear() + '-' + String(p.d.getMonth()+1).padStart(2,'0');
+                else key = '' + p.d.getFullYear();
+                if (key in byKey) byKey[key] += p.a;
+            });
+            return buckets.map(function (b) {
+                return { label: b.label, sub: b.sub, value: round2(byKey[b.key]) };
+            });
+        }
+        function round2(v) { return Math.round(v * 100) / 100; }
+
+        // Which granularities make sense for a scope.
+        // all: Day/Month (short span) or Month/Year (long span)
+        // year (YYYY): Month/Week — "in year I will show every single month",
+        //              plus a week option
+        // month (YYYY-MM): Week/Day — each week and each day of that month
+        function allowedGrans(scope) {
+            if (scope === 'all') {
+                var days = TS.spanDays = (TS.points.length > 1) ? Math.round((TS.points[TS.points.length-1].d - TS.points[0].d) / 86400000) : 0;
+                return days <= 62 ? ['day', 'month'] : ['month', 'year'];
+            }
+            if (/^\d{4}$/.test(scope)) return ['month', 'week'];
+            return ['week', 'day'];
+        }
+
+        // Calendar range [fromD, toD] (local midnight bounds) for the scope
+        function scopeRange(scope) {
+            if (scope === 'all') {
+                if (!TS.points.length) return null;
+                var a = TS.points[0].d, z = TS.points[TS.points.length - 1].d;
+                return [new Date(a.getFullYear(), a.getMonth(), a.getDate()),
+                        new Date(z.getFullYear(), z.getMonth(), z.getDate())];
+            }
+            if (/^\d{4}$/.test(scope)) return [new Date(+scope, 0, 1), new Date(+scope, 11, 31)];
+            var ym = scope.split('-');
+            return [new Date(+ym[0], +ym[1] - 1, 1), new Date(+ym[0], +ym[1], 0)];
+        }
+
+        var GRAN_TEXT = {
+            day:   { en: 'day',    id: 'hari' },
+            week:  { en: 'week',   id: 'minggu' },
+            month: { en: 'month',  id: 'bulan' },
+            year:  { en: 'year',   id: 'tahun' }
+        };
+
+        function scopeLabel(scope, lang) {
+            if (scope === 'all') return lang === 'id' ? 'seluruh periode' : 'the whole period';
+            if (/^\d{4}$/.test(scope)) return scope;
+            var ym = scope.split('-');
+            var MONS = lang === 'id' ? MONS_ID : MONS_EN;
+            return MONS[+ym[1] - 1] + ' ' + ym[0];
+        }
+
+        // Populate the scope select: All, then optgroup per year with its months.
+        // Re-runs on language change (labels); event listeners bound once.
+        function initTrendControls() {
+            var sel = document.getElementById('trendScope');
+            if (!sel || !TS.points.length) return;
+            var years = {};
+            TS.points.forEach(function (p) {
+                var y = p.d.getFullYear();
+                years[y] = years[y] || {};
+                years[y][p.d.getMonth()] = true;
+            });
+            var lang = window.__LANG || 'en';
+            var MONS = lang === 'id' ? MONS_ID : MONS_EN;
+            var html = '<option value="all">' + (lang === 'id' ? 'Semua' : 'All') + '</option>';
+            Object.keys(years).map(Number).sort().forEach(function (y) {
+                html += '<optgroup label="' + y + '">';
+                html += '<option value="' + y + '">' + y + '</option>';
+                Object.keys(years[y]).map(Number).sort().forEach(function (m) {
+                    var val = y + '-' + String(m + 1).padStart(2, '0');
+                    html += '<option value="' + val + '">' + MONS[m] + ' ' + y + '</option>';
+                });
+                html += '</optgroup>';
+            });
+            sel.innerHTML = html;
+            sel.value = TS.scope;
+            if (!TS.bound) {
+                TS.bound = true;
+                sel.addEventListener('change', function () {
+                    TS.scope = sel.value;
+                    TS.gran = allowedGrans(TS.scope)[0];
+                    updateGranButtons();
+                    renderTrend();
+                });
+                var granWrap = document.getElementById('trendGran');
+                if (granWrap) {
+                    granWrap.querySelectorAll('[data-gran]').forEach(function (b) {
+                        b.addEventListener('click', function () {
+                            TS.gran = b.getAttribute('data-gran');
+                            updateGranButtons();
+                            renderTrend();
+                        });
+                    });
+                }
+            }
+            if (!TS.gran) TS.gran = allowedGrans(TS.scope)[0];
+            updateGranButtons();
+        }
+
+        // Show only the granularities valid for the scope, active one highlighted
+        function updateGranButtons() {
+            var wrap = document.getElementById('trendGran');
+            if (!wrap) return;
+            var allowed = allowedGrans(TS.scope);
+            wrap.querySelectorAll('[data-gran]').forEach(function (b) {
+                var g = b.getAttribute('data-gran');
+                b.style.display = allowed.indexOf(g) >= 0 ? '' : 'none';
+                b.classList.toggle('active', g === TS.gran);
+            });
+        }
+
+        function renderTrend() {
+            initTrendControls();
+            var ch = ensure('trendChart');
             if (!ch) return;
+            var lang = window.__LANG || 'en';
+            var range = scopeRange(TS.scope);
+            var noteEl = document.getElementById('trendModeNote');
+            if (!range) {
+                if (noteEl) noteEl.textContent = lang === 'id' ? 'Tidak ada data pengeluaran.' : 'No expense data.';
+                ch.clear();
+                window.__trendSeries = [];
+                renderSide();
+                return;
+            }
+            var series = bucketize(TS.gran, range[0], range[1]);
+            window.__trendSeries = series;
+            var labels = series.map(function (s) { return s.label; });
+            var values = series.map(function (s) { return s.value; });
+
+            // note: "Expense per <unit> · <scope> · heaviest: X (Rp Y)"
+            var unit = (GRAN_TEXT[TS.gran] || GRAN_TEXT.month)[lang];
+            var idxMax = values.indexOf(Math.max.apply(null, values));
+            var maxLabel = null, maxVal = 0;
+            series.forEach(function (s) { if (s.value > maxVal) { maxVal = s.value; maxLabel = s.sub ? s.sub : s.label; } });
+            if (noteEl) {
+                var head = (lang === 'id' ? 'Pengeluaran per ' + unit : 'Expense per ' + unit)
+                    + ' · ' + scopeLabel(TS.scope, lang);
+                noteEl.textContent = head + (maxVal > 0
+                    ? ' · ' + (lang === 'id' ? 'terberat: ' : 'heaviest: ') + maxLabel + ' (' + fmt(maxVal) + ')'
+                    : '');
+            }
+
             ch.setOption({
-                tooltip: { formatter: function (p) { return p.name + ': ' + fmt(p.value); } },
+                grid: { left: 8, right: 16, top: 30, bottom: 10, containLabel: true },
+                tooltip: {
+                    trigger: 'axis', axisPointer: { type: 'line' },
+                    formatter: function (p) {
+                        var s = series[p[0].dataIndex];
+                        var name = (s && s.sub) ? s.sub : p[0].name;
+                        return name + ': ' + fmt(p[0].value);
+                    }
+                },
+                xAxis: { type: 'category', data: labels, axisLabel: { fontSize: 10, hideOverlap: true } },
+                yAxis: { type: 'value', axisLabel: { fontSize: 10, formatter: function (v) { return v >= 1000 ? (v / 1000) + 'k' : v; } }, splitLine: { lineStyle: { color: '#eef0f6' } } },
+                dataZoom: labels.length > 40 ? [{ type: 'slider', height: 16, bottom: 6 }] : [],
                 series: [{
-                    type: 'sunburst', data: R.hierarchy, radius: ['15%', '90%'],
-                    label: { rotate: 'radial', fontSize: 10, color: '#fff', minAngle: 8, formatter: function (p) { var n = p.name || ''; return n.length > 11 ? n.slice(0, 10) + '…' : n; } },
-                    labelLayout: { hideOverlap: true },
-                    itemStyle: { borderColor: '#fff', borderWidth: 1.5 },
-                    emphasis: { focus: 'ancestor', label: { show: true } }
+                    type: 'bar',
+                    data: values.map(function (v, i) {
+                        return { value: v, itemStyle: { color: i === idxMax ? '#f59e0b' : '#6366f1', borderRadius: i === idxMax ? [5, 5, 0, 0] : [3, 3, 0, 0] } };
+                    }),
+                    barMaxWidth: 26,
+                    markLine: {
+                        silent: true, symbol: 'none',
+                        lineStyle: { color: '#94a3b8', type: 'dashed' },
+                        label: { formatter: function (p) { return fmt(p.value); }, fontSize: 10, color: '#64748b' },
+                        data: [{ type: 'average', name: 'avg' }]
+                    }
                 }]
             }, true);
-            curTab = 'sunburst'; renderSide();
+            curTab = 'trend'; renderSide();
         }
 
         function sideTitleText() {
@@ -327,6 +616,10 @@
             if (curTab === 'bars') {
                 var m = { category: { en: 'Category', id: 'Kategori' }, scope: { en: 'Scope', id: 'Lingkup' }, wallet: { en: 'Saving Space', id: 'Ruang Tabungan' }, tag: { en: 'Tags', id: 'Tag' }, special: { en: 'Special tags', id: 'Tag spesial' } }[curDim] || { en: '', id: '' };
                 return m[lang];
+            }
+            if (curTab === 'trend') {
+                var GT = { day: { en: 'Heaviest days', id: 'Hari terberat' }, week: { en: 'Heaviest weeks', id: 'Minggu terberat' }, month: { en: 'Heaviest months', id: 'Bulan terberat' }, year: { en: 'Heaviest years', id: 'Tahun terberat' } };
+                return (GT[(typeof TS !== 'undefined' && TS.gran) || 'month'] || GT.month)[lang];
             }
             return (lang === 'id' ? 'Tag teratas' : 'Top tags');
         }
@@ -344,27 +637,47 @@
                 return;
             }
 
+            // Trend tab → heaviest buckets of the current granularity, ranked
+            if (curTab === 'trend') {
+                var series = window.__trendSeries || [];
+                if (titleEl) titleEl.textContent = sideTitleText();
+                var ranked = series.map(function (s) { return [s.sub || s.label, s.value]; })
+                    .filter(function (x) { return x[1] > 0; })
+                    .sort(function (a, b) { return b[1] - a[1]; })
+                    .slice(0, 12);
+                if (!ranked.length) { el.innerHTML = '<div class="text-muted small py-2">—</div>'; return; }
+                el.innerHTML = ranked.map(function (x, i) {
+                    var crown = (i === 0) ? ' <i class="fas fa-crown" title="BIGGEST" style="color:#f59e0b;font-size:.7rem;"></i>' : '';
+                    return '<div class="legend-row"><span><span class="legend-dot" style="background:' + (i === 0 ? '#f59e0b' : colorAt(i)) + '"></span>' + x[0] + crown + '</span><span class="text-muted">' + fmt(x[1]) + ' · #' + (i + 1) + '</span></div>';
+                }).join('');
+                return;
+            }
+
             // Regular dimension breakdown
             var items, isTag = false;
             if (curTab === 'bars') { items = R['by_' + curDim] || []; isTag = (curDim === 'tag'); }
             else { items = R.by_tag || []; isTag = true; }
             if (titleEl) titleEl.textContent = sideTitleText();
             if (!items.length) { el.innerHTML = '<div class="text-muted small py-2">—</div>'; return; }
+            var maxVal = items.length ? items[0][1] : 0;
             el.innerHTML = items.slice(0, 12).map(function (it, i) {
                 var name = isTag ? '#' + it[0] : it[0];
                 var pct = it[2];
-                return '<div class="legend-row"><span><span class="legend-dot" style="background:' + colorAt(i) + '"></span>' + name + '</span><span class="text-muted">' + fmt(it[1]) + (pct ? ' · ' + pct + '%' : '') + '</span></div>';
+                var barW = maxVal > 0 ? Math.max(3, Math.round(it[1] / maxVal * 100)) : 0;
+                var crown = (i === 0 && items.length > 1) ? ' <i class="fas fa-crown" title="BIGGEST" style="color:#f59e0b;font-size:.7rem;"></i>' : '';
+                return '<div class="legend-row"><span><span class="legend-dot" style="background:' + colorAt(i) + '"></span>' + name + crown + '</span><span class="text-muted">' + fmt(it[1]) + (pct ? ' · ' + pct + '%' : '') + '</span></div>'
+                    + '<div class="side-bar"><div style="width:' + barW + '%;background:' + colorAt(i) + ';"></div></div>';
             }).join('');
         }
         window.renderSide = renderSide;
+        window.renderTrend = renderTrend;
 
         function activate(tab) {
             document.querySelectorAll('[data-tab]').forEach(function (b) { b.classList.toggle('active', b.getAttribute('data-tab') === tab); });
-            ['bars', 'treemap', 'sunburst'].forEach(function (t) { document.getElementById('pane-' + t).style.display = (t === tab) ? '' : 'none'; });
+            ['bars', 'trend'].forEach(function (t) { document.getElementById('pane-' + t).style.display = (t === tab) ? '' : 'none'; });
             setTimeout(function () {
                 if (tab === 'bars') renderBars(curDim);
-                else if (tab === 'treemap') renderTreemap();
-                else if (tab === 'sunburst') renderSunburst();
+                else if (tab === 'trend') renderTrend();
                 Object.keys(charts).forEach(function (k) { try { charts[k].resize(); } catch (e) {} });
             }, 40);
         }
@@ -554,32 +867,36 @@ function setTxView(view) {
     var I18N = {
         en: {
             report:"Report", income:"Income", expense:"Expense", net:"Net", savings_rate:"Savings rate",
-            bars:"Bars", treemap:"Treemap", sunburst:"Sunburst", visualization:"Visualization",
+            bars:"Bars", trend:"Trend", visualization:"Visualization",
+            gran_day:"Day", gran_week:"Week", gran_month:"Month", gran_year:"Year",
             category:"Category", scope:"Scope", wallet:"Saving Space", tags:"Tags",
             top_tags:"Top tags", tags_note:"(tags overlap — not a share of total)",
             tag_overlap_note:"A transaction can carry several tags, so tag totals may overlap — these bars compare where money goes, not sum to total spend.",
             insights:"Insights", no_expense:"No expense data to chart for this period.",
-            hierarchy:"Hierarchy: Saving Space → Scope → Category", rings:"Rings: Saving Space → Scope → Category (outer = category)",
             not_available:"Share not available", not_available_desc:"This link is invalid, unpublished, or has been removed by the owner.",
             no_transactions:"No transactions match this share", no_transactions_desc:"Try again later — the owner may update the filters.",
             transactions_label:"transactions", transactions_head:"Transactions", powered:"Powered by", breakdown:"Breakdown", transfers:"Transfers", transfer_move:"Transfer", filter_all:"All", special_tags:"Special tags",
             transfers_excluded_prefix:"Transfers of", transfers_excluded_suffix:"between saving spaces are excluded from income & expense (shown separately below).",
             showing:"Showing", of:"of", balance_before:"Balance Before", balance_after:"Balance After",
+            saving_spaces:"Saving Spaces", current_saldo:"Current Saldo", total:"Total",
+            saldo_note:"Current saldo per space · transfers between spaces are not income/expense",
             from:"From", to:"To", fee:"Fee", balance_adjustment:"Balance Adjustment"
         },
         id: {
             report:"Laporan", income:"Pemasukan", expense:"Pengeluaran", net:"Bersih", savings_rate:"Tingkat menabung",
-            bars:"Batang", treemap:"Peta Pohon", sunburst:"Matahari", visualization:"Visualisasi",
+            bars:"Batang", trend:"Tren", visualization:"Visualisasi",
+            gran_day:"Hari", gran_week:"Minggu", gran_month:"Bulan", gran_year:"Tahun",
             category:"Kategori", scope:"Lingkup", wallet:"Ruang Tabungan", tags:"Tag",
             top_tags:"Tag teratas", tags_note:"(tag tumpang tindih — bukan bagian dari total)",
             tag_overlap_note:"Satu transaksi bisa memiliki beberapa tag, jadi total tag bisa tumpang tindih — batang ini membandingkan ke mana uang pergi, bukan jumlah total pengeluaran.",
             insights:"Wawasan", no_expense:"Tidak ada data pengeluaran untuk periode ini.",
-            hierarchy:"Hierarki: Ruang Tabungan → Lingkup → Kategori", rings:"Cincin: Ruang Tabungan → Lingkup → Kategori (luar = kategori)",
             not_available:"Bagikan tidak tersedia", not_available_desc:"Tautan ini tidak valid, tidak dipublikasikan, atau telah dihapus oleh pemilik.",
             no_transactions:"Tidak ada transaksi yang cocok", no_transactions_desc:"Coba lagi nanti — pemilik mungkin memperbarui filter.",
             transactions_label:"transaksi", transactions_head:"Transaksi", powered:"Didukung oleh", breakdown:"Rincian", transfers:"Transfer", transfer_move:"Transfer", filter_all:"Semua", special_tags:"Tag spesial",
             transfers_excluded_prefix:"Transfer sebesar", transfers_excluded_suffix:"antar ruang tabungan tidak dihitung sebagai pemasukan & pengeluaran (ditampilkan terpisah di bawah).",
             showing:"Menampilkan", of:"dari", balance_before:"Saldo Sebelum", balance_after:"Saldo Sesudah",
+            saving_spaces:"Ruang Tabungan", current_saldo:"Saldo Saat Ini", total:"Total",
+            saldo_note:"Saldo saat ini per ruang · transfer antar ruang bukan pemasukan/pengeluaran",
             from:"Dari", to:"Ke", fee:"Biaya", balance_adjustment:"Penyesuaian Saldo"
         }
     };
@@ -614,6 +931,9 @@ function setTxView(view) {
             });
         }
         if (typeof window.renderSide === 'function') window.renderSide();
+        // re-render the trend chart note + labels in the new language if visible
+        var trendPane = document.getElementById('pane-trend');
+        if (trendPane && trendPane.style.display !== 'none' && typeof window.renderTrend === 'function') window.renderTrend();
         var tb = document.getElementById('transferBadge');
         if (tb && R.transfer_count != null) {
             var n = R.transfer_count, tot = 'Rp ' + Number(R.total_transferred || 0).toLocaleString('id-ID');
