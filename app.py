@@ -4814,7 +4814,9 @@ def _build_share_report(transactions, wallets, scopes, categories, period_label=
 
     # Per-saving-space flows (income vs expense) keyed by wallet id. Transfers,
     # fees, and balance adjustments are already excluded via is_real — money
-    # moved BETWEEN spaces never shows up as in/out here.
+    # moved BETWEEN spaces never shows up as in/out here. The saldo is derived
+    # ONLY from the shared set (in − out), never from the wallet's live
+    # actual_balance, so nothing outside the share's filters leaks in.
     wallet_flows = {}
     for t in inc_tx:
         wid = str(t.get("wallet_id", ""))
@@ -4831,6 +4833,7 @@ def _build_share_report(transactions, wallets, scopes, categories, period_label=
     for f in wallet_flows.values():
         f["income"] = round(f["income"], 2)
         f["expense"] = round(f["expense"], 2)
+        f["saldo"] = round(f["income"] - f["expense"], 2)
 
     # Transfers (movements between saving spaces) — shown separately, NOT as
     # income/expense. Each transfer creates an outgoing + incoming record (and
@@ -4853,15 +4856,6 @@ def _build_share_report(transactions, wallets, scopes, categories, period_label=
         if dedup_key in seen_transfers:
             continue
         seen_transfers.add(dedup_key)
-        # Register both endpoints so spaces that only ever receive/send transfers
-        # still show up in the saldo card (flows stay 0 — transfers are not in/out).
-        for wid in (str(t.get("from_wallet_id")), str(t.get("to_wallet_id"))):
-            if wid not in wallet_flows:
-                wallet_flows[wid] = {
-                    "name": wallet_name.get(wid, "Unknown wallet"),
-                    "income": 0.0,
-                    "expense": 0.0,
-                }
         ts = t.get("timestamp")
         try:
             date_str = datetime.fromtimestamp(int(ts)).strftime("%Y-%m-%d %H:%M") if ts else ""
@@ -5311,18 +5305,6 @@ def share_public_view(username, slug):
     report = _build_share_report(report_txs, wallets, scopes, categories, _pl, _pl_id)
     special = _special_aggregate(report_txs, share.get("special_tags") or [])
 
-    # Current saldo per saving space — only for wallets that actually appear in
-    # the shared set (privacy: don't leak balances of unshared wallets).
-    wallet_saldos = {}
-    for wid in (report.get("wallet_flows") or {}).keys():
-        for w in wallets:
-            if str(w.get("_id")) == wid:
-                try:
-                    wallet_saldos[wid] = round(float(w.get("actual_balance", 0) or 0), 2)
-                except Exception:
-                    wallet_saldos[wid] = 0.0
-                break
-
     return render_template(
         "share_public_view.html",
         available=True,
@@ -5342,7 +5324,6 @@ def share_public_view(username, slug):
         viewer_type=viewer_type,
         report=report,
         special=special,
-        wallet_saldos=wallet_saldos,
         simple_transactions=report_txs,
         palette=_SHARE_CHART_PALETTE,
     )

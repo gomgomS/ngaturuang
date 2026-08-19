@@ -182,7 +182,7 @@
         <div class="card-head">
             <span class="chip-ic" style="background:#06b6d4;"><i class="fas fa-wallet"></i></span>
             <h6 data-i18n="saving_spaces">Saving Spaces</h6>
-            <span class="ms-auto text-muted small" data-i18n="saldo_note">Current saldo per space · transfers between spaces are not income/expense</span>
+            <span class="ms-auto text-muted small" data-i18n="saldo_note">Net per space within this share's filters · transfers between spaces are not income/expense</span>
         </div>
         <div class="card-body">
             <div class="ss-table">
@@ -190,21 +190,21 @@
                     <div data-i18n="wallet">Saving Space</div>
                     <div class="text-success"><i class="fas fa-arrow-down me-1"></i><span data-i18n="income">In</span></div>
                     <div class="text-danger"><i class="fas fa-arrow-up me-1"></i><span data-i18n="expense">Out</span></div>
-                    <div class="text-end" data-i18n="current_saldo">Current Saldo</div>
+                    <div class="text-end" data-i18n="net_saldo">Net (In − Out)</div>
                 </div>
                 {% for wid, f in report.wallet_flows.items() %}
                 <div class="ss-row">
                     <div class="ss-name"><i class="fas fa-piggy-bank me-2 text-info"></i>{{ f.name }}</div>
                     <div class="text-success">+ Rp {{ "{:,.0f}".format(f.income|float) }}</div>
                     <div class="text-danger">− Rp {{ "{:,.0f}".format(f.expense|float) }}</div>
-                    <div class="text-end fw-bold">{% if wallet_saldos.get(wid) is not none %}Rp {{ "{:,.0f}".format(wallet_saldos.get(wid)|float) }}{% else %}—{% endif %}</div>
+                    <div class="text-end fw-bold {% if f.saldo < 0 %}text-danger{% endif %}">Rp {{ "{:,.0f}".format(f.saldo|float) }}</div>
                 </div>
                 {% endfor %}
                 <div class="ss-row ss-total">
                     <div data-i18n="total">Total</div>
                     <div class="text-success fw-bold">+ Rp {{ "{:,.0f}".format(report.total_income|float) }}</div>
                     <div class="text-danger fw-bold">− Rp {{ "{:,.0f}".format(report.total_expense|float) }}</div>
-                    <div class="text-end fw-bold">Rp {{ "{:,.0f}".format(wallet_saldos.values()|select('number')|sum|float) }}</div>
+                    <div class="text-end fw-bold {% if report.net < 0 %}text-danger{% endif %}">Rp {{ "{:,.0f}".format(report.net|float) }}</div>
                 </div>
             </div>
         </div>
@@ -878,8 +878,8 @@ function setTxView(view) {
             transactions_label:"transactions", transactions_head:"Transactions", powered:"Powered by", breakdown:"Breakdown", transfers:"Transfers", transfer_move:"Transfer", filter_all:"All", special_tags:"Special tags",
             transfers_excluded_prefix:"Transfers of", transfers_excluded_suffix:"between saving spaces are excluded from income & expense (shown separately below).",
             showing:"Showing", of:"of", balance_before:"Balance Before", balance_after:"Balance After",
-            saving_spaces:"Saving Spaces", current_saldo:"Current Saldo", total:"Total",
-            saldo_note:"Current saldo per space · transfers between spaces are not income/expense",
+            saving_spaces:"Saving Spaces", net_saldo:"Net (In − Out)", total:"Total",
+            saldo_note:"Net per space within this share's filters · transfers between spaces are not income/expense",
             from:"From", to:"To", fee:"Fee", balance_adjustment:"Balance Adjustment"
         },
         id: {
@@ -895,8 +895,8 @@ function setTxView(view) {
             transactions_label:"transaksi", transactions_head:"Transaksi", powered:"Didukung oleh", breakdown:"Rincian", transfers:"Transfer", transfer_move:"Transfer", filter_all:"Semua", special_tags:"Tag spesial",
             transfers_excluded_prefix:"Transfer sebesar", transfers_excluded_suffix:"antar ruang tabungan tidak dihitung sebagai pemasukan & pengeluaran (ditampilkan terpisah di bawah).",
             showing:"Menampilkan", of:"dari", balance_before:"Saldo Sebelum", balance_after:"Saldo Sesudah",
-            saving_spaces:"Ruang Tabungan", current_saldo:"Saldo Saat Ini", total:"Total",
-            saldo_note:"Saldo saat ini per ruang · transfer antar ruang bukan pemasukan/pengeluaran",
+            saving_spaces:"Ruang Tabungan", net_saldo:"Bersih (Masuk − Keluar)", total:"Total",
+            saldo_note:"Bersih per ruang dalam filter share ini · transfer antar ruang bukan pemasukan/pengeluaran",
             from:"Dari", to:"Ke", fee:"Biaya", balance_adjustment:"Penyesuaian Saldo"
         }
     };
