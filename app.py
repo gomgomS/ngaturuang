@@ -4817,23 +4817,38 @@ def _build_share_report(transactions, wallets, scopes, categories, period_label=
     # moved BETWEEN spaces never shows up as in/out here. The saldo is derived
     # ONLY from the shared set (in − out), never from the wallet's live
     # actual_balance, so nothing outside the share's filters leaks in.
+    # transfer_in/transfer_out (money received from / sent to other spaces) are
+    # tracked separately and never touch income/expense/saldo.
     wallet_flows = {}
     for t in inc_tx:
         wid = str(t.get("wallet_id", ""))
         f = wallet_flows.setdefault(
-            wid, {"name": wallet_name.get(wid, "Unknown wallet"), "income": 0.0, "expense": 0.0}
+            wid,
+            {
+                "name": wallet_name.get(wid, "Unknown wallet"),
+                "income": 0.0,
+                "expense": 0.0,
+                "transfer_in": 0.0,
+                "transfer_out": 0.0,
+            },
         )
         f["income"] += amount(t)
     for t in exp_tx:
         wid = str(t.get("wallet_id", ""))
         f = wallet_flows.setdefault(
-            wid, {"name": wallet_name.get(wid, "Unknown wallet"), "income": 0.0, "expense": 0.0}
+            wid,
+            {
+                "name": wallet_name.get(wid, "Unknown wallet"),
+                "income": 0.0,
+                "expense": 0.0,
+                "transfer_in": 0.0,
+                "transfer_out": 0.0,
+            },
         )
         f["expense"] += amount(t)
     for f in wallet_flows.values():
         f["income"] = round(f["income"], 2)
         f["expense"] = round(f["expense"], 2)
-        f["saldo"] = round(f["income"] - f["expense"], 2)
 
     # Transfers (movements between saving spaces) — shown separately, NOT as
     # income/expense. Each transfer creates an outgoing + incoming record (and
@@ -4856,6 +4871,24 @@ def _build_share_report(transactions, wallets, scopes, categories, period_label=
         if dedup_key in seen_transfers:
             continue
         seen_transfers.add(dedup_key)
+        # Track money moved between spaces per wallet (info-only columns —
+        # never part of income/expense/saldo). Registers both endpoints so a
+        # transfer-only space still shows up in the card.
+        for wid, key in (
+            (str(t.get("from_wallet_id")), "transfer_out"),
+            (str(t.get("to_wallet_id")), "transfer_in"),
+        ):
+            f = wallet_flows.setdefault(
+                wid,
+                {
+                    "name": wallet_name.get(wid, "Unknown wallet"),
+                    "income": 0.0,
+                    "expense": 0.0,
+                    "transfer_in": 0.0,
+                    "transfer_out": 0.0,
+                },
+            )
+            f[key] += amount(t)
         ts = t.get("timestamp")
         try:
             date_str = datetime.fromtimestamp(int(ts)).strftime("%Y-%m-%d %H:%M") if ts else ""
@@ -4871,6 +4904,12 @@ def _build_share_report(transactions, wallets, scopes, categories, period_label=
         })
     transfers.sort(key=lambda x: x.get("date") or "", reverse=True)
     total_transferred = sum(m["amount"] for m in transfers)
+    # Finalize flows AFTER transfers registration (a transfer-only space is
+    # created inside that loop, so saldo must be computed here, not earlier).
+    for f in wallet_flows.values():
+        f["transfer_in"] = round(f["transfer_in"], 2)
+        f["transfer_out"] = round(f["transfer_out"], 2)
+        f["saldo"] = round(f["income"] - f["expense"], 2)
 
     # Daily/monthly expense series for the trend chart. Daily when the span is
     # short (<= 62 days), monthly otherwise. Buckets are zero-filled so the
@@ -4881,22 +4920,32 @@ def _build_share_report(transactions, wallets, scopes, categories, period_label=
         if not ts:
             continue
         try:
-            stamp_amounts.append((datetime.fromtimestamp(int(ts)), amount(t)))
+            stamp_amounts.append((datetime.fromtimestamp(int(ts)), t))
         except Exception:
             continue
-    # Raw per-transaction points (epoch seconds, amount) shipped to the client so
-    # the trend chart can drill down (year -> months/weeks, month -> weeks/days)
-    # without extra requests.
-    trend_points = [[int(d.timestamp()), a] for d, a in stamp_amounts]
+    # Raw per-transaction points shipped to the client so the trend chart can
+    # drill down (year -> months/weeks, month -> weeks/days) without extra
+    # requests. Note/tags/category ride along so a bar click can list the
+    # expenses behind that bar.
+    trend_points = [
+        [
+            int(d.timestamp()),
+            amount(t),
+            (t.get("note") or ""),
+            (t.get("tags") or []),
+            cat_name.get(str(t.get("category_id", "")), "Uncategorized"),
+        ]
+        for d, t in stamp_amounts
+    ]
 
     first = min((d for d, _ in stamp_amounts), default=None)
     last = max((d for d, _ in stamp_amounts), default=None)
     daily = bool(first) and (last.date() - first.date()).days <= 62
 
     trend_agg = {}
-    for d, a in stamp_amounts:
+    for d, t in stamp_amounts:
         key = d.strftime("%Y-%m-%d") if daily else d.strftime("%Y-%m")
-        trend_agg[key] = trend_agg.get(key, 0.0) + a
+        trend_agg[key] = trend_agg.get(key, 0.0) + amount(t)
 
     trend_labels, trend_values = [], []
     if daily and first:

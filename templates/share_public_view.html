@@ -72,15 +72,21 @@
 
     /* ---- saving spaces saldo table ---- */
     .ss-table { font-size:.84rem; }
-    .ss-head, .ss-row { display:grid; grid-template-columns:1.6fr 1fr 1fr 1.1fr; gap:.5rem; align-items:center; padding:.45rem .3rem; }
-    .ss-head { font-size:.68rem; text-transform:uppercase; letter-spacing:.05em; color:var(--mut); font-weight:800; border-bottom:2px solid var(--line); }
+    .ss-head, .ss-row { display:grid; grid-template-columns:1.5fr 1fr 1fr 1fr 1fr 1.1fr; gap:.4rem; align-items:center; padding:.45rem .3rem; }
+    .ss-head { font-size:.66rem; text-transform:uppercase; letter-spacing:.04em; color:var(--mut); font-weight:800; border-bottom:2px solid var(--line); }
+    .ss-head div:not(:first-child) { white-space:nowrap; }
     .ss-row { border-bottom:1px dashed var(--line); }
     .ss-row:last-child { border-bottom:none; }
     .ss-total { border-top:2px solid var(--line); border-bottom:none; font-weight:700; background:var(--soft); border-radius:0 0 10px 10px; }
     .ss-name { font-weight:600; display:flex; align-items:center; }
-    @media(max-width:640px){
-        .ss-head, .ss-row { grid-template-columns:1.3fr 1fr 1fr; }
-        .ss-head div:last-child, .ss-row div:last-child { grid-column:span 3; text-align:right; padding-top:.15rem; border-top:1px dotted var(--line); margin-top:.15rem; }
+    @media(max-width:900px){
+        .ss-head { display:none; }
+        .ss-row { grid-template-columns:1fr 1fr; gap:.25rem .5rem; padding:.6rem .3rem; }
+        .ss-row .ss-name { grid-column:span 2; }
+        .ss-row div:nth-child(2), .ss-row div:nth-child(3) { text-align:left; }
+        .ss-row div:nth-child(4), .ss-row div:nth-child(5), .ss-row div:nth-child(6) { text-align:right; }
+        .ss-row div:nth-child(6) { grid-column:span 2; font-size:.95rem; border-top:1px dotted var(--line); padding-top:.3rem; margin-top:.2rem; }
+        .ss-row div[data-col]::before { content:attr(data-col) ' '; font-size:.62rem; color:var(--mut); font-weight:700; }
     }
 
     /* ---- transactions ---- */
@@ -190,20 +196,26 @@
                     <div data-i18n="wallet">Saving Space</div>
                     <div class="text-success"><i class="fas fa-arrow-down me-1"></i><span data-i18n="income">In</span></div>
                     <div class="text-danger"><i class="fas fa-arrow-up me-1"></i><span data-i18n="expense">Out</span></div>
+                    <div class="text-info"><i class="fas fa-sign-in-alt me-1"></i><span data-i18n="transfer_in">Transfer In</span></div>
+                    <div class="text-warning"><i class="fas fa-sign-out-alt me-1"></i><span data-i18n="transfer_out">Transfer Out</span></div>
                     <div class="text-end" data-i18n="net_saldo">Net (In − Out)</div>
                 </div>
                 {% for wid, f in report.wallet_flows.items() %}
                 <div class="ss-row">
                     <div class="ss-name"><i class="fas fa-piggy-bank me-2 text-info"></i>{{ f.name }}</div>
-                    <div class="text-success">+ Rp {{ "{:,.0f}".format(f.income|float) }}</div>
-                    <div class="text-danger">− Rp {{ "{:,.0f}".format(f.expense|float) }}</div>
-                    <div class="text-end fw-bold {% if f.saldo < 0 %}text-danger{% endif %}">Rp {{ "{:,.0f}".format(f.saldo|float) }}</div>
+                    <div class="text-success" data-col="In">+ Rp {{ "{:,.0f}".format(f.income|float) }}</div>
+                    <div class="text-danger" data-col="Out">− Rp {{ "{:,.0f}".format(f.expense|float) }}</div>
+                    <div class="text-info" data-col="Transfer In">Rp {{ "{:,.0f}".format(f.transfer_in|float) }}</div>
+                    <div class="text-warning" data-col="Transfer Out">Rp {{ "{:,.0f}".format(f.transfer_out|float) }}</div>
+                    <div class="text-end fw-bold {% if f.saldo < 0 %}text-danger{% endif %}" data-col="Net">Rp {{ "{:,.0f}".format(f.saldo|float) }}</div>
                 </div>
                 {% endfor %}
                 <div class="ss-row ss-total">
                     <div data-i18n="total">Total</div>
                     <div class="text-success fw-bold">+ Rp {{ "{:,.0f}".format(report.total_income|float) }}</div>
                     <div class="text-danger fw-bold">− Rp {{ "{:,.0f}".format(report.total_expense|float) }}</div>
+                    <div class="text-info fw-bold">↙ Rp {{ "{:,.0f}".format(report.wallet_flows.values()|sum(attribute='transfer_in')|float) }}</div>
+                    <div class="text-warning fw-bold">↗ Rp {{ "{:,.0f}".format(report.wallet_flows.values()|sum(attribute='transfer_out')|float) }}</div>
                     <div class="text-end fw-bold {% if report.net < 0 %}text-danger{% endif %}">Rp {{ "{:,.0f}".format(report.net|float) }}</div>
                 </div>
             </div>
@@ -243,15 +255,19 @@
                             <select id="trendScope" class="form-select form-select-sm" style="width:auto;font-size:.78rem;padding:.2rem 1.6rem .2rem .5rem;">
                                 <option value="all">All</option>
                             </select>
+                            <button class="rpt-dim" id="trendBack" style="display:none;"><i class="fas fa-level-up-alt me-1"></i><span data-i18n="trend_back">Up</span></button>
                             <div class="rpt-dims mb-0" id="trendGran">
                                 <button class="rpt-dim" data-gran="month"><span data-i18n="gran_month">Month</span></button>
                                 <button class="rpt-dim" data-gran="week"><span data-i18n="gran_week">Week</span></button>
                                 <button class="rpt-dim" data-gran="day"><span data-i18n="gran_day">Day</span></button>
                                 <button class="rpt-dim" data-gran="year"><span data-i18n="gran_year">Year</span></button>
                             </div>
+                            <span class="rpt-note" data-i18n="trend_hint">Click a bar to zoom in · click a day bar for details</span>
                             <span class="rpt-note ms-auto" id="trendModeNote"></span>
                         </div>
                         <div id="trendChart" style="width:100%;height:360px"></div>
+                        <!-- Clicked-bar drill-down: every expense in that bucket -->
+                        <div id="trendDetail" style="display:none;" class="mt-2"></div>
                     </div>
                 </div>
             </div>
@@ -349,9 +365,23 @@
         var TS = { scope: 'all', gran: null, cache: {} };
 
         TS.points = (R.trend_points || []).map(function (p) {
-            return { t: p[0], d: new Date(p[0] * 1000), a: p[1] };
+            return { t: p[0], d: new Date(p[0] * 1000), a: p[1], note: p[2] || '', tags: p[3] || [], cat: p[4] || '' };
         });
         TS.points.sort(function (x, y) { return x.t - y.t; });
+
+        // Precompute every bucket key a point belongs to, so a bar click can
+        // find its transactions without re-deriving keys. Keys match
+        // buildBuckets(): day 'YYYY-MM-DD', week 'YYYY-Www', month 'YYYY-MM',
+        // year 'YYYY' (local time).
+        TS.points.forEach(function (p) {
+            var d = p.d;
+            p.keys = {
+                day: d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'),
+                week: isoWeek(d).key,
+                month: d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0'),
+                year: '' + d.getFullYear()
+            };
+        });
 
         // ISO week key: Monday-based; label 'W34 26' = week 34 of 2026
         function isoWeek(d) {
@@ -380,10 +410,12 @@
                 var cur = new Date(fromD.getFullYear(), fromD.getMonth(), fromD.getDate());
                 var end = new Date(toD.getFullYear(), toD.getMonth(), toD.getDate());
                 while (cur <= end) {
+                    var full = String(cur.getDate()).padStart(2,'0') + ' ' + MONS[cur.getMonth()] + ' ' + cur.getFullYear();
                     out.push({
                         key: cur.getFullYear() + '-' + String(cur.getMonth()+1).padStart(2,'0') + '-' + String(cur.getDate()).padStart(2,'0'),
                         label: String(cur.getDate()).padStart(2,'0') + ' ' + MONS[cur.getMonth()],
                         sub: MONS[cur.getMonth()] + ' ' + cur.getFullYear(),
+                        full: full,
                         from: cur.getTime(), to: cur.getTime() + 86400000 - 1
                     });
                     cur.setDate(cur.getDate() + 1);
@@ -393,10 +425,12 @@
                 while (cur <= end) {
                     var iso = isoWeek(cur);
                     var wEnd = new Date(cur.getTime() + 6 * 86400000);
+                    var range = MONS[cur.getMonth()] + ' ' + String(cur.getDate()).padStart(2,'0') + ' – ' + MONS[wEnd.getMonth()] + ' ' + String(wEnd.getDate()).padStart(2,'0') + ' ' + wEnd.getFullYear();
                     out.push({
                         key: iso.key,
                         label: 'W' + String(iso.w).padStart(2,'0'),
-                        sub: MONS[cur.getMonth()] + ' ' + String(cur.getDate()).padStart(2,'0') + ' – ' + MONS[wEnd.getMonth()] + ' ' + String(wEnd.getDate()).padStart(2,'0') + ' ' + wEnd.getFullYear(),
+                        sub: range,
+                        full: range,
                         from: cur.getTime(), to: cur.getTime() + 7 * 86400000 - 1
             });
                     cur.setDate(cur.getDate() + 7);
@@ -410,6 +444,7 @@
                         key: y + '-' + String(m+1).padStart(2,'0'),
                         label: MONS[m] + ' ' + y,
                         sub: null,
+                        full: MONS[m] + ' ' + y,
                         from: first.getTime(), to: last.getTime() + 86399999
                     });
                     m++; if (m > 11) { m = 0; y++; }
@@ -434,15 +469,11 @@
             var byKey = {};
             buckets.forEach(function (b) { byKey[b.key] = 0; });
             TS.points.forEach(function (p) {
-                var key = null;
-                if (gran === 'day') key = p.d.getFullYear() + '-' + String(p.d.getMonth()+1).padStart(2,'0') + '-' + String(p.d.getDate()).padStart(2,'0');
-                else if (gran === 'week') key = isoWeek(p.d).key;
-                else if (gran === 'month') key = p.d.getFullYear() + '-' + String(p.d.getMonth()+1).padStart(2,'0');
-                else key = '' + p.d.getFullYear();
+                var key = p.keys[gran];
                 if (key in byKey) byKey[key] += p.a;
             });
             return buckets.map(function (b) {
-                return { label: b.label, sub: b.sub, value: round2(byKey[b.key]) };
+                return { key: b.key, label: b.label, sub: b.sub, value: round2(byKey[b.key]) };
             });
         }
         function round2(v) { return Math.round(v * 100) / 100; }
@@ -519,6 +550,7 @@
                 sel.addEventListener('change', function () {
                     TS.scope = sel.value;
                     TS.gran = allowedGrans(TS.scope)[0];
+                    TS.stack = [];
                     updateGranButtons();
                     renderTrend();
                 });
@@ -527,14 +559,17 @@
                     granWrap.querySelectorAll('[data-gran]').forEach(function (b) {
                         b.addEventListener('click', function () {
                             TS.gran = b.getAttribute('data-gran');
+                            TS.stack = [];
                             updateGranButtons();
                             renderTrend();
                         });
                     });
                 }
+                var backBtn = document.getElementById('trendBack');
+                if (backBtn) backBtn.addEventListener('click', trendUp);
             }
-            if (!TS.gran) TS.gran = allowedGrans(TS.scope)[0];
-            updateGranButtons();
+            // Up button visibility follows the drill stack (also on re-init/lang change)
+            syncControls();
         }
 
         // Show only the granularities valid for the scope, active one highlighted
@@ -553,6 +588,8 @@
             initTrendControls();
             var ch = ensure('trendChart');
             if (!ch) return;
+            var detailEl = document.getElementById('trendDetail');
+            if (detailEl) { detailEl.style.display = 'none'; detailEl.innerHTML = ''; }
             var lang = window.__LANG || 'en';
             var range = scopeRange(TS.scope);
             var noteEl = document.getElementById('trendModeNote');
@@ -581,14 +618,36 @@
                     : '');
             }
 
+            // Bar click → drill INTO the bucket (year→months, month/week→days),
+            // or at day level show the expense detail list. Re-bound whenever a
+            // NEW chart instance is created (ensure() may dispose/re-init); reads
+            // the LIVE series (window.__trendSeries) so it never goes stale.
+            if (TS.boundChart !== ch) {
+                TS.boundChart = ch;
+                ch.on('click', function (params) {
+                    if (params.componentType !== 'series') return;
+                    var cur = window.__trendSeries || [];
+                    if (!cur.length) return;
+                    var b = cur[params.dataIndex];
+                    if (!b) return;
+                    if (TS.gran === 'day') { renderTrendDetail(b); return; }
+                    drillDown(b);
+                });
+            }
+
             ch.setOption({
                 grid: { left: 8, right: 16, top: 30, bottom: 10, containLabel: true },
                 tooltip: {
                     trigger: 'axis', axisPointer: { type: 'line' },
                     formatter: function (p) {
                         var s = series[p[0].dataIndex];
-                        var name = (s && s.sub) ? s.sub : p[0].name;
-                        return name + ': ' + fmt(p[0].value);
+                        if (!s) return '';
+                        // Full unambiguous date + tx count for the bucket
+                        var n = TS.points.filter(function (pt) { return pt.keys[TS.gran] === s.key; }).length;
+                        var head = s.full || s.sub || s.label;
+                        return '<b>' + head + '</b><br/>' + fmt(p[0].value) +
+                            ' · ' + n + (n === 1 ? ' tx' : ' txs') +
+                            '<br/><span style="color:#94a3b8;font-size:.72rem;">' + trendClickHint() + '</span>';
                     }
                 },
                 xAxis: { type: 'category', data: labels, axisLabel: { fontSize: 10, hideOverlap: true } },
@@ -609,6 +668,107 @@
                 }]
             }, true);
             curTab = 'trend'; renderSide();
+        }
+
+        // Drill-down list for a clicked bar: every expense in that bucket with
+        // amount, category, time, tags, and note.
+        function renderTrendDetail(bucket) {
+            var el = document.getElementById('trendDetail');
+            if (!el) return;
+            var lang = window.__LANG || 'en';
+            var matching = TS.points.filter(function (p) {
+                return p.keys[TS.gran] === bucket.key;
+            });
+            var title = bucket.sub || bucket.label;
+            var head = (lang === 'id' ? 'Pengeluaran ' : 'Expenses in ') + title
+                + ' — ' + matching.length + (lang === 'id' ? ' transaksi' : (matching.length === 1 ? ' transaction' : ' transactions'))
+                + ' · ' + fmt(bucket.value);
+            if (!matching.length) { el.style.display = 'none'; el.innerHTML = ''; return; }
+            matching.sort(function (a, b) { return b.a - a.a; });
+            el.innerHTML =
+                '<div class="rpt-note mb-1"><i class="fas fa-mouse-pointer me-1"></i>' + head + '</div>' +
+                matching.map(function (p) {
+                    var tags = (p.tags || []).length
+                        ? '<span class="tag-wrap mt-1">' + p.tags.map(function (t) {
+                            return '<span class="badge bg-secondary badge-soft">#' + escapeHtml(t) + '</span>';
+                        }).join('') + '</span>'
+                        : '';
+                    var note = p.note
+                        ? '<small class="text-muted d-block mt-1" style="font-size:.72rem;"><i class="fas fa-sticky-note me-1"></i>' + escapeHtml(p.note) + '</small>'
+                        : '';
+                    return '<div class="legend-row align-items-start">' +
+                        '<span>' + escapeHtml(p.cat || '—') +
+                        '<small class="text-muted d-block">' + fmtTrendTime(p.t) + '</small>' + tags + note + '</span>' +
+                        '<span class="text-danger fw-semibold text-nowrap">− ' + fmt(p.a) + '</span>' +
+                        '</div>';
+                }).join('');
+            el.style.display = '';
+        }
+
+        function fmtTrendTime(epoch) {
+            var d = new Date(epoch * 1000);
+            return String(d.getDate()).padStart(2,'0') + ' ' + (MONS_EN[d.getMonth()]) + ' ' + d.getFullYear() +
+                ' ' + String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
+        }
+
+        // ---- click-to-drill: year -> its months, month/week -> its days ----
+        // Drill targets are kept as explicit scope values so the Up button and
+        // the scope select stay in sync with what's on screen.
+        function drillDown(bucket) {
+            var nextGran, nextScope;
+            if (TS.gran === 'year') {
+                nextGran = 'month'; nextScope = bucket.key;            // '2026' -> months of 2026
+            } else if (TS.gran === 'month') {
+                nextGran = 'day'; nextScope = bucket.key;              // '2026-08' -> days of Aug
+            } else if (TS.gran === 'week') {
+                // week key 'YYYY-Www' -> the days of that week
+                var parts = bucket.key.split('-W');
+                var y = +parts[0], w = +parts[1];
+                var jan4 = new Date(y, 0, 4);
+                var monday = new Date(jan4.getFullYear(), jan4.getMonth(), jan4.getDate() - ((jan4.getDay() + 6) % 7) + (w - 1) * 7);
+                var m = monday.getMonth() + 1;
+                nextGran = 'day';
+                nextScope = monday.getFullYear() + '-' + String(m).padStart(2, '0');
+            } else {
+                return; // day handled by renderTrendDetail
+            }
+            TS.stack = TS.stack || [];
+            TS.stack.push({ scope: TS.scope, gran: TS.gran });
+            TS.scope = nextScope;
+            TS.gran = nextGran;
+            syncControls();
+            renderTrend();
+        }
+
+        function trendUp() {
+            if (!TS.stack || !TS.stack.length) return;
+            var prev = TS.stack.pop();
+            TS.scope = prev.scope;
+            TS.gran = prev.gran;
+            syncControls();
+            renderTrend();
+        }
+
+        // Tooltip hint: what clicking the current bar level will do
+        function trendClickHint() {
+            var lang = window.__LANG || 'en';
+            if (TS.gran === 'day') return lang === 'id' ? 'Klik untuk rincian' : 'Click for details';
+            return lang === 'id' ? 'Klik untuk perbesar' : 'Click to zoom in';
+        }
+
+        // Keep select + gran pills + Up button reflecting TS state
+        function syncControls() {
+            var sel = document.getElementById('trendScope');
+            if (sel) sel.value = TS.scope;
+            updateGranButtons();
+            var back = document.getElementById('trendBack');
+            if (back) back.style.display = (TS.stack && TS.stack.length) ? '' : 'none';
+        }
+
+        function escapeHtml(s) {
+            return String(s).replace(/[&<>"']/g, function (c) {
+                return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c];
+            });
         }
 
         function sideTitleText() {
@@ -802,7 +962,9 @@
               {% for tx in simple_transactions %}
                 {% if tx.type == 'income' and not (tx.is_transfer or tx.is_transfer_fee or tx.is_balance_adjustment) and tx.category_id not in ['transfer','transfer_fee','balance_adjustment'] %}
                 <div class="legend-row">
-                  <span>{% set c = categories|selectattr('_id','equalto',tx.category_id)|first %}{{ c.name if c else 'Income' }} <small class="text-muted d-block">{{ tx.formatted_time or '' }}</small></span>
+                  <span>{% set c = categories|selectattr('_id','equalto',tx.category_id)|first %}{{ c.name if c else 'Income' }} <small class="text-muted d-block">{{ tx.formatted_time or '' }}</small>
+                  {% if tx.tags %}<small class="text-muted d-block" style="font-size:.68rem;">#{{ tx.tags|join(' #') }}</small>{% endif %}
+                  </span>
                   <span class="text-success fw-semibold">+ Rp {{ "{:,.0f}".format(tx.amount|float) }}</span>
                 </div>
                 {% endif %}
@@ -817,7 +979,9 @@
               {% for tx in simple_transactions %}
                 {% if tx.type == 'expense' and not (tx.is_transfer or tx.is_transfer_fee or tx.is_balance_adjustment) and tx.category_id not in ['transfer','transfer_fee','balance_adjustment'] %}
                 <div class="legend-row">
-                  <span>{% set c = categories|selectattr('_id','equalto',tx.category_id)|first %}{{ c.name if c else 'Expense' }} <small class="text-muted d-block">{{ tx.formatted_time or '' }}</small></span>
+                  <span>{% set c = categories|selectattr('_id','equalto',tx.category_id)|first %}{{ c.name if c else 'Expense' }} <small class="text-muted d-block">{{ tx.formatted_time or '' }}</small>
+                  {% if tx.tags %}<small class="text-muted d-block" style="font-size:.68rem;">#{{ tx.tags|join(' #') }}</small>{% endif %}
+                  </span>
                   <span class="text-danger fw-semibold">− Rp {{ "{:,.0f}".format(tx.amount|float) }}</span>
                 </div>
                 {% endif %}
@@ -869,6 +1033,7 @@ function setTxView(view) {
             report:"Report", income:"Income", expense:"Expense", net:"Net", savings_rate:"Savings rate",
             bars:"Bars", trend:"Trend", visualization:"Visualization",
             gran_day:"Day", gran_week:"Week", gran_month:"Month", gran_year:"Year",
+            trend_back:"Up", trend_hint:"Click a bar to zoom in · click a day bar for details",
             category:"Category", scope:"Scope", wallet:"Saving Space", tags:"Tags",
             top_tags:"Top tags", tags_note:"(tags overlap — not a share of total)",
             tag_overlap_note:"A transaction can carry several tags, so tag totals may overlap — these bars compare where money goes, not sum to total spend.",
@@ -879,6 +1044,7 @@ function setTxView(view) {
             transfers_excluded_prefix:"Transfers of", transfers_excluded_suffix:"between saving spaces are excluded from income & expense (shown separately below).",
             showing:"Showing", of:"of", balance_before:"Balance Before", balance_after:"Balance After",
             saving_spaces:"Saving Spaces", net_saldo:"Net (In − Out)", total:"Total",
+            transfer_in:"Transfer In", transfer_out:"Transfer Out",
             saldo_note:"Net per space within this share's filters · transfers between spaces are not income/expense",
             from:"From", to:"To", fee:"Fee", balance_adjustment:"Balance Adjustment"
         },
@@ -886,6 +1052,7 @@ function setTxView(view) {
             report:"Laporan", income:"Pemasukan", expense:"Pengeluaran", net:"Bersih", savings_rate:"Tingkat menabung",
             bars:"Batang", trend:"Tren", visualization:"Visualisasi",
             gran_day:"Hari", gran_week:"Minggu", gran_month:"Bulan", gran_year:"Tahun",
+            trend_back:"Naik", trend_hint:"Klik batang untuk memperbesar · klik batang hari untuk rincian",
             category:"Kategori", scope:"Lingkup", wallet:"Ruang Tabungan", tags:"Tag",
             top_tags:"Tag teratas", tags_note:"(tag tumpang tindih — bukan bagian dari total)",
             tag_overlap_note:"Satu transaksi bisa memiliki beberapa tag, jadi total tag bisa tumpang tindih — batang ini membandingkan ke mana uang pergi, bukan jumlah total pengeluaran.",
@@ -896,6 +1063,7 @@ function setTxView(view) {
             transfers_excluded_prefix:"Transfer sebesar", transfers_excluded_suffix:"antar ruang tabungan tidak dihitung sebagai pemasukan & pengeluaran (ditampilkan terpisah di bawah).",
             showing:"Menampilkan", of:"dari", balance_before:"Saldo Sebelum", balance_after:"Saldo Sesudah",
             saving_spaces:"Ruang Tabungan", net_saldo:"Bersih (Masuk − Keluar)", total:"Total",
+            transfer_in:"Transfer Masuk", transfer_out:"Transfer Keluar",
             saldo_note:"Bersih per ruang dalam filter share ini · transfer antar ruang bukan pemasukan/pengeluaran",
             from:"Dari", to:"Ke", fee:"Biaya", balance_adjustment:"Penyesuaian Saldo"
         }
